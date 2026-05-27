@@ -1,0 +1,44 @@
+require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
+const express=require("express");
+const main=require("./config/db");
+const User=require("./models/Userschema");
+const authRouter=require("./routes/auth");
+const cookieparser=require("cookie-parser");
+const rateLimiter=require("./middleware/ratelimitor");
+const client=require("./config/redis")
+const problemRouter=require("./routes/problemCreator");
+const submitroute=require("./routes/submitroute");
+const airoute=require("./routes/aichat");
+require('dotenv').config()
+const cors = require('cors')
+const app=express();
+app.use(cors({
+    origin: 'http://localhost:5173', 
+    credentials: true
+}));
+app.use(express.json());
+app.use(cookieparser());
+app.use(rateLimiter);
+
+
+app.use("/auth",authRouter);
+app.use("/problem",problemRouter);
+app.use("/code",submitroute);
+app.use("/ai",airoute);
+const InitlizeConnection = async ()=>{
+    
+    try{
+        await Promise.all([client.connect(),main()]);
+        console.log("DB connected");
+        
+
+        app.listen(process.env.PORT, ()=>{
+            console.log(`Listening at port ${process.env.PORT}`);
+        })
+    }
+    catch(err){
+        console.log("Error: "+err);
+    }
+}
+
+InitlizeConnection();
