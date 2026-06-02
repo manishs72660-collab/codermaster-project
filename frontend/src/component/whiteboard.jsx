@@ -35,7 +35,6 @@ const TOOL_ICONS = {
   ellipse: <EllipseIcon/>, diamond: <DiamondIcon/>, arrow: <ArrowIcon/>,
   text: <TextIcon/>, eraser: <EraserIcon/>,
 };
-
 // ── Helper: normalise drag rect ───────────────────────────────────────────────
 function normaliseRect(x1, y1, x2, y2) {
   return { x: Math.min(x1,x2), y: Math.min(y1,y2), w: Math.abs(x2-x1), h: Math.abs(y2-y1) };
@@ -99,7 +98,42 @@ export default function CodeBoard({ height = 560 }) {
     if (areaRef.current) obs.observe(areaRef.current);
     return () => obs.disconnect();
   }, []);
+useEffect(() => {
+  const canvas = baseRef.current;
 
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+
+  // Load saved drawing
+  const saved = localStorage.getItem("codeboard-data");
+
+  if (saved) {
+    const img = new Image();
+
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+
+    img.src = saved;
+  }
+
+  // Auto-save functi
+  const saveCanvas = () => {
+    try {
+      const data = canvas.toDataURL("image/png");
+      localStorage.setItem("codeboard-data", data);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  // Save every 1 second
+  const interval = setInterval(saveCanvas, 1000);
+
+  return () => clearInterval(interval);
+}, []);
   // ── History ─────────────────────────────────────────────────────────────────
   const saveSnap = useCallback(() => {
     const c = baseRef.current;
@@ -272,13 +306,23 @@ export default function CodeBoard({ height = 560 }) {
     updUI();
   }, [commitText, deselect, saveSnap, updUI]);
 
-  const clearAll = useCallback(() => {
-    commitText(); deselect();
-    pushHist();
-    const bc = baseRef.current;
-    bc.getContext("2d").clearRect(0, 0, bc.width, bc.height);
-    overlayRef.current.getContext("2d").clearRect(0, 0, overlayRef.current.width, overlayRef.current.height);
-  }, [commitText, deselect, pushHist]);
+ const clearAll = useCallback(() => {
+  commitText();
+  deselect();
+
+  pushHist();
+
+  const bc = baseRef.current;
+
+  bc.getContext("2d").clearRect(0, 0, bc.width, bc.height);
+
+  overlayRef.current
+    .getContext("2d")
+    .clearRect(0, 0, overlayRef.current.width, overlayRef.current.height);
+
+  // Remove saved board
+  localStorage.removeItem("codeboard-data");
+}, [commitText, deselect, pushHist]);
 const shareBoard = async () => {
   const canvas = baseRef.current;
 
@@ -446,41 +490,81 @@ const shareBoard = async () => {
     }
   }, [hitTest, paintFloating]);
 
-  const onMouseUp = useCallback(() => {
-    const t = toolRef.current;
-    const phase = selPhaseRef.current;
+const onMouseUp = useCallback(() => {
+  const t = toolRef.current;
+  const phase = selPhaseRef.current;
 
-    if (t === "select") {
-      if (phase === "drawing") {
-        const r = selRectRef.current;
-        if (r && r.w > 4 && r.h > 4) { liftSelection(); }
-        else {
-          overlayRef.current.getContext("2d").clearRect(0, 0, overlayRef.current.width, overlayRef.current.height);
-          selPhaseRef.current = "none"; selRectRef.current = null; setSelLabel("");
-        }
-      } else if (phase === "moving") {
-        // commit offset into rect coords
-        const off = selOffsetRef.current;
-        selRectRef.current = {
-          x: selRectRef.current.x + off.x,
-          y: selRectRef.current.y + off.y,
-          w: selRectRef.current.w,
-          h: selRectRef.current.h,
-        };
-        selOffsetRef.current = { x: 0, y: 0 };
-        selPhaseRef.current = "active";
-        overlayRef.current.style.cursor = "move";
-        paintFloating({ x: 0, y: 0 });
-        drawSelBox(selRectRef.current, { x: 0, y: 0 });
+  // ── Selection Tool ─────────────────────────────────────
+  if (t === "select") {
+    if (phase === "drawing") {
+      const r = selRectRef.current;
+
+      if (r && r.w > 4 && r.h > 4) {
+        liftSelection();
+      } else {
+        overlayRef.current
+          .getContext("2d")
+          .clearRect(
+            0,
+            0,
+            overlayRef.current.width,
+            overlayRef.current.height
+          );
+
+        selPhaseRef.current = "none";
+        selRectRef.current = null;
+
+        setSelLabel("");
       }
-      return;
+    } else if (phase === "moving") {
+      // commit offset into rect coords
+      const off = selOffsetRef.current;
+
+      selRectRef.current = {
+        x: selRectRef.current.x + off.x,
+        y: selRectRef.current.y + off.y,
+        w: selRectRef.current.w,
+        h: selRectRef.current.h,
+      };
+
+      selOffsetRef.current = { x: 0, y: 0 };
+
+      selPhaseRef.current = "active";
+
+      overlayRef.current.style.cursor = "move";
+
+      paintFloating({ x: 0, y: 0 });
+
+      drawSelBox(selRectRef.current, { x: 0, y: 0 });
     }
 
-    if (!drawingRef.current) return;
-    drawingRef.current = false;
-    if (t !== "pen" && t !== "eraser") pushHist();
-    baseRef.current.getContext("2d").beginPath();
-  }, [liftSelection, paintFloating, drawSelBox, pushHist]);
+    return;
+  }
+
+  // ── Drawing Tools ─────────────────────────────────────
+  if (!drawingRef.current) return;
+
+  drawingRef.current = false;
+
+  // Save history
+  if (t !== "pen" && t !== "eraser") {
+    pushHist();
+  }
+
+  // Save canvas to localStorage
+  try {
+    localStorage.setItem(
+      "codeboard-data",
+      baseRef.current.toDataURL("image/png")
+    );
+  } catch (err) {
+    console.log(err);
+  }
+
+  // Reset path
+  baseRef.current.getContext("2d").beginPath();
+
+}, [liftSelection, paintFloating, drawSelBox, pushHist]);
 
   // ── Cursor style ────────────────────────────────────────────────────────────
   const cursorStyle = tool === "eraser" ? "cell" : tool === "text" ? "text" : tool === "select" ? "default" : "crosshair";
@@ -544,7 +628,7 @@ const shareBoard = async () => {
         </div>
 
         {/* Canvas area */}
-        <div ref={areaRef} style={{ flex:1, position:"relative", overflow:"hidden", background:"#0d1117", backgroundImage:"radial-gradient(circle,#252836 1px,transparent 1px)", backgroundSize:"24px 24px" }}>
+        <div ref={areaRef} style={{ flex:1, position:"relative", overflow:"auto", background:"#0d1117", backgroundImage:"radial-gradient(circle,#252836 1px,transparent 1px)", backgroundSize:"24px 24px" }}>
           {/* selection label */}
           {selLabel && (
             <div style={{ position:"absolute", top:8, left:"50%", transform:"translateX(-50%)", background:"#1e2235", border:"1px solid #7c6dfa", borderRadius:6, padding:"4px 12px", fontSize:11, color:"#a78bfa", pointerEvents:"none", zIndex:5, whiteSpace:"nowrap" }}>

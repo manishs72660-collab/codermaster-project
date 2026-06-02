@@ -1,674 +1,928 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
-// ─── MOCK DATA — replace with your real API response ───────────────────────
-// const MOCK_USER = {
-//   name: "Arjun Sharma",
-//   email: "arjun.sharma@gmail.com",
-//   username: "arjun_dev",
-//   joinedAt: "January 2024",
-//   avatar: null, // set to image URL if available
-//   stats: {
-//     easy: 2,
-//     medium: 0,
-//     hard: 0,
-//     rank: 1,
-//     total: 2,
-//   },
-//   // totals available on platform
-//   platform: { easy: 820, medium: 1340, hard: 540, total: 2400 },
-//   streak: 5,
-//   submissions: 8,
-//   acceptanceRate: 75,
-//   languages: ["Python", "JavaScript", "C++"],
-//   recentActivity: [
-//     { title: "Two Sum", difficulty: "Easy", status: "Accepted", time: "2h ago" },
-//     { title: "Valid Parentheses", difficulty: "Easy", status: "Accepted", time: "1d ago" },
-//     { title: "Merge Intervals", difficulty: "Medium", status: "Wrong Answer", time: "2d ago" },
-//     { title: "Climbing Stairs", difficulty: "Easy", status: "Accepted", time: "3d ago" },
-//     { title: "Binary Search", difficulty: "Easy", status: "Accepted", time: "4d ago" },
-//   ],
-//   badges: [
-//     { icon: "🔥", label: "5-Day Streak" },
-//     { icon: "⚡", label: "First Solve" },
-//     { icon: "🏆", label: "Rank #1" },
-//   ],
-// };
+// ─── MINI BAR (no animation, clean) ────────────────────────────────────────
+function Bar({ value, max, color }) {
+  const pct = max ? Math.round((value / max) * 100) : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ flex: 1, height: 3, background: "#1a1a1a", borderRadius: 2 }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 2 }} />
+      </div>
+      <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#555", width: 28, textAlign: "right" }}>{pct}%</span>
+    </div>
+  );
+}
 
-// ─── ANIMATED DONUT CHART ───────────────────────────────────────────────────
-function DonutChart({ easy, medium, hard, total, platformTotal }) {
-  const [animated, setAnimated] = useState(false);
-  const radius = 54;
-  const stroke = 9;
-  const cx = 70, cy = 70;
-  const circumference = 2 * Math.PI * radius;
-
+// ─── DONUT (static, no animation) ──────────────────────────────────────────
+function Donut({ easy, medium, hard, total }) {
+  const R = 44, sw = 8, cx = 52, cy = 52;
+  const C = 2 * Math.PI * R;
+  const gap = 0.02 * C;
+  const eD = total ? (easy   / total) * C : 0;
+  const mD = total ? (medium / total) * C : 0;
+  const hD = total ? (hard   / total) * C : 0;
   const solved = easy + medium + hard;
-  const easyPct    = platformTotal ? easy    / platformTotal : 0;
-  const mediumPct  = platformTotal ? medium  / platformTotal : 0;
-  const hardPct    = platformTotal ? hard    / platformTotal : 0;
-  const gap = 0.018;
-
-  const easyDash   = animated ? easyPct   * circumference : 0;
-  const mediumDash = animated ? mediumPct * circumference : 0;
-  const hardDash   = animated ? hardPct   * circumference : 0;
-
-  // offsets (each arc starts after the previous + gap)
-  const gapDash = gap * circumference;
-  const easyOffset   = 0;
-  const mediumOffset = -(easyDash + gapDash);
-  const hardOffset   = -(easyDash + gapDash + mediumDash + gapDash);
-
-  useEffect(() => {
-    const t = setTimeout(() => setAnimated(true), 300);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
-    <div style={{ position: "relative", width: 140, height: 140, flexShrink: 0 }}>
-      <svg width="140" height="140" viewBox="0 0 140 140">
-        {/* track */}
-        <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#21262d" strokeWidth={stroke} />
-        {/* easy — green */}
-        <circle
-          cx={cx} cy={cy} r={radius}
-          fill="none" stroke="#00b86b" strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${easyDash} ${circumference}`}
-          strokeDashoffset={easyOffset}
-          transform={`rotate(-90 ${cx} ${cy})`}
-          style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.22,1,.36,1)" }}
-        />
-        {/* medium — orange */}
-        <circle
-          cx={cx} cy={cy} r={radius}
-          fill="none" stroke="#ffa116" strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${mediumDash} ${circumference}`}
-          strokeDashoffset={mediumOffset}
-          transform={`rotate(-90 ${cx} ${cy})`}
-          style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.22,1,.36,1) 0.1s" }}
-        />
-        {/* hard — red */}
-        <circle
-          cx={cx} cy={cy} r={radius}
-          fill="none" stroke="#ff4444" strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${hardDash} ${circumference}`}
-          strokeDashoffset={hardOffset}
-          transform={`rotate(-90 ${cx} ${cy})`}
-          style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.22,1,.36,1) 0.2s" }}
-        />
+    <div style={{ position: "relative", width: 104, height: 104, flexShrink: 0 }}>
+      <svg width="104" height="104" viewBox="0 0 104 104">
+        <circle cx={cx} cy={cy} r={R} fill="none" stroke="#1a1a1a" strokeWidth={sw} />
+        <circle cx={cx} cy={cy} r={R} fill="none" stroke="#00b86b" strokeWidth={sw}
+          strokeLinecap="butt"
+          strokeDasharray={`${eD} ${C}`} strokeDashoffset={0}
+          transform={`rotate(-90 ${cx} ${cy})`} />
+        <circle cx={cx} cy={cy} r={R} fill="none" stroke="#ffa116" strokeWidth={sw}
+          strokeLinecap="butt"
+          strokeDasharray={`${mD} ${C}`} strokeDashoffset={-(eD + gap)}
+          transform={`rotate(-90 ${cx} ${cy})`} />
+        <circle cx={cx} cy={cy} r={R} fill="none" stroke="#ff4444" strokeWidth={sw}
+          strokeLinecap="butt"
+          strokeDasharray={`${hD} ${C}`} strokeDashoffset={-(eD + gap + mD + gap)}
+          transform={`rotate(-90 ${cx} ${cy})`} />
       </svg>
-      {/* center text */}
-      <div style={{
-        position: "absolute", inset: 0,
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-      }}>
-        <span style={{ fontSize: 24, fontWeight: 800, color: "#e6edf3", letterSpacing: -1, lineHeight: 1 }}>
-          {solved}
-        </span>
-        <span style={{ fontSize: 10, color: "#495366", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
-          solved
-        </span>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontFamily: "var(--mono)", fontSize: 20, fontWeight: 700, color: "#e6edf3", lineHeight: 1 }}>{solved}</span>
+        <span style={{ fontFamily: "var(--mono)", fontSize: 8, color: "#444", letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>solved</span>
       </div>
     </div>
-  );
-}
-
-// ─── ANIMATED COUNT-UP ──────────────────────────────────────────────────────
-function CountUp({ to, duration = 1000 }) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    let start = null;
-    const step = (ts) => {
-      if (!start) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      setVal(Math.floor(progress * to));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    const raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [to, duration]);
-  return <>{val}</>;
-}
-
-// ─── MINI BAR ───────────────────────────────────────────────────────────────
-function MiniBar({ value, max, color }) {
-  const [w, setW] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setW(max ? (value / max) * 100 : 0), 400);
-    return () => clearTimeout(t);
-  }, [value, max]);
-  return (
-    <div style={{ flex: 1, height: 4, background: "#21262d", borderRadius: 2, overflow: "hidden" }}>
-      <div style={{
-        height: "100%", borderRadius: 2,
-        background: color, width: `${w}%`,
-        transition: "width 1s cubic-bezier(.22,1,.36,1)",
-      }} />
-    </div>
-  );
-}
-
-// ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
-export default function ProfileDashboard({user}) {
-  const { name, email, username, joinedAt, avatar, stats, platform,
-          streak, submissions, acceptanceRate, languages, recentActivity, badges } = user;
-
-  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-
-  const diffRows = [
-    { label: "Easy",   solved: stats.easy,   total: platform.easy,   color: "#00b86b", bg: "#0f2a1a", border: "#1a3a2a" },
-    { label: "Medium", solved: stats.medium, total: platform.medium, color: "#ffa116", bg: "#1e1608", border: "#3a2e0f" },
-    { label: "Hard",   solved: stats.hard,   total: platform.hard,   color: "#ff4444", bg: "#1a0808", border: "#3a1a1a" },
-  ];
-
-  const statusColor = (s) => s === "Accepted" ? "#00b86b" : s === "Wrong Answer" ? "#ff4444" : "#ffa116";
-  const diffColor   = (d) => d === "Easy" ? "#00b86b" : d === "Medium" ? "#ffa116" : "#ff4444";
-
-  return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        .pd-root {
-          min-height: 100vh;
-          background: #0d1117;
-          color: #e6edf3;
-          font-family: 'Segoe UI', -apple-system, sans-serif;
-        }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #161b22; }
-        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
-
-        /* ── TOPBAR ── */
-        .pd-topbar {
-          background: #161b22; border-bottom: 1px solid #21262d;
-          height: 48px; display: flex; align-items: center;
-          padding: 0 20px; gap: 8px; position: sticky; top: 0; z-index: 20;
-        }
-        .pd-logo-icon {
-          width: 28px; height: 28px;
-          background: linear-gradient(135deg, #ffa116, #ff6b00);
-          border-radius: 6px; display: flex; align-items: center;
-          justify-content: center; font-size: 14px; font-weight: 800; color: #0d1117;
-        }
-        .pd-logo-text { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
-        .pd-nav-sep { width: 1px; height: 20px; background: #21262d; margin: 0 6px; }
-        .pd-nav-crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; }
-        .pd-nav-crumb span { color: #ffa116; }
-
-        /* ── LAYOUT ── */
-        .pd-layout {
-          max-width: 1000px; margin: 0 auto;
-          padding: 36px 20px 80px;
-          display: grid;
-          grid-template-columns: 280px 1fr;
-          gap: 16px;
-          align-items: start;
-        }
-        @media (max-width: 720px) {
-          .pd-layout { grid-template-columns: 1fr; }
-        }
-
-        /* ── CARD ── */
-        .pd-card {
-          background: #161b22; border: 1px solid #21262d;
-          border-radius: 10px; overflow: hidden;
-        }
-        .pd-card-header {
-          padding: 14px 18px; border-bottom: 1px solid #21262d;
-          display: flex; align-items: center; gap: 8px;
-        }
-        .pd-card-header-title {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; font-weight: 600;
-          letter-spacing: 1.5px; text-transform: uppercase; color: #495366;
-        }
-        .pd-card-header-dot {
-          width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
-        }
-
-        /* ── AVATAR CARD ── */
-        .pd-avatar-section {
-          padding: 28px 20px 20px;
-          display: flex; flex-direction: column; align-items: center; gap: 0;
-          text-align: center;
-        }
-        .pd-avatar-ring {
-          width: 84px; height: 84px; border-radius: 50%;
-          background: linear-gradient(135deg, #ffa116, #ff6b00);
-          padding: 2.5px; margin-bottom: 14px; flex-shrink: 0;
-        }
-        .pd-avatar-inner {
-          width: 100%; height: 100%; border-radius: 50%;
-          background: #0d1117;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 26px; font-weight: 800; color: #ffa116;
-          letter-spacing: -1px;
-          overflow: hidden;
-        }
-        .pd-avatar-inner img { width: 100%; height: 100%; object-fit: cover; }
-        .pd-user-name {
-          font-size: 18px; font-weight: 700;
-          letter-spacing: -0.4px; margin-bottom: 4px;
-        }
-        .pd-user-handle {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 11px; color: #ffa116; margin-bottom: 4px;
-        }
-        .pd-user-email {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 11px; color: #495366; margin-bottom: 14px;
-        }
-        .pd-joined {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; color: #495366; letter-spacing: 0.5px;
-        }
-        .pd-divider { height: 1px; background: #21262d; margin: 16px 0; width: 100%; }
-
-        /* ── BADGES ── */
-        .pd-badges {
-          display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
-          padding: 0 0 4px;
-        }
-        .pd-badge {
-          display: flex; align-items: center; gap: 5px;
-          background: #0d1117; border: 1px solid #21262d;
-          border-radius: 6px; padding: 4px 10px;
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; color: #8b949e;
-          transition: border-color 0.15s, color 0.15s;
-        }
-        .pd-badge:hover { border-color: #ffa116; color: #ffa116; }
-
-        /* ── LANGUAGES ── */
-        .pd-lang-row {
-          display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
-        }
-        .pd-lang-pill {
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          color: #8b949e; background: #0d1117; border: 1px solid #21262d;
-          border-radius: 4px; padding: 2px 8px;
-        }
-
-        /* ── RANK CARD ── */
-        .pd-rank-body { padding: 20px 18px; }
-        .pd-rank-num {
-          font-size: 48px; font-weight: 800; letter-spacing: -3px;
-          color: #ffa116; line-height: 1; margin-bottom: 4px;
-        }
-        .pd-rank-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #495366; letter-spacing: 1px; text-transform: uppercase; }
-        .pd-rank-sub { font-size: 12px; color: #8b949e; margin-top: 6px; }
-
-        /* ── MINI STAT GRID ── */
-        .pd-mini-grid {
-          display: grid; grid-template-columns: 1fr 1fr;
-          gap: 1px; background: #21262d;
-          border-top: 1px solid #21262d;
-        }
-        .pd-mini-stat {
-          background: #161b22; padding: 14px 16px;
-          display: flex; flex-direction: column; gap: 3px;
-        }
-        .pd-mini-val {
-          font-size: 20px; font-weight: 700; letter-spacing: -0.5px;
-          line-height: 1;
-        }
-        .pd-mini-lbl {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 9px; color: #495366;
-          letter-spacing: 1px; text-transform: uppercase;
-        }
-
-        /* ── PROGRESS CARD ── */
-        .pd-progress-body { padding: 20px 18px; }
-        .pd-donut-row {
-          display: flex; align-items: center; gap: 24px; margin-bottom: 22px;
-        }
-        .pd-diff-rows { display: flex; flex-direction: column; gap: 10px; flex: 1; }
-        .pd-diff-row { display: flex; align-items: center; gap: 10px; }
-        .pd-diff-label {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 11px; font-weight: 600; width: 48px; flex-shrink: 0;
-        }
-        .pd-diff-count {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 11px; color: #8b949e;
-          white-space: nowrap; flex-shrink: 0;
-        }
-        .pd-diff-count strong { color: #e6edf3; }
-
-        /* ── RECENT ACTIVITY ── */
-        .pd-activity-body { padding: 0; }
-        .pd-activity-row {
-          display: flex; align-items: center; gap: 12px;
-          padding: 12px 18px; border-bottom: 1px solid #21262d;
-          transition: background 0.12s;
-        }
-        .pd-activity-row:last-child { border-bottom: none; }
-        .pd-activity-row:hover { background: #1c2130; }
-        .pd-activity-title {
-          font-size: 13px; font-weight: 500; color: #e6edf3;
-          flex: 1; min-width: 0;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .pd-activity-diff {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; font-weight: 600;
-          padding: 2px 7px; border-radius: 4px;
-          flex-shrink: 0;
-        }
-        .pd-activity-status {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; font-weight: 600; flex-shrink: 0; min-width: 90px; text-align: right;
-        }
-        .pd-activity-time {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; color: #495366; flex-shrink: 0; min-width: 50px; text-align: right;
-        }
-
-        /* ── ANIMATIONS ── */
-        @keyframes pd-in {
-          from { opacity: 0; transform: translateY(14px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .pd-left  { animation: pd-in 0.35s ease both 0.05s; }
-        .pd-right { animation: pd-in 0.35s ease both 0.12s; }
-        .pd-card  { animation: pd-in 0.35s ease both; }
-      `}</style>
-
-      <div className="pd-root">
-
-        {/* Topbar */}
-        <div className="pd-topbar">
-          <div className="pd-logo-icon">⌨</div>
-          <span className="pd-logo-text">CodeMaster</span>
-          <div className="pd-nav-sep" />
-          <span className="pd-nav-crumb">Home / <span>Profile</span></span>
-        </div>
-
-        <div className="pd-layout">
-
-          {/* ═══ LEFT COLUMN ═══════════════════════════════════════════════ */}
-          <div className="pd-left" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-            {/* Avatar + Identity card */}
-            <div className="pd-card">
-              <div className="pd-avatar-section">
-                <div className="pd-avatar-ring">
-                  <div className="pd-avatar-inner">
-                    {avatar ? <img src={avatar} alt={name} /> : initials}
-                  </div>
-                </div>
-                <div className="pd-user-name">{name}</div>
-                <div className="pd-user-handle">@{username}</div>
-                <div className="pd-user-email">{email}</div>
-                <div className="pd-joined">Joined {joinedAt}</div>
-
-                <div className="pd-divider" />
-
-                {/* Badges */}
-                <div className="pd-badges">
-                  {badges.map((b) => (
-                    <div key={b.label} className="pd-badge">
-                      <span>{b.icon}</span>
-                      <span>{b.label}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pd-divider" />
-
-                {/* Languages */}
-                <div style={{ marginBottom: 4, width: "100%" }}>
-                  <div style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 9, color: "#495366", letterSpacing: 1.2,
-                    textTransform: "uppercase", marginBottom: 8, textAlign: "left",
-                  }}>Languages</div>
-                  <div className="pd-lang-row">
-                    {languages.map((l) => (
-                      <span key={l} className="pd-lang-pill">{l}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Rank card */}
-            <div className="pd-card">
-              <div className="pd-card-header">
-                <div className="pd-card-header-dot" style={{ background: "#ffa116" }} />
-                <span className="pd-card-header-title">Global Rank</span>
-              </div>
-              <div className="pd-rank-body">
-                <div className="pd-rank-num">
-                  #<CountUp to={stats.rank} duration={900} />
-                </div>
-                <div className="pd-rank-label">Platform Ranking</div>
-                <div className="pd-rank-sub">You're in the top performers 🎉</div>
-              </div>
-              <div className="pd-mini-grid">
-                <div className="pd-mini-stat">
-                  <span className="pd-mini-lbl">Streak</span>
-                  <span className="pd-mini-val" style={{ color: "#ffa116" }}>
-                    <CountUp to={streak} />🔥
-                  </span>
-                </div>
-                <div className="pd-mini-stat">
-                  <span className="pd-mini-lbl">Submissions</span>
-                  <span className="pd-mini-val" style={{ color: "#4493f8" }}>
-                    <CountUp to={submissions} />
-                  </span>
-                </div>
-                <div className="pd-mini-stat">
-                  <span className="pd-mini-lbl">Acceptance</span>
-                  <span className="pd-mini-val" style={{ color: "#00b86b" }}>
-                    <CountUp to={acceptanceRate} />%
-                  </span>
-                </div>
-                <div className="pd-mini-stat">
-                  <span className="pd-mini-lbl">Total Solved</span>
-                  <span className="pd-mini-val" style={{ color: "#c084fc" }}>
-                    <CountUp to={stats.total} />
-                  </span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* ═══ RIGHT COLUMN ══════════════════════════════════════════════ */}
-          <div className="pd-right" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-            {/* Problems solved progress */}
-            <div className="pd-card">
-              <div className="pd-card-header">
-                <div className="pd-card-header-dot" style={{ background: "#00b86b" }} />
-                <span className="pd-card-header-title">Problems Solved</span>
-                <span style={{
-                  marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 11, color: "#8b949e",
-                }}>
-                  {stats.total} / {platform.total}
-                </span>
-              </div>
-              <div className="pd-progress-body">
-                <div className="pd-donut-row">
-                  <DonutChart
-                    easy={stats.easy}
-                    medium={stats.medium}
-                    hard={stats.hard}
-                    total={stats.total}
-                    platformTotal={platform.total}
-                  />
-                  <div className="pd-diff-rows">
-                    {diffRows.map((row) => (
-                      <div key={row.label} className="pd-diff-row">
-                        <span className="pd-diff-label" style={{ color: row.color }}>{row.label}</span>
-                        <MiniBar value={row.solved} max={row.total} color={row.color} />
-                        <span className="pd-diff-count">
-                          <strong>{row.solved}</strong>/{row.total}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Diff badges summary */}
-                <div style={{ display: "flex", gap: 8 }}>
-                  {diffRows.map((row) => (
-                    <div key={row.label} style={{
-                      flex: 1, background: row.bg, border: `1px solid ${row.border}`,
-                      borderRadius: 8, padding: "10px 14px", textAlign: "center",
-                    }}>
-                      <div style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 9, color: row.color,
-                        letterSpacing: 1, textTransform: "uppercase", marginBottom: 4,
-                      }}>{row.label}</div>
-                      <div style={{
-                        fontSize: 22, fontWeight: 800, color: row.color,
-                        letterSpacing: -1, lineHeight: 1,
-                      }}>{row.solved}</div>
-                      <div style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: 9, color: "#495366", marginTop: 3,
-                      }}>/ {row.total}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="pd-card">
-              <div className="pd-card-header">
-                <div className="pd-card-header-dot" style={{ background: "#4493f8" }} />
-                <span className="pd-card-header-title">Recent Activity</span>
-                <span style={{
-                  marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 10, color: "#495366",
-                }}>last 5 submissions</span>
-              </div>
-              <div className="pd-activity-body">
-                {recentActivity.map((act, i) => (
-                  <div key={i} className="pd-activity-row">
-                    {/* index */}
-                    <span style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: 10, color: "#495366", width: 16, flexShrink: 0,
-                    }}>{i + 1}.</span>
-
-                    <span className="pd-activity-title">{act.title}</span>
-
-                    <span className="pd-activity-diff" style={{
-                      color: diffColor(act.difficulty),
-                      background: act.difficulty === "Easy" ? "#0f2a1a"
-                               : act.difficulty === "Medium" ? "#1e1608" : "#1a0808",
-                      border: `1px solid ${
-                        act.difficulty === "Easy" ? "#1a3a2a"
-                        : act.difficulty === "Medium" ? "#3a2e0f" : "#3a1a1a"}`,
-                    }}>
-                      {act.difficulty}
-                    </span>
-
-                    <span className="pd-activity-status" style={{ color: statusColor(act.status) }}>
-                      {act.status === "Accepted" ? "✓ " : "✗ "}{act.status}
-                    </span>
-
-                    <span className="pd-activity-time">{act.time}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Heatmap placeholder */}
-            <div className="pd-card">
-              <div className="pd-card-header">
-                <div className="pd-card-header-dot" style={{ background: "#c084fc" }} />
-                <span className="pd-card-header-title">Submission Heatmap</span>
-                <span style={{
-                  marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 10, color: "#495366",
-                }}>last 12 weeks</span>
-              </div>
-              <div style={{ padding: "16px 18px" }}>
-                <HeatMap />
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    </>
   );
 }
 
 // ─── HEATMAP ────────────────────────────────────────────────────────────────
-function HeatMap() {
-  const weeks = 16;
-  const days  = 7;
-  // fake data — replace with real daily submission counts
-  const data = Array.from({ length: weeks }, (_, w) =>
+function HeatMap({ data }) {
+  const weeks = 20, days = 7;
+  const grid = data || Array.from({ length: weeks }, (_, w) =>
     Array.from({ length: days }, (_, d) => {
       if (w === weeks - 1 && d > 4) return 0;
-      return Math.random() > 0.62 ? Math.floor(Math.random() * 5) + 1 : 0;
+      return Math.random() > 0.6 ? Math.floor(Math.random() * 5) + 1 : 0;
     })
   );
-  const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
-
-  const cellColor = (v) => {
-    if (v === 0) return "#161b22";
-    if (v === 1) return "#0f2a1a";
-    if (v === 2) return "#1a3a2a";
-    if (v === 3) return "#00804a";
+  const col = (v) => {
+    if (v === 0) return "#111";
+    if (v === 1) return "#0d2318";
+    if (v === 2) return "#154228";
+    if (v === 3) return "#1f6b42";
     return "#00b86b";
   };
-
+  const dayLabels = ["S","M","T","W","T","F","S"];
   return (
     <div style={{ overflowX: "auto" }}>
-      <div style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
-        {/* day labels */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 3, paddingTop: 2 }}>
+      <div style={{ display: "flex", gap: 3, alignItems: "flex-start", minWidth: "fit-content" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, paddingTop: 1, marginRight: 2 }}>
           {dayLabels.map((d, i) => (
-            <div key={i} style={{
-              height: 12, width: 12, fontSize: 9,
-              fontFamily: "'JetBrains Mono', monospace",
-              color: "#495366", display: "flex", alignItems: "center", justifyContent: "center",
-            }}>{i % 2 === 1 ? d : ""}</div>
+            <div key={i} style={{ height: 11, width: 8, fontSize: 8, fontFamily: "var(--mono)", color: "#333", display: "flex", alignItems: "center" }}>
+              {i % 2 === 1 ? d : ""}
+            </div>
           ))}
         </div>
-        {/* cells */}
-        {data.map((week, wi) => (
+        {grid.map((week, wi) => (
           <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             {week.map((val, di) => (
               <div key={di} title={`${val} submission${val !== 1 ? "s" : ""}`} style={{
-                width: 12, height: 12, borderRadius: 2,
-                background: cellColor(val),
-                border: `1px solid ${val > 0 ? "#21262d" : "#1c2130"}`,
-                transition: "background 0.15s",
+                width: 11, height: 11, borderRadius: 2,
+                background: col(val),
+                border: "1px solid rgba(255,255,255,0.04)",
                 cursor: val > 0 ? "pointer" : "default",
               }} />
             ))}
           </div>
         ))}
       </div>
-      {/* legend */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 4, marginTop: 10,
-        justifyContent: "flex-end",
-      }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "#495366" }}>Less</span>
-        {["#161b22", "#0f2a1a", "#1a3a2a", "#00804a", "#00b86b"].map((c, i) => (
-          <div key={i} style={{ width: 10, height: 10, borderRadius: 2, background: c, border: "1px solid #21262d" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 8, justifyContent: "flex-end" }}>
+        <span style={{ fontFamily: "var(--mono)", fontSize: 8, color: "#333" }}>Less</span>
+        {["#111","#0d2318","#154228","#1f6b42","#00b86b"].map((c, i) => (
+          <div key={i} style={{ width: 9, height: 9, borderRadius: 2, background: c, border: "1px solid rgba(255,255,255,0.06)" }} />
         ))}
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "#495366" }}>More</span>
+        <span style={{ fontFamily: "var(--mono)", fontSize: 8, color: "#333" }}>More</span>
       </div>
     </div>
+  );
+}
+
+// ─── SKILL RADAR (SVG, static) ──────────────────────────────────────────────
+function SkillRadar({ skills }) {
+  const cx = 100, cy = 100, r = 75;
+  const n = skills.length;
+  const angle = (i) => (i * 2 * Math.PI) / n - Math.PI / 2;
+  const pt = (i, pct) => ({
+    x: cx + pct * r * Math.cos(angle(i)),
+    y: cy + pct * r * Math.sin(angle(i)),
+  });
+  const rings = [0.25, 0.5, 0.75, 1];
+  const dataPath = skills.map((s, i) => {
+    const p = pt(i, s.value / 100);
+    return `${i === 0 ? "M" : "L"}${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+  }).join(" ") + " Z";
+  return (
+    <svg width="200" height="200" viewBox="0 0 200 200">
+      {rings.map((ring, ri) => (
+        <polygon key={ri}
+          points={skills.map((_, i) => { const p = pt(i, ring); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(" ")}
+          fill="none" stroke="#1e1e1e" strokeWidth={1}
+        />
+      ))}
+      {skills.map((_, i) => {
+        const p = pt(i, 1);
+        return <line key={i} x1={cx} y1={cy} x2={p.x.toFixed(1)} y2={p.y.toFixed(1)} stroke="#1e1e1e" strokeWidth={1} />;
+      })}
+      <path d={dataPath} fill="rgba(255,161,22,0.1)" stroke="#ffa116" strokeWidth={1.5} />
+      {skills.map((s, i) => {
+        const p = pt(i, s.value / 100);
+        return <circle key={i} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r={3} fill="#ffa116" />;
+      })}
+      {skills.map((s, i) => {
+        const p = pt(i, 1.28);
+        return (
+          <text key={i} x={p.x.toFixed(1)} y={p.y.toFixed(1)}
+            textAnchor="middle" dominantBaseline="middle"
+            style={{ fontSize: 9, fill: "#555", fontFamily: "var(--mono)", fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            {s.label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── SECTION HEADING ────────────────────────────────────────────────────────
+function SectionHead({ label, right }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <span style={{
+          fontFamily: "var(--mono)", fontSize: 9, fontWeight: 700,
+          color: "#444", letterSpacing: 2, textTransform: "uppercase",
+        }}>{label}</span>
+        {right && <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "#333" }}>{right}</span>}
+      </div>
+      <div style={{ height: 1, background: "#1e1e1e" }} />
+    </div>
+  );
+}
+
+// ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
+export default function ProfileDashboard({ user }) {
+  const {
+    name, email, username, joinedAt, avatar,
+    stats, platform, streak, submissions,
+    acceptanceRate, languages, recentActivity, badges,
+  } = user;
+
+  const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const [tab, setTab] = useState("overview");
+
+  const diffRows = [
+    { label: "Easy",   solved: stats.easy,   total: platform.easy,   color: "#00b86b" },
+    { label: "Medium", solved: stats.medium, total: platform.medium, color: "#ffa116" },
+    { label: "Hard",   solved: stats.hard,   total: platform.hard,   color: "#ff4444" },
+  ];
+
+  const skillData = [
+    { label: "Arrays",  value: 82 },
+    { label: "DP",      value: 48 },
+    { label: "Graphs",  value: 65 },
+    { label: "Trees",   value: 74 },
+    { label: "Strings", value: 58 },
+    { label: "Math",    value: 77 },
+  ];
+
+  const langColors = { JavaScript: "#ffa116", "C++": "#4493f8", Python: "#00b86b", Java: "#c084fc" };
+
+  const statusColor = (s) => s === "Accepted" ? "#00b86b" : s === "Wrong Answer" ? "#ff4444" : "#ffa116";
+  const diffColor   = (d) => d === "Easy" ? "#00b86b" : d === "Medium" ? "#ffa116" : "#ff4444";
+
+  // Mock extended data
+  const certifications = [
+    { title: "Advanced Algorithms Track",   date: "Mar 2024", badge: "🎓" },
+    { title: "Data Structures Mastery",     date: "Jan 2024", badge: "📐" },
+    { title: "30-Day Coding Challenge",     date: "Dec 2023", badge: "🔥" },
+  ];
+
+  const timeline = [
+    { month: "May 2024", count: 14, note: "Best month" },
+    { month: "Apr 2024", count: 9,  note: "" },
+    { month: "Mar 2024", count: 11, note: "" },
+    { month: "Feb 2024", count: 6,  note: "" },
+    { month: "Jan 2024", count: 8,  note: "Joined" },
+  ];
+
+  const maxTimeline = Math.max(...timeline.map(t => t.count));
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+          --mono:    'IBM Plex Mono', monospace;
+          --sans:    'IBM Plex Sans', sans-serif;
+          --bg:      #0a0a0a;
+          --paper:   #0f0f0f;
+          --card:    #111111;
+          --line:    #1e1e1e;
+          --line2:   #2a2a2a;
+          --text:    #e6edf3;
+          --muted:   #888;
+          --dim:     #444;
+          --orange:  #ffa116;
+          --green:   #00b86b;
+          --red:     #ff4444;
+          --blue:    #4493f8;
+          --purple:  #c084fc;
+        }
+
+        .pd-root {
+          min-height: 100vh;
+          background: var(--bg);
+          color: var(--text);
+          font-family: var(--sans);
+          font-weight: 400;
+          line-height: 1.6;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e1e1e; border-radius: 2px; }
+
+        /* ── TOPBAR ── */
+        .pd-topbar {
+          height: 48px;
+          background: var(--paper);
+          border-bottom: 1px solid var(--line);
+          display: flex; align-items: center;
+          padding: 0 32px; gap: 0;
+          position: sticky; top: 0; z-index: 50;
+        }
+        .pd-topbar-logo {
+          display: flex; align-items: center; gap: 9px;
+          padding-right: 24px;
+          border-right: 1px solid var(--line);
+        }
+        .pd-logo-sq {
+          width: 26px; height: 26px;
+          background: var(--orange);
+          border-radius: 4px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 800; color: #0a0a0a;
+        }
+        .pd-logo-name {
+          font-family: var(--sans); font-size: 13px; font-weight: 700;
+          color: var(--text); letter-spacing: -0.2px;
+        }
+        .pd-topbar-crumb {
+          padding-left: 24px;
+          font-family: var(--mono); font-size: 11px; color: var(--dim);
+          display: flex; align-items: center; gap: 8px;
+        }
+        .pd-topbar-crumb span { color: var(--orange); }
+        .pd-topbar-right {
+          margin-left: auto;
+          font-family: var(--mono); font-size: 10px; color: var(--dim);
+          display: flex; align-items: center; gap: 16px;
+        }
+        .pd-share-btn {
+          background: none; border: 1px solid var(--line2); border-radius: 4px;
+          color: var(--muted); font-family: var(--mono); font-size: 10px;
+          padding: 4px 12px; cursor: pointer;
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .pd-share-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+        /* ── PAGE WRAPPER ── */
+        .pd-wrap {
+          max-width: 1040px;
+          margin: 0 auto;
+          padding: 0 32px 80px;
+        }
+
+        /* ── RESUME HEADER ── */
+        .pd-resume-hdr {
+          display: grid;
+          grid-template-columns: auto 1fr auto;
+          gap: 0;
+          padding: 40px 0 32px;
+          border-bottom: 2px solid var(--line);
+          align-items: start;
+        }
+
+        /* left: avatar + name */
+        .pd-hdr-left { padding-right: 28px; border-right: 1px solid var(--line); }
+        .pd-avatar-box {
+          width: 72px; height: 72px;
+          background: var(--card);
+          border: 1px solid var(--line2);
+          border-left: 3px solid var(--orange);
+          display: flex; align-items: center; justify-content: center;
+          font-family: var(--mono); font-size: 22px; font-weight: 700;
+          color: var(--orange); overflow: hidden; margin-bottom: 12px;
+        }
+        .pd-avatar-box img { width: 100%; height: 100%; object-fit: cover; }
+        .pd-hdr-name {
+          font-family: var(--sans); font-size: 26px; font-weight: 700;
+          color: var(--text); letter-spacing: -0.5px; line-height: 1.1;
+          margin-bottom: 3px;
+        }
+        .pd-hdr-handle {
+          font-family: var(--mono); font-size: 11px; color: var(--orange);
+          margin-bottom: 2px;
+        }
+        .pd-hdr-email {
+          font-family: var(--mono); font-size: 10px; color: var(--dim);
+        }
+
+        /* center: meta info */
+        .pd-hdr-center {
+          padding: 0 28px;
+          display: flex; flex-direction: column; gap: 10px;
+        }
+        .pd-meta-row {
+          display: flex; align-items: baseline; gap: 12px;
+        }
+        .pd-meta-key {
+          font-family: var(--mono); font-size: 9px; font-weight: 600;
+          color: var(--dim); letter-spacing: 1.5px; text-transform: uppercase;
+          width: 88px; flex-shrink: 0;
+        }
+        .pd-meta-val {
+          font-family: var(--mono); font-size: 11px; color: var(--muted);
+        }
+        .pd-meta-val.accent { color: var(--orange); font-weight: 600; }
+
+        /* right: key numbers */
+        .pd-hdr-right {
+          padding-left: 28px;
+          border-left: 1px solid var(--line);
+          display: flex; flex-direction: column; gap: 0;
+        }
+        .pd-hdr-stat {
+          padding: 8px 0;
+          border-bottom: 1px solid var(--line);
+          display: flex; justify-content: space-between; align-items: baseline;
+          gap: 24px;
+        }
+        .pd-hdr-stat:last-child { border-bottom: none; }
+        .pd-hdr-stat-lbl {
+          font-family: var(--mono); font-size: 9px; color: var(--dim);
+          letter-spacing: 1.5px; text-transform: uppercase;
+        }
+        .pd-hdr-stat-val {
+          font-family: var(--mono); font-size: 18px; font-weight: 700;
+          letter-spacing: -0.5px; line-height: 1;
+        }
+
+        /* ── NAV TABS ── */
+        .pd-nav {
+          display: flex; gap: 0;
+          border-bottom: 1px solid var(--line);
+          margin-bottom: 32px;
+        }
+        .pd-nav-tab {
+          background: none; border: none; cursor: pointer;
+          font-family: var(--mono); font-size: 10px; font-weight: 600;
+          letter-spacing: 1.2px; text-transform: uppercase;
+          color: var(--dim);
+          padding: 14px 20px 13px;
+          border-bottom: 2px solid transparent;
+          margin-bottom: -1px;
+          transition: color 0.12s, border-color 0.12s;
+        }
+        .pd-nav-tab:hover { color: var(--muted); }
+        .pd-nav-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+        /* ── TWO COLUMN BODY ── */
+        .pd-body {
+          display: grid;
+          grid-template-columns: 1fr 300px;
+          gap: 0;
+          align-items: start;
+        }
+        @media (max-width: 720px) {
+          .pd-body { grid-template-columns: 1fr; }
+          .pd-resume-hdr { grid-template-columns: 1fr; gap: 24px; }
+          .pd-hdr-left { border-right: none; padding-right: 0; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
+          .pd-hdr-center { padding: 20px 0; }
+          .pd-hdr-right { border-left: none; padding-left: 0; }
+        }
+
+        /* ── MAIN CONTENT ── */
+        .pd-main { padding-right: 40px; border-right: 1px solid var(--line); }
+
+        /* ── SIDEBAR ── */
+        .pd-sidebar { padding-left: 32px; }
+
+        /* ── SECTION ── */
+        .pd-section { margin-bottom: 36px; }
+
+        /* ── PROBLEM ROW ── */
+        .pd-prob-row {
+          display: grid;
+          grid-template-columns: 18px 1fr 70px 80px 50px;
+          gap: 12px; align-items: center;
+          padding: 9px 0;
+          border-bottom: 1px solid var(--line);
+          transition: background 0.1s;
+        }
+        .pd-prob-row:last-child { border-bottom: none; }
+        .pd-prob-row:hover { background: rgba(255,255,255,0.015); margin: 0 -8px; padding: 9px 8px; }
+        .pd-prob-idx { font-family: var(--mono); font-size: 9px; color: var(--dim); text-align: right; }
+        .pd-prob-title { font-size: 12.5px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pd-prob-diff {
+          font-family: var(--mono); font-size: 9px; font-weight: 600;
+          letter-spacing: 0.5px; text-align: center; padding: 2px 0;
+          text-transform: uppercase;
+        }
+        .pd-prob-status { font-family: var(--mono); font-size: 10px; font-weight: 600; text-align: right; }
+        .pd-prob-time { font-family: var(--mono); font-size: 9px; color: var(--dim); text-align: right; }
+
+        /* ── DIFF BREAKDOWN ── */
+        .pd-diff-table { width: 100%; }
+        .pd-diff-tr {
+          display: grid; grid-template-columns: 52px 1fr 64px;
+          gap: 12px; align-items: center;
+          padding: 7px 0; border-bottom: 1px solid var(--line);
+        }
+        .pd-diff-tr:last-child { border-bottom: none; }
+        .pd-diff-name { font-family: var(--mono); font-size: 10px; font-weight: 600; }
+        .pd-diff-frac { font-family: var(--mono); font-size: 10px; color: var(--dim); text-align: right; white-space: nowrap; }
+        .pd-diff-frac strong { color: var(--text); }
+
+        /* ── CERT ROW ── */
+        .pd-cert-row {
+          display: flex; align-items: flex-start; gap: 14px;
+          padding: 12px 0; border-bottom: 1px solid var(--line);
+        }
+        .pd-cert-row:last-child { border-bottom: none; }
+        .pd-cert-icon {
+          width: 32px; height: 32px; flex-shrink: 0;
+          background: var(--card); border: 1px solid var(--line2);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 15px;
+        }
+        .pd-cert-title { font-size: 12.5px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+        .pd-cert-date { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+        .pd-cert-badge {
+          margin-left: auto; flex-shrink: 0;
+          font-family: var(--mono); font-size: 9px; color: var(--green);
+          background: rgba(0,184,107,0.08); border: 1px solid rgba(0,184,107,0.2);
+          padding: 2px 8px; align-self: center;
+        }
+
+        /* ── TIMELINE BAR CHART ── */
+        .pd-timeline { display: flex; flex-direction: column; gap: 8px; }
+        .pd-tl-row { display: flex; align-items: center; gap: 10px; }
+        .pd-tl-label { font-family: var(--mono); font-size: 9px; color: var(--dim); width: 56px; flex-shrink: 0; }
+        .pd-tl-bar-wrap { flex: 1; height: 14px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; }
+        .pd-tl-bar { height: 100%; background: var(--orange); opacity: 0.7; }
+        .pd-tl-count { font-family: var(--mono); font-size: 10px; color: var(--muted); width: 20px; text-align: right; flex-shrink: 0; }
+        .pd-tl-note { font-family: var(--mono); font-size: 9px; color: var(--dim); width: 54px; flex-shrink: 0; }
+
+        /* ── SIDEBAR SKILL ROWS ── */
+        .pd-skill-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 7px 0; border-bottom: 1px solid var(--line);
+        }
+        .pd-skill-row:last-child { border-bottom: none; }
+        .pd-skill-name { font-family: var(--mono); font-size: 10px; color: var(--muted); width: 56px; flex-shrink: 0; }
+        .pd-skill-score { font-family: var(--mono); font-size: 10px; color: var(--orange); width: 28px; text-align: right; flex-shrink: 0; }
+
+        /* ── LANG PILLS ── */
+        .pd-lang-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pd-lang-pill {
+          font-family: var(--mono); font-size: 9px; font-weight: 600;
+          padding: 3px 10px; border: 1px solid var(--line2);
+          letter-spacing: 0.3px; color: var(--muted);
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .pd-lang-pill:hover { border-color: var(--orange); color: var(--orange); }
+
+        /* ── BADGE LIST ── */
+        .pd-badge-list { display: flex; flex-direction: column; gap: 0; }
+        .pd-badge-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 8px 0; border-bottom: 1px solid var(--line);
+        }
+        .pd-badge-row:last-child { border-bottom: none; }
+        .pd-badge-emoji { font-size: 16px; width: 24px; text-align: center; flex-shrink: 0; }
+        .pd-badge-name { font-size: 12px; font-weight: 500; color: var(--text); flex: 1; }
+        .pd-badge-locked { font-family: var(--mono); font-size: 9px; color: var(--dim); }
+
+        /* ── PRINT / EXPORT BTN ── */
+        .pd-export-row {
+          margin-top: 40px; padding-top: 20px;
+          border-top: 1px solid var(--line);
+          display: flex; align-items: center; gap: 12px;
+        }
+        .pd-export-btn {
+          background: none; border: 1px solid var(--line2);
+          color: var(--muted); font-family: var(--mono); font-size: 10px;
+          padding: 7px 18px; cursor: pointer; letter-spacing: 0.5px;
+          transition: all 0.15s;
+        }
+        .pd-export-btn:hover { border-color: var(--orange); color: var(--orange); }
+        .pd-export-btn.primary {
+          background: var(--orange); border-color: var(--orange);
+          color: #0a0a0a; font-weight: 700;
+        }
+        .pd-export-btn.primary:hover { background: #ffb347; border-color: #ffb347; color: #0a0a0a; }
+        .pd-export-note { font-family: var(--mono); font-size: 9px; color: var(--dim); }
+
+        /* ── OVERVIEW NUMBERS STRIP ── */
+        .pd-numbers-strip {
+          display: grid; grid-template-columns: repeat(4, 1fr);
+          border: 1px solid var(--line); margin-bottom: 32px;
+        }
+        .pd-number-cell {
+          padding: 20px 18px;
+          border-right: 1px solid var(--line);
+          position: relative;
+        }
+        .pd-number-cell:last-child { border-right: none; }
+        .pd-number-big {
+          font-family: var(--mono); font-size: 32px; font-weight: 700;
+          letter-spacing: -1.5px; line-height: 1; margin-bottom: 4px;
+        }
+        .pd-number-lbl {
+          font-family: var(--mono); font-size: 9px; color: var(--dim);
+          letter-spacing: 1.5px; text-transform: uppercase;
+        }
+        .pd-number-cell::after {
+          content: attr(data-index);
+          position: absolute; top: 8px; right: 10px;
+          font-family: var(--mono); font-size: 9px; color: var(--line2);
+        }
+
+        /* ── STATUS LINE ── */
+        .pd-status-line {
+          display: flex; align-items: center; gap: 6px; margin-bottom: 14px;
+        }
+        .pd-status-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .pd-status-text { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+      `}</style>
+
+      <div className="pd-root">
+
+        {/* ── TOPBAR ── */}
+        <div className="pd-topbar">
+          <div className="pd-topbar-logo">
+            <div className="pd-logo-sq">⌨</div>
+            <span className="pd-logo-name">CodeMaster</span>
+          </div>
+          <div className="pd-topbar-crumb">
+            Profile · <span>@{username}</span>
+          </div>
+          <div className="pd-topbar-right">
+            <span>Last active: 2h ago</span>
+            <button className="pd-share-btn" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+              ↗ Share Profile
+            </button>
+          </div>
+        </div>
+
+        <div className="pd-wrap">
+
+          {/* ── RESUME HEADER ── */}
+          <div className="pd-resume-hdr">
+
+            {/* LEFT — avatar + name */}
+            <div className="pd-hdr-left">
+              <div className="pd-avatar-box">
+                {avatar ? <img src={avatar} alt={name} /> : initials}
+              </div>
+              <div className="pd-hdr-name">{name}</div>
+              <div className="pd-hdr-handle">@{username}</div>
+              <div className="pd-hdr-email">{email}</div>
+            </div>
+
+            {/* CENTER — meta */}
+            <div className="pd-hdr-center">
+              {[
+                { key: "Role",       val: "Software Engineer",           accent: false },
+                { key: "Joined",     val: joinedAt,                      accent: false },
+                { key: "Rank",       val: `#${stats.rank} Global`,       accent: true  },
+                { key: "Streak",     val: `${streak} days 🔥`,           accent: true  },
+                { key: "Languages",  val: languages.join(" · "),         accent: false },
+                { key: "Status",     val: "Actively solving",            accent: false },
+              ].map(({ key, val, accent }) => (
+                <div key={key} className="pd-meta-row">
+                  <span className="pd-meta-key">{key}</span>
+                  <span className={`pd-meta-val${accent ? " accent" : ""}`}>{val}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* RIGHT — key numbers */}
+            <div className="pd-hdr-right">
+              {[
+                { lbl: "Solved",      val: stats.total,       color: "#e6edf3" },
+                { lbl: "Submissions", val: submissions,       color: "#4493f8" },
+                { lbl: "Acceptance",  val: `${acceptanceRate}%`, color: "#00b86b" },
+                { lbl: "Rank",        val: `#${stats.rank}`,  color: "#ffa116" },
+              ].map(({ lbl, val, color }) => (
+                <div key={lbl} className="pd-hdr-stat">
+                  <span className="pd-hdr-stat-lbl">{lbl}</span>
+                  <span className="pd-hdr-stat-val" style={{ color }}>{val}</span>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* ── NAV TABS ── */}
+          <div className="pd-nav">
+            {[
+              { id: "overview",  label: "Overview"   },
+              { id: "activity",  label: "Activity"   },
+              { id: "skills",    label: "Skills"     },
+              { id: "certs",     label: "Certs"      },
+            ].map(({ id, label }) => (
+              <button key={id} className={`pd-nav-tab${tab === id ? " active" : ""}`} onClick={() => setTab(id)}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* ════════ OVERVIEW ════════ */}
+          {tab === "overview" && (
+            <div>
+              {/* numbers strip */}
+              <div className="pd-numbers-strip">
+                {[
+                  { lbl: "Easy Solved",   val: stats.easy,         color: "#00b86b", idx: "01" },
+                  { lbl: "Medium Solved", val: stats.medium,       color: "#ffa116", idx: "02" },
+                  { lbl: "Hard Solved",   val: stats.hard,         color: "#ff4444", idx: "03" },
+                  { lbl: "Total",         val: stats.total,        color: "#e6edf3", idx: "04" },
+                ].map(({ lbl, val, color, idx }) => (
+                  <div key={lbl} className="pd-number-cell" data-index={idx}>
+                    <div className="pd-number-big" style={{ color }}>{val}</div>
+                    <div className="pd-number-lbl">{lbl}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pd-body">
+                {/* MAIN */}
+                <div className="pd-main">
+
+                  {/* Problem Breakdown */}
+                  <div className="pd-section">
+                    <SectionHead label="Problem Breakdown" right={`${stats.total} / ${platform.total} total`} />
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 32, marginBottom: 20 }}>
+                      <Donut easy={stats.easy} medium={stats.medium} hard={stats.hard} total={platform.total} />
+                      <div style={{ flex: 1 }}>
+                        <div className="pd-diff-table">
+                          {diffRows.map((row) => (
+                            <div key={row.label} className="pd-diff-tr">
+                              <span className="pd-diff-name" style={{ color: row.color }}>{row.label}</span>
+                              <Bar value={row.solved} max={row.total} color={row.color} />
+                              <span className="pd-diff-frac"><strong>{row.solved}</strong> / {row.total}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Monthly Activity */}
+                  <div className="pd-section">
+                    <SectionHead label="Monthly Solve Rate" right="last 5 months" />
+                    <div className="pd-timeline">
+                      {timeline.map((t) => (
+                        <div key={t.month} className="pd-tl-row">
+                          <span className="pd-tl-label">{t.month}</span>
+                          <div className="pd-tl-bar-wrap">
+                            <div className="pd-tl-bar" style={{ width: `${(t.count / maxTimeline) * 100}%` }} />
+                          </div>
+                          <span className="pd-tl-count">{t.count}</span>
+                          <span className="pd-tl-note" style={{ color: t.note ? "var(--orange)" : "transparent" }}>{t.note || "·"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Submission Heatmap */}
+                  <div className="pd-section">
+                    <SectionHead label="Submission Heatmap" right="last 20 weeks" />
+                    <HeatMap />
+                  </div>
+
+                </div>
+
+                {/* SIDEBAR */}
+                <div className="pd-sidebar">
+
+                  <div className="pd-section">
+                    <SectionHead label="Quick Stats" />
+                    {[
+                      { lbl: "Submissions", val: submissions,          color: "var(--blue)"   },
+                      { lbl: "Acceptance",  val: `${acceptanceRate}%`, color: "var(--green)"  },
+                      { lbl: "Streak",      val: `${streak}d 🔥`,      color: "var(--orange)" },
+                      { lbl: "Rank",        val: `#${stats.rank}`,     color: "var(--orange)" },
+                    ].map(({ lbl, val, color }) => (
+                      <div key={lbl} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "7px 0", borderBottom: "1px solid var(--line)" }}>
+                        <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--dim)", letterSpacing: 1.5, textTransform: "uppercase" }}>{lbl}</span>
+                        <span style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color }}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pd-section">
+                    <SectionHead label="Languages" />
+                    <div className="pd-lang-row">
+                      {languages.map((l) => (
+                        <span key={l} className="pd-lang-pill" style={{ borderColor: langColors[l] ? `${langColors[l]}33` : undefined, color: langColors[l] || "var(--muted)" }}>
+                          {l}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pd-section">
+                    <SectionHead label="Achievements" right={`${badges.length} / 6`} />
+                    <div className="pd-badge-list">
+                      {badges.map((b) => (
+                        <div key={b.label} className="pd-badge-row">
+                          <span className="pd-badge-emoji">{b.icon}</span>
+                          <span className="pd-badge-name">{b.label}</span>
+                        </div>
+                      ))}
+                      {Array.from({ length: Math.max(0, 3 - badges.length) }).map((_, i) => (
+                        <div key={`lock-${i}`} className="pd-badge-row" style={{ opacity: 0.3 }}>
+                          <span className="pd-badge-emoji">🔒</span>
+                          <span className="pd-badge-name">Locked</span>
+                          <span className="pd-badge-locked">—</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ════════ ACTIVITY ════════ */}
+          {tab === "activity" && (
+            <div>
+              <div style={{ marginBottom: 24 }}>
+                <div className="pd-status-line">
+                  <div className="pd-status-dot" style={{ background: "var(--green)", boxShadow: "0 0 6px rgba(0,184,107,0.6)" }} />
+                  <span className="pd-status-text">Showing last {recentActivity.length} submissions</span>
+                </div>
+                {/* column headers */}
+                <div style={{ display: "grid", gridTemplateColumns: "18px 1fr 70px 80px 50px", gap: 12, padding: "6px 0", borderBottom: "2px solid var(--line2)" }}>
+                  {["#", "Problem", "Diff", "Status", "Time"].map((h) => (
+                    <span key={h} style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--dim)", letterSpacing: 1.5, textTransform: "uppercase", textAlign: h === "#" ? "right" : h === "Status" ? "right" : h === "Time" ? "right" : "left" }}>{h}</span>
+                  ))}
+                </div>
+                {recentActivity.map((act, i) => (
+                  <div key={i} className="pd-prob-row">
+                    <span className="pd-prob-idx">{i + 1}</span>
+                    <span className="pd-prob-title">{act.title}</span>
+                    <span className="pd-prob-diff" style={{ color: diffColor(act.difficulty) }}>{act.difficulty}</span>
+                    <span className="pd-prob-status" style={{ color: statusColor(act.status) }}>
+                      {act.status === "Accepted" ? "✓ AC" : "✗ WA"}
+                    </span>
+                    <span className="pd-prob-time">{act.time}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Heatmap in activity tab too */}
+              <div className="pd-section" style={{ marginTop: 32 }}>
+                <SectionHead label="Submission Heatmap" right="last 20 weeks" />
+                <HeatMap />
+              </div>
+            </div>
+          )}
+
+          {/* ════════ SKILLS ════════ */}
+          {tab === "skills" && (
+            <div className="pd-body">
+              <div className="pd-main">
+                <div className="pd-section">
+                  <SectionHead label="Skill Distribution" right="based on solved problems" />
+                  <div style={{ display: "flex", gap: 32, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <SkillRadar skills={skillData} />
+                    <div style={{ flex: 1, minWidth: 200, paddingTop: 8 }}>
+                      <div className="pd-diff-table">
+                        {skillData.map(({ label, value }) => (
+                          <div key={label} className="pd-diff-tr">
+                            <span className="pd-diff-name" style={{ color: "var(--muted)", width: 56 }}>{label}</span>
+                            <Bar value={value} max={100} color="var(--orange)" />
+                            <span className="pd-diff-frac" style={{ color: "var(--orange)" }}><strong>{value}</strong></span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pd-section">
+                  <SectionHead label="Problem Breakdown" />
+                  {diffRows.map((row) => (
+                    <div key={row.label} className="pd-diff-tr">
+                      <span className="pd-diff-name" style={{ color: row.color }}>{row.label}</span>
+                      <Bar value={row.solved} max={row.total} color={row.color} />
+                      <span className="pd-diff-frac"><strong>{row.solved}</strong> / {row.total}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pd-sidebar">
+                <div className="pd-section">
+                  <SectionHead label="Top Skills" />
+                  {skillData.sort((a, b) => b.value - a.value).map(({ label, value }) => (
+                    <div key={label} className="pd-skill-row">
+                      <span className="pd-skill-name">{label}</span>
+                      <div style={{ flex: 1 }}>
+                        <Bar value={value} max={100} color="var(--orange)" />
+                      </div>
+                      <span className="pd-skill-score">{value}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="pd-section">
+                  <SectionHead label="Languages" />
+                  <div className="pd-lang-row">
+                    {languages.map((l) => (
+                      <span key={l} className="pd-lang-pill" style={{ color: langColors[l] || "var(--muted)", borderColor: langColors[l] ? `${langColors[l]}44` : undefined }}>
+                        {l}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ════════ CERTS ════════ */}
+          {tab === "certs" && (
+            <div className="pd-body">
+              <div className="pd-main">
+                <div className="pd-section">
+                  <SectionHead label="Certifications & Completions" right={`${certifications.length} earned`} />
+                  {certifications.map((c) => (
+                    <div key={c.title} className="pd-cert-row">
+                      <div className="pd-cert-icon">{c.badge}</div>
+                      <div>
+                        <div className="pd-cert-title">{c.title}</div>
+                        <div className="pd-cert-date">{c.date}</div>
+                      </div>
+                      <div className="pd-cert-badge">✓ Completed</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pd-section">
+                  <SectionHead label="Achievements" right={`${badges.length} earned`} />
+                  <div className="pd-badge-list">
+                    {badges.map((b) => (
+                      <div key={b.label} className="pd-badge-row">
+                        <span className="pd-badge-emoji">{b.icon}</span>
+                        <span className="pd-badge-name">{b.label}</span>
+                        <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--green)" }}>Earned</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pd-sidebar">
+                <div className="pd-section">
+                  <SectionHead label="Summary" />
+                  {[
+                    { lbl: "Certs",      val: certifications.length, color: "var(--orange)" },
+                    { lbl: "Badges",     val: badges.length,         color: "var(--orange)" },
+                    { lbl: "Solved",     val: stats.total,           color: "var(--green)"  },
+                    { lbl: "Rank",       val: `#${stats.rank}`,      color: "var(--orange)" },
+                  ].map(({ lbl, val, color }) => (
+                    <div key={lbl} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid var(--line)" }}>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--dim)", letterSpacing: 1.5, textTransform: "uppercase" }}>{lbl}</span>
+                      <span style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── EXPORT ROW ── */}
+          <div className="pd-export-row">
+            <button className="pd-export-btn primary" onClick={() => window.print()}>
+              ↓ Export PDF
+            </button>
+            <button className="pd-export-btn" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+              ↗ Copy Link
+            </button>
+            <span className="pd-export-note">
+              Profile last updated · {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+          </div>
+
+        </div>
+      </div>
+    </>
   );
 }

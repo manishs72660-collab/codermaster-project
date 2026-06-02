@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, ShieldCheck } from 'lucide-react';
+import { Plus, Edit, Trash2, ShieldCheck ,Video} from 'lucide-react';
 import { NavLink } from 'react-router';
 
 function Admin() {
@@ -57,6 +57,18 @@ function Admin() {
       accentBg: '#0d1a2e',
       accentBorder: '#1c2a3a',
       tag: 'ACCESS',
+    },
+    {
+      id: 'video',
+      title: 'Video Problem',
+      description: 'Upload And Delete Videos',
+      icon: Video,
+      color: 'btn-success',
+       accent: '#4493f8',
+      accentBg: '#0d1a2e',
+      accentBorder: '#1c2a3a',
+      tag: 'ACCESS',
+      route: '/admin/video'
     },
   ];
 

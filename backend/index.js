@@ -9,6 +9,7 @@ const client=require("./config/redis")
 const problemRouter=require("./routes/problemCreator");
 const submitroute=require("./routes/submitroute");
 const airoute=require("./routes/aichat");
+const videoRouter=require("./routes/videocreator");
 require('dotenv').config()
 const cors = require('cors')
 const app=express();
@@ -25,6 +26,7 @@ app.use("/auth",authRouter);
 app.use("/problem",problemRouter);
 app.use("/code",submitroute);
 app.use("/ai",airoute);
+app.use("/video",videoRouter);
 const InitlizeConnection = async ()=>{
     
     try{

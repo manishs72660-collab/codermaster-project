@@ -82,12 +82,26 @@ const SUGGESTIONS = [
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 function ChatAi({ problem }) {
-  console.log(problem);
-  const [messages, setMessages] = useState([{
+  const storageKey = `ai-chat-${problem?.title || "default"}`;
+ const getInitialMessages = () => {
+  const saved = sessionStorage.getItem(storageKey);
+
+  if (saved) {
+    return JSON.parse(saved);
+  }
+
+  return [{
     role: "model",
-    parts: [{ text: `Hello! I'm your **CodeMaster AI** assistant ⚡\n\nI'm here to help you with **${problem?.title || "this problem"}**. Ask me for hints, explanations, complexity analysis, or debugging help!` }],
+    parts: [{
+      text: `Hello! I'm your **CodeMaster AI** assistant ⚡
+
+I'm here to help you with **${problem?.title || "this problem"}**. Ask me for hints, explanations, complexity analysis, or debugging help!`
+    }],
     streaming: false,
-  }]);
+  }];
+};
+
+const [messages, setMessages] = useState(getInitialMessages);
   const [isThinking, setIsThinking]     = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [charCount, setCharCount]       = useState(0);
@@ -97,7 +111,18 @@ function ChatAi({ problem }) {
   const msgVal = watch("message", "");
 
   useEffect(() => { setCharCount(msgVal?.length || 0); }, [msgVal]);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [messages, isThinking]);
+useEffect(() => {
+  endRef.current?.scrollIntoView({ behavior:"smooth" });
+}, [messages, isThinking]);
+
+useEffect(() => {
+  const cleanMessages = messages.map(msg => ({
+    ...msg,
+    streaming: false,
+  }));
+
+  sessionStorage.setItem(storageKey, JSON.stringify(cleanMessages));
+}, [messages, storageKey]);
 
 const sendMessage = async (text) => {
   if (!text?.trim()) return;

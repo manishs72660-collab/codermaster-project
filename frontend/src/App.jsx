@@ -7,6 +7,7 @@ import { checkAuth } from "./authSlice";
 import { useEffect } from "react";
 import ProblemPage from "./pages/editor";
 import { fetchUserState } from "./userslice";
+import { fetchProblems } from "./problemslice";
 import BinarySearchVisualizer from "./pages/visu";
 import Admin from "./pages/admin";
 import AdminPanel from "./component/creat";
@@ -16,6 +17,9 @@ import ProfileDashboard from "./component/profile";
 import Profiledad from "./pages/profile";
 import ContactPage from "./pages/connect";
 import ContestPage from "./pages/context";
+import AdminVideo from "./component/adminvideo";
+import AdminUpload from "./component/Adminupload";
+import ArenaChat from "./component/discord"
 function App(){
   const dispatch = useDispatch();
   const {isAuthenticated,user} = useSelector((state)=>state.auth);
@@ -24,6 +28,7 @@ function App(){
   useEffect(() => {
     dispatch(checkAuth());
     dispatch(fetchUserState());
+    dispatch(fetchProblems());
   }, [dispatch]);
 
 const MOCK_USER = {
@@ -73,6 +78,9 @@ const MOCK_USER = {
       <Route path="/explore" element={<Explore></Explore>}></Route>
       <Route path="/discuss" element={<ContactPage></ContactPage>}></Route>
       <Route path="/contest" element={<ContestPage></ContestPage>}></Route>
+      <Route path="/admin/video" element={<AdminVideo></AdminVideo>}></Route>
+      <Route path="/admin/upload/:problemId" element={<AdminUpload></AdminUpload>}/>
+      <Route path="/arechat" element={<ArenaChat/>}></Route>
     </Routes>
   </>
   )
