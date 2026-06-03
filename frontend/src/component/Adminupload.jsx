@@ -8,7 +8,7 @@ function AdminUpload() {
 
   const { problemId } = useParams();
 
-  console.log("Problem ID:", problemId);
+  // console.log("Problem ID:", problemId);
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);

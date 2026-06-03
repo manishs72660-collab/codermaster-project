@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 const exploreCards = [
   {
     id: "dsa-visualizer",
@@ -417,7 +418,9 @@ export default function Explore() {
           <span className="ex-logo-text">CodeMaster</span>
           <div className="ex-nav-sep" />
           <span className="ex-nav-crumb">
-            Home / <span>Explore</span>
+            <NavLink  to={`/`}>
+            Home  </NavLink>/ <span>Explore</span>
+           
           </span>
           <div className="ex-topbar-right">
             <input className="ex-search" placeholder="Search topics…" />

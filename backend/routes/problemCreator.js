@@ -4,12 +4,13 @@ const problemRouter =  express.Router();
 const adminmiddleware=require("../middleware/adminmiddleware");
 const userAuth=require("../middleware/userauth");
 const createProblem=require("../controller/userproblem");
-const {updateproblem,deleteproblem,getProblemById,getAllProblem,problemsearch}=require("../controller/update");
+const {updateproblem,deleteproblem,getProblemById,getAllProblem,problemsearch,getProblemforadmin}=require("../controller/update");
 
 // Create
 problemRouter.post("/create",adminmiddleware ,createProblem);
 problemRouter.put("/updateproblem/:id",adminmiddleware,updateproblem);
 problemRouter.delete("/deleteproblem/:id",adminmiddleware,deleteproblem);
+problemRouter.get("/admin/:id",adminmiddleware,getProblemforadmin)
 
 
 problemRouter.get("/:id",userAuth,getProblemById);

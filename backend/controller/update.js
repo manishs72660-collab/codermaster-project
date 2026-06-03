@@ -7,7 +7,6 @@ const updateproblem=async(req,res)=>{
     visibleTestCases,hiddenTestCases,startCode,
     referenceSolution, problemCreator
    } = req.body;
-
   try{
 
      if(!id){
@@ -86,6 +85,21 @@ const deleteproblem=async(req,res)=>{
      
     res.status(500).send("Error: "+err);
    }
+}
+
+const getProblemforadmin=async(req,res)=>{
+    const { id } = req.params;
+    try {
+    if (!id)
+      return res.status(400).send("ID is Missing");
+
+    const getProblem = await Problem.findById(id)
+    if (!getProblem)
+      return res.status(404).send("Problem is Missing");
+    res.status(200).send(getProblem);
+  } catch (err) {
+    res.status(500).send("Error: " + err);
+  }
 }
 
 const getProblemById = async (req, res) => {
@@ -204,4 +218,4 @@ const problemsearch=async (req, res) => {
 };
 
 
-module.exports={updateproblem,deleteproblem,getProblemById,getAllProblem,problemsearch};
+module.exports={updateproblem,deleteproblem,getProblemById,getAllProblem,problemsearch,getProblemforadmin};

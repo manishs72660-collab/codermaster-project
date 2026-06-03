@@ -3,22 +3,10 @@ import axiosClient from '../utils/axiosClient'
 import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
 
-const AdminVideo = () => {
+const Updateproblem = () => {
     const { problems, loading, error } = useSelector(
   (state) => state.problem
 );
-console.log(problems);
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this problem?')) return;
-    
-    try {
-      await axiosClient.delete(`/video/delete/${id}`);
-      setProblems(problems.filter(problem => problem._id !== id));
-    } catch (err) {
-      setError(err);
-      console.log(err);
-    }
-  };
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -42,7 +30,7 @@ console.log(problems);
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Video Upload and Delete</h1>
+        <h1 className="text-3xl font-bold">update problem</h1>
       </div>
 
       <div className="overflow-x-auto">
@@ -80,21 +68,11 @@ console.log(problems);
                 <td>
                   <div className="flex space-x-1">
                      <NavLink 
-                        to={`/admin/upload/${problem._id}`}
+                        to={`/admin/update/${problem._id}`}
                         className={`btn bg-blue-600`}
                         >
-                        Upload
+                       Update
                     </NavLink>
-                  </div>
-                </td>
-                <td>
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => handleDelete(problem._id)}
-                      className="btn btn-sm btn-error"
-                    >
-                      Delete
-                    </button>
                   </div>
                 </td>
               </tr>
@@ -106,4 +84,4 @@ console.log(problems);
   );
 };
 
-export default AdminVideo;
+export default Updateproblem;

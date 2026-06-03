@@ -3,7 +3,7 @@ const solveDoubt = async (req, res) => {
   try {
     const { messages, title, description, testCases, startCode } = req.body;
 
-    const ai = new GoogleGenAI({ apiKey:"<>"});
+    const ai = new GoogleGenAI({ apiKey:"AIzaSyA9u0gH8Hs7ZFb42nPqqTTmCTJ5q3_fOZ8"});
     const formattedMessages = messages.map((msg) => ({
       role: msg.role,
       parts: msg.parts,

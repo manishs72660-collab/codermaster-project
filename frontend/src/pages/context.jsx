@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { NavLink } from "react-router";
 
 // ── MOCK DATA ─────────────────────────────────────────────────────────────────
 const NOW = Date.now();
@@ -433,7 +434,10 @@ export default function ContestPage() {
           <div className="ct-logo">⌨</div>
           <span className="ct-logo-t">CodeMaster</span>
           <div className="ct-sep" />
-          <span className="ct-crumb">Home / <span>Contest</span></span>
+          <span className="ct-crumb">
+            <NavLink to={"/"}>
+            Home /
+            </NavLink> <span>Contest</span></span>
           <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
             <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, fontWeight:700, color:"#ffa116", background:"#1e1608", border:"1px solid #3a2e0f", borderRadius:20, padding:"2px 10px" }}>
               Rating: {MY_STATS.contestRating}

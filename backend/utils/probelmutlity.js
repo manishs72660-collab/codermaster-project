@@ -1,44 +1,33 @@
 const axios = require('axios');
 
-const BASE_URL = "https://ce.judge0.com"; 
+const BASE_URL = "https://ce.judge0.com";
+
 const getLanguageById = (lang) => {
   const language = {
     "c++": 54,
     "java": 62,
     "javascript": 63
   };
-  return language[lang.toLowerCase()];
+  const id = language[lang.toLowerCase()];
+  if (!id) throw new Error(`Unsupported language: ${lang}`);
+  return id;
 };
 
 const submitBatch = async (submissions) => {
-
   const options = {
     method: 'POST',
     url: `${BASE_URL}/submissions/batch`,
-    params: {
-      base64_encoded: 'false'
-    },
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    data: {
-      submissions
-    }
+    params: { base64_encoded: 'false' },
+    headers: { 'Content-Type': 'application/json' },
+    data: { submissions }
   };
-
-  try {
-    const response = await axios.request(options);
-    return response.data;
-  } catch (error) {
-    console.error(error);
-  }
+  const response = await axios.request(options);
+  return response.data;
 };
 
-const waiting = (ms) => {
-  return new Promise(resolve => setTimeout(resolve, ms));
-};
+const waiting = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const submitToken = async (resultToken) => {
-
   const options = {
     method: 'GET',
     url: `${BASE_URL}/submissions/batch`,
@@ -49,24 +38,13 @@ const submitToken = async (resultToken) => {
     }
   };
 
-const waiting = (ms) => new Promise(res => setTimeout(res, ms));
-while (true) {
-  try {
+  while (true) {
     const response = await axios.request(options);
     const result = response.data;
-    const isResultObtained = result.submissions.every(
-      (r) => r.status_id > 2
-    );
-
-    if (isResultObtained) {
-      return result.submissions;
-    }
-
+    const isResultObtained = result.submissions.every((r) => r.status_id > 2);
+    if (isResultObtained) return result.submissions;
     await waiting(1000);
-  } catch (error) {
-     res.send("error occured");
   }
-}
 };
 
 module.exports = { getLanguageById, submitBatch, submitToken };

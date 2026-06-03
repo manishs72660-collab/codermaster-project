@@ -13,13 +13,15 @@ import Admin from "./pages/admin";
 import AdminPanel from "./component/creat";
 import DSAVisualizer from "./pages/visu";
 import Explore from "./pages/expore";
-import ProfileDashboard from "./component/profile";
 import Profiledad from "./pages/profile";
 import ContactPage from "./pages/connect";
 import ContestPage from "./pages/context";
 import AdminVideo from "./component/adminvideo";
 import AdminUpload from "./component/Adminupload";
 import ArenaChat from "./component/discord"
+import Updateproblem from "./component/updatepeoblem";
+import AdminUpdate from "./component/Adminupdate";
+import Profilepage from "./component/profile"
 function App(){
   const dispatch = useDispatch();
   const {isAuthenticated,user} = useSelector((state)=>state.auth);
@@ -71,7 +73,7 @@ const MOCK_USER = {
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
       <Route path="/signup" element={isAuthenticated?<Navigate to="/" />:<Signup></Signup>}></Route>
       <Route path="/problem/:problemId" element={<ProblemPage></ProblemPage>}></Route>
-      <Route path="/profile" element={<ProfileDashboard user={MOCK_USER}></ProfileDashboard>}></Route>
+      <Route path="/profile" element={<Profilepage></Profilepage>}></Route>
         <Route path="/admin" element={isAuthenticated && user?.role == 'admin' ? <Admin /> : <Navigate to="/" />} />
       <Route path="/admin/create" element={isAuthenticated && user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" />} />
       <Route path="/explore/dsa-visualizer" element={<DSAVisualizer></DSAVisualizer>}></Route>
@@ -81,6 +83,8 @@ const MOCK_USER = {
       <Route path="/admin/video" element={<AdminVideo></AdminVideo>}></Route>
       <Route path="/admin/upload/:problemId" element={<AdminUpload></AdminUpload>}/>
       <Route path="/arechat" element={<ArenaChat/>}></Route>
+      <Route path="/admin/update" element={<Updateproblem></Updateproblem>}></Route>
+      <Route path="/admin/update/:problemId" element={<AdminUpdate></AdminUpdate>}/>
     </Routes>
   </>
   )

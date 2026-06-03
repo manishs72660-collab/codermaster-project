@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, use } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'motion/react';
@@ -40,7 +40,7 @@ function Homepage() {
   const dispatch  = useDispatch();
   const { user }  = useSelector((s) => s.auth);
   const { stats } = useSelector((s) => s.userState);
-
+ console.log(stats);
   //const [problems, setProblems]             = useState([]);
   const { problems, loading, error } = useSelector(
   (state) => state.problem
