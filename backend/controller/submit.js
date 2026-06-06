@@ -8,7 +8,7 @@ const submitCode = async (req, res) => {
   try {
     const userId = req.result._id;
     const problemId = req.params.id;
-    const { code, language: rawLanguage } = req.body; // ✅ fixed const reassignment
+    const { code, language: rawLanguage } = req.body; 
 
     if (!userId || !code || !problemId || !rawLanguage)
       return res.status(400).json({ message: "Some fields missing" });
