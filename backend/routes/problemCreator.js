@@ -3,7 +3,7 @@ const express = require('express');
 const problemRouter =  express.Router();
 const adminmiddleware=require("../middleware/adminmiddleware");
 const userAuth=require("../middleware/userauth");
-const createProblem=require("../controller/userproblem");
+const {createProblem,buildFullCode}=require("../controller/userproblem");
 const {updateproblem,deleteproblem,getProblemById,getAllProblem,problemsearch,getProblemforadmin}=require("../controller/update");
 
 // Create

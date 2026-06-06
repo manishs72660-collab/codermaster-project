@@ -50,12 +50,16 @@ const ProblemPage = () => {
       setLoading(true);
       try {
         const response = await axiosClient.get(`/problem/${problemId}`);
-        const initialCode = response.data.startCode.find((sc) => {
-          if (sc.language == "C++" && selectedLanguage == 'cpp') return true;
-          else if (sc.language == "Java" && selectedLanguage == 'java') return true;
-          else if (sc.language == "Javascript" && selectedLanguage == 'javascript') return true;
-          return false;
-        })?.initialCode || '';
+        // const initialCode = response.data.startCode.find((sc) => {
+        //   if (sc.language == "C++" && selectedLanguage == 'cpp') return true;
+        //   else if (sc.language == "Java" && selectedLanguage == 'java') return true;
+        //   else if (sc.language == "Javascript" && selectedLanguage == 'javascript') return true;
+        //   return false;
+        // })?.initialCode || '';
+        const initialCode = response.data.startCode.find(
+  (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
+          (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
+)?.initialCode || '';
         setProblem(response.data);
         setCode(initialCode);
         setLoading(false);
@@ -69,7 +73,10 @@ const ProblemPage = () => {
 
   useEffect(() => {
     if (problem) {
-      const initialCode = problem.startCode.find(sc => sc.language === selectedLanguage)?.initialCode || '';
+      const initialCode = problem.startCode.find(
+  (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
+          (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
+)?.initialCode || '';
       setCode(initialCode);
     }
   }, [selectedLanguage, problem]);
@@ -87,6 +94,7 @@ const ProblemPage = () => {
   const handleRun = async () => {
     setLoading(true);
     setRunResult(null);
+    console.log("Running:", { code, language: selectedLanguage }); 
     try {
       const response = await axiosClient.post(`/code/runcode/${problemId}`, { code, language: selectedLanguage });
       setRunResult(response.data);
@@ -102,6 +110,7 @@ const ProblemPage = () => {
   const handleSubmitCode = async () => {
     setLoading(true);
     setSubmitResult(null);
+    console.log("Submitting:", { code, language: selectedLanguage });
     try {
       const response = await axiosClient.post(`/code/submit/${problemId}`, { code, language: selectedLanguage });
       setSubmitResult(response.data);
@@ -846,7 +855,7 @@ const ProblemPage = () => {
                         <span style={{ fontSize: 12 }}>{problem.title}</span>
                         <span className="lc-code-lang-badge">{sol.language}</span>
                       </div>
-                      <pre><code>{sol.completeCode}</code></pre>
+                      <pre><code>{sol.solutionCode || sol.completeCode}</code></pre>
                     </div>
                   ))
                 ) : (

@@ -22,6 +22,7 @@ import ArenaChat from "./component/discord"
 import Updateproblem from "./component/updatepeoblem";
 import AdminUpdate from "./component/Adminupdate";
 import Profilepage from "./component/profile"
+import { HLDComponentsDemo } from "./component/hld";
 function App(){
   const dispatch = useDispatch();
   const {isAuthenticated,user} = useSelector((state)=>state.auth);
@@ -85,6 +86,7 @@ const MOCK_USER = {
       <Route path="/arechat" element={<ArenaChat/>}></Route>
       <Route path="/admin/update" element={<Updateproblem></Updateproblem>}></Route>
       <Route path="/admin/update/:problemId" element={<AdminUpdate></AdminUpdate>}/>
+      <Route path="/hld" element={<HLDComponentsDemo></HLDComponentsDemo>}></Route>
     </Routes>
   </>
   )

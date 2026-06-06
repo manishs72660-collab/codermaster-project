@@ -28,10 +28,20 @@ const problemSchema = z.object({
       initialCode: z.string().min(1, 'Initial code is required')
     })
   ).min(1, 'At least one language required'),
+
+  // ✅ NEW: driver boilerplate per language
+  driverCode: z.array(
+    z.object({
+      language: z.enum(['c++', 'javascript']),
+      code: z.string().min(1, 'Driver code is required')
+    })
+  ).min(1, 'At least one driver code required'),
+
+  // ✅ CHANGED: solutionCode = function only (no I/O boilerplate)
   referenceSolution: z.array(
     z.object({
       language: z.enum(['c++', 'javascript']),
-      completeCode: z.string().min(1, 'Complete code is required')
+      solutionCode: z.string().min(1, 'Solution code is required')
     })
   ).min(1, 'At least one solution required')
 });
@@ -47,12 +57,22 @@ function AdminPanel() {
     resolver: zodResolver(problemSchema),
     defaultValues: {
       startCode: [
-        { language: 'c++', initialCode: '' },
-        { language: 'javascript', initialCode: '' }
+        { language: 'c++',        initialCode: 'int linearSearch(vector<int>& nums, int target) {\n    // Write your code here\n}' },
+        { language: 'javascript', initialCode: 'function linearSearch(nums, target) {\n  // Write your code here\n}' }
+      ],
+      driverCode: [
+        {
+          language: 'c++',
+          code: 'int main() {\n    string line;\n    getline(cin, line);\n    vector<int> nums;\n    int num = 0; bool inNumber = false;\n    for (char c : line) {\n        if (isdigit(c)) { num = num*10+(c-\'0\'); inNumber=true; }\n        else if (inNumber) { nums.push_back(num); num=0; inNumber=false; }\n    }\n    if (inNumber) nums.push_back(num);\n    int target; cin >> target;\n    cout << linearSearch(nums, target);\n    return 0;\n}'
+        },
+        {
+          language: 'javascript',
+          code: "const fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8').trim().split('\\n');\nconst nums = JSON.parse(input[0]);\nconst target = parseInt(input[1]);\nconsole.log(linearSearch(nums, target));"
+        }
       ],
       referenceSolution: [
-        { language: 'c++', completeCode: '' },
-        { language: 'javascript', completeCode: '' }
+        { language: 'c++',        solutionCode: '' },
+        { language: 'javascript', solutionCode: '' }
       ]
     }
   });
@@ -81,7 +101,7 @@ function AdminPanel() {
   };
 
   const languages = [
-    { value: 'c++', label: 'C++' },
+    { value: 'c++',        label: 'C++' },
     { value: 'javascript', label: 'JavaScript' }
   ];
 
@@ -97,10 +117,9 @@ function AdminPanel() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
 
-          {/* Basic Information */}
+          {/* ── Basic Information ── */}
           <div className="bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl">
             <h2 className="text-2xl font-semibold mb-6">Basic Information</h2>
-
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-white/70 mb-2">Title</label>
@@ -111,9 +130,7 @@ function AdminPanel() {
                     errors?.title ? "border-red-500" : "border-white/10 focus:border-orange-500"
                   }`}
                 />
-                {errors?.title && (
-                  <p className="text-red-400 text-sm mt-2">{errors.title.message}</p>
-                )}
+                {errors?.title && <p className="text-red-400 text-sm mt-2">{errors.title.message}</p>}
               </div>
 
               <div>
@@ -126,9 +143,7 @@ function AdminPanel() {
                     errors?.description ? "border-red-500" : "border-white/10 focus:border-orange-500"
                   }`}
                 />
-                {errors?.description && (
-                  <p className="text-red-400 text-sm mt-2">{errors.description.message}</p>
-                )}
+                {errors?.description && <p className="text-red-400 text-sm mt-2">{errors.description.message}</p>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -143,7 +158,6 @@ function AdminPanel() {
                     <option value="hard">Hard</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-white/70 mb-2">Tag</label>
                   <select
@@ -160,7 +174,7 @@ function AdminPanel() {
             </div>
           </div>
 
-          {/* Visible Test Cases */}
+          {/* ── Visible Test Cases ── */}
           <div className="bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-semibold">Visible Test Cases</h2>
@@ -172,48 +186,39 @@ function AdminPanel() {
                 Add Visible Case
               </button>
             </div>
-
-            {errors?.visibleTestCases && (
-              <p className="text-red-400 text-sm mb-4">{errors.visibleTestCases.message}</p>
-            )}
-
+            {errors?.visibleTestCases && <p className="text-red-400 text-sm mb-4">{errors.visibleTestCases.message}</p>}
             <div className="space-y-6">
               {visibleFields.map((field, index) => (
                 <div key={field.id} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-medium text-white/80">Test Case #{index + 1}</h3>
-                    <button
-                      type="button"
-                      onClick={() => removeVisible(index)}
-                      className="text-red-400 hover:text-red-300 text-sm font-medium"
-                    >
-                      Remove
-                    </button>
+                    <button type="button" onClick={() => removeVisible(index)} className="text-red-400 hover:text-red-300 text-sm font-medium">Remove</button>
                   </div>
                   <div className="space-y-4">
-                    <input
-                      {...register(`visibleTestCases.${index}.input`)}
-                      placeholder="Input"
-                      className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none"
-                    />
-                    <input
-                      {...register(`visibleTestCases.${index}.output`)}
-                      placeholder="Output"
-                      className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none"
-                    />
-                    <textarea
-                      {...register(`visibleTestCases.${index}.explanation`)}
-                      rows={3}
-                      placeholder="Explanation"
-                      className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none resize-none"
-                    />
-                  </div>
+  <textarea
+    {...register(`visibleTestCases.${index}.input`)}
+    rows={3}
+    placeholder={"[4,2,7,1,9]\n7"}
+    className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none resize-none font-mono text-sm"
+  />
+  <input
+    {...register(`visibleTestCases.${index}.output`)}
+    placeholder="Output"
+    className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none"
+  />
+  <textarea
+    {...register(`visibleTestCases.${index}.explanation`)}
+    rows={3}
+    placeholder="Explanation"
+    className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none resize-none"
+  />
+</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Hidden Test Cases */}
+          {/* ── Hidden Test Cases ── */}
           <div className="bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-semibold">Hidden Test Cases</h2>
@@ -225,44 +230,38 @@ function AdminPanel() {
                 Add Hidden Case
               </button>
             </div>
-
-            {errors?.hiddenTestCases && (
-              <p className="text-red-400 text-sm mb-4">{errors.hiddenTestCases.message}</p>
-            )}
-
+            {errors?.hiddenTestCases && <p className="text-red-400 text-sm mb-4">{errors.hiddenTestCases.message}</p>}
             <div className="space-y-6">
               {hiddenFields.map((field, index) => (
                 <div key={field.id} className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-medium text-white/80">Hidden Case #{index + 1}</h3>
-                    <button
-                      type="button"
-                      onClick={() => removeHidden(index)}
-                      className="text-red-400 hover:text-red-300 text-sm font-medium"
-                    >
-                      Remove
-                    </button>
+                    <button type="button" onClick={() => removeHidden(index)} className="text-red-400 hover:text-red-300 text-sm font-medium">Remove</button>
                   </div>
-                  <div className="space-y-4">
-                    <input
-                      {...register(`hiddenTestCases.${index}.input`)}
-                      placeholder="Input"
-                      className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none"
-                    />
-                    <input
-                      {...register(`hiddenTestCases.${index}.output`)}
-                      placeholder="Output"
-                      className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none"
-                    />
-                  </div>
+                 <div className="space-y-4">
+  <textarea
+    {...register(`hiddenTestCases.${index}.input`)}
+    rows={3}
+    placeholder={"[4,2,7,1,9]\n7"}
+    className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none resize-none font-mono text-sm"
+  />
+  <input
+    {...register(`hiddenTestCases.${index}.output`)}
+    placeholder="Output"
+    className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 focus:border-orange-500 outline-none"
+  />
+</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Code Templates */}
+          {/* ── Code Templates ── */}
           <div className="bg-[#111111] border border-white/10 rounded-3xl p-8 shadow-2xl">
-            <h2 className="text-2xl font-semibold mb-8">Code Templates</h2>
+            <h2 className="text-2xl font-semibold mb-2">Code Templates</h2>
+            <p className="text-white/40 text-sm mb-8 font-mono">
+              Each language needs 3 things: what the user sees, the I/O driver, and your reference solution function.
+            </p>
 
             <div className="space-y-10">
               {languages.map(({ value, label }, index) => (
@@ -270,37 +269,58 @@ function AdminPanel() {
                   <h3 className="text-xl font-semibold mb-6 text-orange-500">{label}</h3>
 
                   <div className="space-y-6">
+
+                    {/* Initial Code — shown to user */}
                     <div>
-                      <label className="block text-sm font-medium text-white/70 mb-2">
-                        Initial Code
+                      <label className="block text-sm font-medium text-white/70 mb-1">
+                        Initial Code <span className="text-white/30 font-normal">(shown to user — function signature only)</span>
                       </label>
                       <textarea
                         {...register(`startCode.${index}.initialCode`)}
-                        rows={8}
+                        rows={6}
                         className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 font-mono text-sm outline-none resize-none focus:border-orange-500"
                       />
                       {errors?.startCode?.[index]?.initialCode && (
-                        <p className="text-red-400 text-sm mt-2">
-                          {errors.startCode[index].initialCode.message}
-                        </p>
+                        <p className="text-red-400 text-sm mt-2">{errors.startCode[index].initialCode.message}</p>
                       )}
                     </div>
 
+                    {/* Driver Code — backend only */}
                     <div>
-                      <label className="block text-sm font-medium text-white/70 mb-2">
-                        Reference Solution
+                      <label className="block text-sm font-medium text-white/70 mb-1">
+                        Driver Code <span className="text-white/30 font-normal">(never shown to user — reads stdin, calls function, prints output)</span>
                       </label>
+                      <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg px-4 py-2 mb-2 text-xs text-orange-300/70 font-mono">
+                        ⚠ This is injected by your backend before sending to Judge0. Do not include the function here.
+                      </div>
                       <textarea
-                        {...register(`referenceSolution.${index}.completeCode`)}
+                        {...register(`driverCode.${index}.code`)}
+                        rows={8}
+                        className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 font-mono text-sm outline-none resize-none focus:border-orange-500"
+                      />
+                      {errors?.driverCode?.[index]?.code && (
+                        <p className="text-red-400 text-sm mt-2">{errors.driverCode[index].code.message}</p>
+                      )}
+                    </div>
+
+                    {/* Reference Solution — function only */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/70 mb-1">
+                        Reference Solution <span className="text-white/30 font-normal">(function only — no I/O boilerplate)</span>
+                      </label>
+                      <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-4 py-2 mb-2 text-xs text-green-300/70 font-mono">
+                        ✓ Backend will wrap this with Driver Code above to validate against test cases.
+                      </div>
+                      <textarea
+                        {...register(`referenceSolution.${index}.solutionCode`)}
                         rows={10}
                         className="w-full bg-[#0d0d0d] border border-white/10 rounded-xl px-4 py-3 font-mono text-sm outline-none resize-none focus:border-orange-500"
                       />
-                      {errors?.referenceSolution?.[index]?.completeCode && (
-                        <p className="text-red-400 text-sm mt-2">
-                          {errors.referenceSolution[index].completeCode.message}
-                        </p>
+                      {errors?.referenceSolution?.[index]?.solutionCode && (
+                        <p className="text-red-400 text-sm mt-2">{errors.referenceSolution[index].solutionCode.message}</p>
                       )}
                     </div>
+
                   </div>
                 </div>
               ))}

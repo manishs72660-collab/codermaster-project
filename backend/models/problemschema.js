@@ -63,19 +63,19 @@ const problemSchema = new Schema({
             }
         }
     ],
-
-    referenceSolution:[
+driverCode: [
         {
-            language:{
-                type:String,
-                required:true,
-            },
-            completeCode:{
-                type:String,
-                required:true
-            }
+            language: { type: String, required: true },
+            code: { type: String, required: true }
         }
     ],
+    referenceSolution: [
+    {
+        language: { type: String, required: true },
+        completeCode: { type: String },   // ✅ removed required
+        solutionCode: { type: String }    // ✅ added
+    }
+],
 
     problemCreator:{
         type: Schema.Types.ObjectId,
