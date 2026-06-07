@@ -45,23 +45,24 @@ const ProblemPage = () => {
 
   const { handleSubmit } = useForm();
 
+  // ─── FETCH PROBLEM (loads saved code from localStorage first) ───
   useEffect(() => {
     const fetchProblem = async () => {
       setLoading(true);
       try {
         const response = await axiosClient.get(`/problem/${problemId}`);
-        // const initialCode = response.data.startCode.find((sc) => {
-        //   if (sc.language == "C++" && selectedLanguage == 'cpp') return true;
-        //   else if (sc.language == "Java" && selectedLanguage == 'java') return true;
-        //   else if (sc.language == "Javascript" && selectedLanguage == 'javascript') return true;
-        //   return false;
-        // })?.initialCode || '';
         const initialCode = response.data.startCode.find(
-  (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
-          (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
-)?.initialCode || '';
+          (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
+                  (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
+        )?.initialCode || '';
+
         setProblem(response.data);
-        setCode(initialCode);
+
+        // Restore saved code from localStorage, fall back to starter code
+        const savedKey = `code_${problemId}_${selectedLanguage}`;
+        const savedCode = localStorage.getItem(savedKey);
+        setCode(savedCode !== null ? savedCode : initialCode);
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching problem:', error);
@@ -71,17 +72,34 @@ const ProblemPage = () => {
     fetchProblem();
   }, [problemId]);
 
+  // ─── LANGUAGE SWITCH (restores saved code per language) ───
   useEffect(() => {
     if (problem) {
-      const initialCode = problem.startCode.find(
-  (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
-          (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
-)?.initialCode || '';
-      setCode(initialCode);
+      const savedKey = `code_${problemId}_${selectedLanguage}`;
+      const savedCode = localStorage.getItem(savedKey);
+
+      if (savedCode !== null) {
+        // User has previously written code for this language — restore it
+        setCode(savedCode);
+      } else {
+        // No saved code yet — load the starter template
+        const initialCode = problem.startCode.find(
+          (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
+                  (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
+        )?.initialCode || '';
+        setCode(initialCode);
+      }
     }
   }, [selectedLanguage, problem]);
 
-  const handleEditorChange = (value) => setCode(value || '');
+  // ─── EDITOR CHANGE (saves to localStorage on every keystroke) ───
+  const handleEditorChange = (value) => {
+    const newCode = value || '';
+    setCode(newCode);
+    const savedKey = `code_${problemId}_${selectedLanguage}`;
+    localStorage.setItem(savedKey, newCode);
+  };
+
   const handleEditorDidMount = (editor) => { editorRef.current = editor; };
 
   useEffect(() => {
@@ -94,7 +112,7 @@ const ProblemPage = () => {
   const handleRun = async () => {
     setLoading(true);
     setRunResult(null);
-    console.log("Running:", { code, language: selectedLanguage }); 
+    console.log("Running:", { code, language: selectedLanguage });
     try {
       const response = await axiosClient.post(`/code/runcode/${problemId}`, { code, language: selectedLanguage });
       setRunResult(response.data);
@@ -121,6 +139,18 @@ const ProblemPage = () => {
       setLoading(false);
       setActiveRightTab('result');
     }
+  };
+
+  // ─── RESET TO STARTER CODE ───
+  const handleResetCode = () => {
+    if (!problem) return;
+    const initialCode = problem.startCode.find(
+      (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
+              (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
+    )?.initialCode || '';
+    setCode(initialCode);
+    const savedKey = `code_${problemId}_${selectedLanguage}`;
+    localStorage.removeItem(savedKey);
   };
 
   const getLanguageForMonaco = (lang) => {
@@ -195,7 +225,6 @@ const ProblemPage = () => {
           font-family: 'Outfit', system-ui, sans-serif;
         }
 
-        /* ─── ROOT ─── */
         .lc-root {
           background: var(--bg);
           color: var(--text);
@@ -205,7 +234,6 @@ const ProblemPage = () => {
           position: relative;
         }
 
-        /* Subtle scanline texture */
         .lc-root::after {
           content: '';
           position: fixed; inset: 0;
@@ -219,7 +247,6 @@ const ProblemPage = () => {
           pointer-events: none; z-index: 0;
         }
 
-        /* ─── TOPBAR ─── */
         .lc-topbar {
           height: 52px;
           background: rgba(22,27,34,0.97);
@@ -229,7 +256,6 @@ const ProblemPage = () => {
           padding: 0 18px;
           flex-shrink: 0; z-index: 200; position: relative;
         }
-        /* accent glow line under topbar */
         .lc-topbar::after {
           content: '';
           position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
@@ -252,7 +278,6 @@ const ProblemPage = () => {
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
 
-        /* center: problem breadcrumb */
         .lc-topbar-center {
           position: absolute; left: 50%; transform: translateX(-50%);
           display: flex; align-items: center; gap: 8px;
@@ -274,10 +299,8 @@ const ProblemPage = () => {
           border: 1px solid;
         }
 
-        /* top-right actions */
         .lc-topbar-right { display: flex; align-items: center; gap: 8px; }
 
-        /* ─── BUTTONS ─── */
         .lc-btn {
           display: inline-flex; align-items: center; gap: 6px;
           border: none; cursor: pointer;
@@ -321,7 +344,16 @@ const ProblemPage = () => {
           border-color: var(--border2);
         }
 
-        /* AI & Board floating buttons */
+        .lc-btn-reset {
+          background: transparent; color: var(--text-dim);
+          border: 1px solid var(--border);
+          font-size: 11px; padding: 5px 10px;
+        }
+        .lc-btn-reset:hover:not(:disabled) {
+          background: var(--red-bg); color: var(--red);
+          border-color: rgba(248,81,73,0.35);
+        }
+
         .lc-fab {
           display: inline-flex; align-items: center; gap: 7px;
           border: none; cursor: pointer;
@@ -355,10 +387,8 @@ const ProblemPage = () => {
         }
         @keyframes lc-spin { to { transform: rotate(360deg); } }
 
-        /* ─── BODY ─── */
         .lc-body { flex: 1; display: flex; overflow: hidden; position: relative; z-index: 1; }
 
-        /* ─── LEFT PANEL ─── */
         .lc-left {
           width: 44%; min-width: 360px;
           display: flex; flex-direction: column;
@@ -367,7 +397,6 @@ const ProblemPage = () => {
           overflow: hidden;
         }
 
-        /* ─── TABS ─── */
         .lc-tabs {
           display: flex; align-items: flex-end;
           background: var(--surface);
@@ -391,13 +420,11 @@ const ProblemPage = () => {
         .lc-tab:hover { color: var(--text-muted); }
         .lc-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-        /* ─── SCROLL ─── */
         .lc-scroll { flex: 1; overflow-y: auto; padding: 26px 22px; }
         .lc-scroll::-webkit-scrollbar { width: 4px; }
         .lc-scroll::-webkit-scrollbar-track { background: transparent; }
         .lc-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-        /* ─── PROBLEM TITLE ─── */
         .lc-prob-h1 {
           font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
           margin-bottom: 12px; line-height: 1.25; color: var(--text);
@@ -412,7 +439,6 @@ const ProblemPage = () => {
           letter-spacing: 0.3px;
         }
 
-        /* ─── DESC ─── */
         .lc-desc {
           font-size: 13px; line-height: 1.9;
           color: #9ab0c8; white-space: pre-wrap;
@@ -422,7 +448,6 @@ const ProblemPage = () => {
 
         .lc-hr { height: 1px; background: var(--border); margin: 22px 0; }
 
-        /* ─── EXAMPLES ─── */
         .lc-ex-title {
           font-size: 10.5px; font-weight: 700; color: var(--text-dim);
           letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 14px;
@@ -452,7 +477,6 @@ const ProblemPage = () => {
           font-family: 'JetBrains Mono', monospace; font-style: italic;
         }
 
-        /* ─── CODE BLOCK ─── */
         .lc-code-block {
           background: #0d1117; border: 1px solid var(--border);
           border-radius: var(--r2); overflow: hidden; margin-bottom: 12px;
@@ -474,14 +498,12 @@ const ProblemPage = () => {
           font-size: 12px; line-height: 1.7; color: #c9d1d9; overflow-x: auto;
         }
 
-        /* ─── RIGHT PANEL ─── */
         .lc-right {
           flex: 1; display: flex; flex-direction: column;
           overflow: hidden; min-width: 0;
           background: var(--bg);
         }
 
-        /* ─── LANG BAR ─── */
         .lc-lang-bar {
           display: flex; align-items: center; justify-content: space-between;
           padding: 8px 16px;
@@ -503,7 +525,6 @@ const ProblemPage = () => {
           box-shadow: 0 0 10px var(--accent-glow);
         }
 
-        /* ─── ACTION BAR ─── */
         .lc-action-bar {
           display: flex; align-items: center; justify-content: space-between;
           padding: 10px 16px;
@@ -514,7 +535,6 @@ const ProblemPage = () => {
         .lc-action-left { display: flex; align-items: center; gap: 6px; }
         .lc-action-right { display: flex; align-items: center; gap: 8px; }
 
-        /* ─── RESIZE HANDLE ─── */
         .lc-resize {
           height: 6px; cursor: row-resize;
           background: var(--border);
@@ -531,7 +551,6 @@ const ProblemPage = () => {
         }
         .lc-resize:hover::after { background: var(--accent); }
 
-        /* ─── PANEL (test/result) ─── */
         .lc-panel { flex: 1; overflow-y: auto; padding: 22px 20px; }
         .lc-panel::-webkit-scrollbar { width: 4px; }
         .lc-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
@@ -541,7 +560,6 @@ const ProblemPage = () => {
           letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 16px;
         }
 
-        /* ─── EMPTY STATE ─── */
         .lc-empty {
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
@@ -558,7 +576,6 @@ const ProblemPage = () => {
         .lc-empty-title { font-size: 14px; font-weight: 600; color: var(--text-muted); }
         .lc-empty-sub { font-size: 11.5px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
 
-        /* ─── STATUS BANNER ─── */
         .lc-status-banner {
           display: flex; align-items: center; gap: 12px;
           padding: 15px 18px; border-radius: var(--r2);
@@ -573,7 +590,6 @@ const ProblemPage = () => {
         .lc-status-banner.ok  .lc-status-text { color: var(--green); }
         .lc-status-banner.err .lc-status-text { color: var(--red); }
 
-        /* ─── STATS ─── */
         .lc-stats { display: flex; gap: 10px; margin-bottom: 18px; }
         .lc-stat-card {
           flex: 1;
@@ -591,7 +607,6 @@ const ProblemPage = () => {
         .lc-stat-val { font-size: 24px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
         .lc-stat-unit { font-size: 11px; font-weight: 400; color: var(--text-muted); margin-left: 3px; }
 
-        /* ─── PASS SUMMARY ─── */
         .lc-pass-sum {
           background: var(--surface); border: 1px solid var(--border);
           border-radius: var(--r); padding: 11px 16px; margin-bottom: 16px;
@@ -600,7 +615,6 @@ const ProblemPage = () => {
         }
         .lc-pass-num { font-size: 16px; font-weight: 800; }
 
-        /* ─── TC CARDS ─── */
         .lc-tc-list { display: flex; flex-direction: column; gap: 8px; }
         .lc-tc-card {
           background: var(--surface); border: 1px solid var(--border);
@@ -622,9 +636,6 @@ const ProblemPage = () => {
         .lc-tc-row { color: var(--text-muted); margin-bottom: 4px; line-height: 1.6; font-size: 11.5px; }
         .lc-tc-row span { color: var(--text); }
 
-        /* ─────────────────────────────
-           MODAL OVERLAY (AI + Board)
-        ───────────────────────────── */
         .lc-overlay {
           position: fixed; inset: 0; z-index: 1000;
           background: rgba(9,12,17,0.75);
@@ -634,7 +645,6 @@ const ProblemPage = () => {
         }
         @keyframes lc-fadein { from { opacity: 0; } to { opacity: 1; } }
 
-        /* AI Modal — tall, centered */
         .lc-ai-modal {
           width: min(680px, 92vw);
           height: min(740px, 88vh);
@@ -679,7 +689,6 @@ const ProblemPage = () => {
         .lc-modal-close:hover { background: var(--red-bg); border-color: var(--red); color: var(--red); }
         .lc-ai-body { flex: 1; overflow: hidden; }
 
-        /* Board Modal — wide */
         .lc-board-modal {
           width: min(1060px, 95vw);
           height: min(680px, 90vh);
@@ -707,7 +716,6 @@ const ProblemPage = () => {
         .lc-board-label { font-size: 14px; font-weight: 800; letter-spacing: -0.3px; }
         .lc-board-body { flex: 1; overflow: hidden; }
 
-        /* ─── ANIMATIONS ─── */
         @keyframes lc-anim {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -719,14 +727,11 @@ const ProblemPage = () => {
 
         {/* ─── TOPBAR ─── */}
         <div className="lc-topbar">
-
-          {/* Logo */}
           <div className="lc-logo">
             <div className="lc-logo-mark">⌨</div>
             <span className="lc-logo-name">CodeMaster</span>
           </div>
 
-          {/* Centered Problem Info */}
           {problem && (
             <div className="lc-topbar-center">
               {problem.id && <span className="lc-prob-crumb">#{problem.id}</span>}
@@ -740,25 +745,20 @@ const ProblemPage = () => {
             </div>
           )}
 
-          {/* Right Actions */}
           <div className="lc-topbar-right">
-            {/* AI Chat floating trigger */}
             <button className="lc-fab lc-fab-ai" onClick={() => setShowAiModal(true)}>
               <span style={{ fontSize: 14 }}>✦</span> AI Chat
             </button>
-            {/* Whiteboard trigger */}
             <button className="lc-fab lc-fab-board" onClick={() => setShowBoardModal(true)}>
               <span style={{ fontSize: 13 }}>◫</span> Board
             </button>
             <div style={{ width: 1, height: 20, background: 'var(--border2)', margin: '0 4px' }} />
-            {/* Run */}
             <button className="lc-btn lc-btn-run" onClick={handleRun} disabled={loading}>
               {loading ? <span className="lc-spinner" /> : (
                 <svg width="9" height="11" viewBox="0 0 9 11" fill="currentColor"><path d="M0 0l9 5.5L0 11z"/></svg>
               )}
               Run
             </button>
-            {/* Submit */}
             <button className="lc-btn lc-btn-submit" onClick={handleSubmitCode} disabled={loading}>
               {loading ? <span className="lc-spinner" style={{ borderTopColor: '#0e1117' }} /> : (
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 0L10 7H0L5 0z"/></svg>
@@ -773,7 +773,6 @@ const ProblemPage = () => {
 
           {/* ─── LEFT PANEL ─── */}
           <div className="lc-left">
-            {/* Tabs — no AI/Board tabs here, they are floating */}
             <div className="lc-tabs">
               {[
                 { id: 'description', icon: '≡', label: 'Description' },
@@ -792,7 +791,6 @@ const ProblemPage = () => {
               ))}
             </div>
 
-            {/* DESCRIPTION */}
             {activeLeftTab === 'description' && problem && (
               <div className="lc-scroll lc-anim">
                 <h1 className="lc-prob-h1">{problem.title}</h1>
@@ -820,31 +818,28 @@ const ProblemPage = () => {
               </div>
             )}
 
-            {/* EDITORIAL */}
             {activeLeftTab === 'editorial' && problem && (
-             <div className="lc-scroll lc-anim">
-  <div className="lc-section-title">Editorial</div>
-
-  {problem?.secureUrl ? (
-    <video
-      width="100%"
-      height="400"
-      controls
-      poster={problem?.thumbnailUrl}
-      className="rounded-lg mt-3"
-    >
-      <source src={problem.secureUrl} type="video/mp4" />
-      Your browser does not support the video tag.
-    </video>
-  ) : (
-    <div className="lc-desc">
-      Editorial content for this problem will appear here.
-    </div>
-  )}
-</div>
+              <div className="lc-scroll lc-anim">
+                <div className="lc-section-title">Editorial</div>
+                {problem?.secureUrl ? (
+                  <video
+                    width="100%"
+                    height="400"
+                    controls
+                    poster={problem?.thumbnailUrl}
+                    className="rounded-lg mt-3"
+                  >
+                    <source src={problem.secureUrl} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                ) : (
+                  <div className="lc-desc">
+                    Editorial content for this problem will appear here.
+                  </div>
+                )}
+              </div>
             )}
 
-            {/* SOLUTIONS */}
             {activeLeftTab === 'solutions' && problem && (
               <div className="lc-scroll lc-anim">
                 <div className="lc-section-title">Reference Solutions</div>
@@ -866,7 +861,6 @@ const ProblemPage = () => {
               </div>
             )}
 
-            {/* SUBMISSIONS */}
             {activeLeftTab === 'submissions' && problem && (
               <div className="lc-scroll lc-anim">
                 <div className="lc-section-title">My Submissions</div>
@@ -909,9 +903,19 @@ const ProblemPage = () => {
                       </button>
                     ))}
                   </div>
-                  <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.3 }}>
-                    ⇥ 2 spaces
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {/* Reset button */}
+                    <button
+                      className="lc-btn lc-btn-reset"
+                      onClick={handleResetCode}
+                      title="Reset to starter code"
+                    >
+                      ↺ Reset
+                    </button>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.3 }}>
+                      ⇥ 2 spaces
+                    </span>
+                  </div>
                 </div>
 
                 <div style={{ height: `${editorHeight}px`, flexShrink: 0, overflow: 'hidden' }}>
@@ -1082,7 +1086,7 @@ const ProblemPage = () => {
           </div>
         </div>
 
-        {/* ─── AI CHAT MODAL (centered overlay) ─── */}
+        {/* ─── AI CHAT MODAL ─── */}
         {showAiModal && (
           <div className="lc-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowAiModal(false); }}>
             <div className="lc-ai-modal">
@@ -1103,7 +1107,7 @@ const ProblemPage = () => {
           </div>
         )}
 
-        {/* ─── WHITEBOARD MODAL (wide overlay) ─── */}
+        {/* ─── WHITEBOARD MODAL ─── */}
         {showBoardModal && (
           <div className="lc-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowBoardModal(false); }}>
             <div className="lc-board-modal">

@@ -23,6 +23,10 @@ import Updateproblem from "./component/updatepeoblem";
 import AdminUpdate from "./component/Adminupdate";
 import Profilepage from "./component/profile"
 import { HLDComponentsDemo } from "./component/hld";
+import DuelLobby from "./pages/DuelLobby";
+import DuelPage from "./pages/DuelPage";
+import DuelLeaderboard from "./pages/DuelLeaderboard";
+import SystemDesignLearning from "./systemdesign/SystemDesignLearning";
 function App(){
   const dispatch = useDispatch();
   const {isAuthenticated,user} = useSelector((state)=>state.auth);
@@ -33,40 +37,6 @@ function App(){
     dispatch(fetchUserState());
     dispatch(fetchProblems());
   }, [dispatch]);
-
-const MOCK_USER = {
-  name: "Manisg singh",
-  email: "manish.singh@gmail.com",
-  username: "Hunter",
-  joinedAt: "January 2024",
-  avatar: null,
-  stats: {
-    easy: 2,
-    medium: 0,
-    hard: 0,
-    rank: 1,
-    total: 2,
-  },
-  platform: {
-    easy: 820,
-    medium: 1340,
-    hard: 540,
-    total: 2400,
-  },
-  streak: 5,
-  submissions: 8,
-  acceptanceRate: 75,
-  languages: ["JavaScript", "C++"],
-  recentActivity: [
-    { title: "Two Sum", difficulty: "Easy", status: "Accepted", time: "2h ago" },
-    { title: "Valid Parentheses", difficulty: "Easy", status: "Accepted", time: "1d ago" },
-  ],
-  badges: [
-    { icon: "🔥", label: "5-Day Streak" },
-    { icon: "⚡", label: "First Solve" },
-  ],
-};
-
   return(
   <>
     <Routes>
@@ -87,6 +57,10 @@ const MOCK_USER = {
       <Route path="/admin/update" element={<Updateproblem></Updateproblem>}></Route>
       <Route path="/admin/update/:problemId" element={<AdminUpdate></AdminUpdate>}/>
       <Route path="/hld" element={<HLDComponentsDemo></HLDComponentsDemo>}></Route>
+      <Route path="/duel" element={ <DuelLobby />} />
+     <Route path="/duel/:roomCode" element={<DuelPage />} />
+    <Route path="/duel/leaderboard" element={<DuelLeaderboard />} />
+    <Route path="/explore/system-design" element={<SystemDesignLearning></SystemDesignLearning>}></Route>
     </Routes>
   </>
   )

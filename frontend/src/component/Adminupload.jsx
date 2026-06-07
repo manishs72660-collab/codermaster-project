@@ -63,7 +63,6 @@ function AdminUpload() {
       formData.append('signature', signature);
       formData.append('timestamp', timestamp);
       formData.append('public_id', public_id);
-      formData.append("type", "authenticated");
       formData.append('api_key', api_key);
       // ===== STEP 3: UPLOAD TO CLOUDINARY =====
 

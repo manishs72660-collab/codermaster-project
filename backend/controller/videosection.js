@@ -6,9 +6,9 @@ const SolutionVideo = require("../models/solutionvideo");
 // ================= CLOUDINARY CONFIG =================
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDNAME,
-  api_key: process.env.CLOUD_KEY,
-  api_secret:process.env.CLOUD_Secret
+  cloud_name: "dl64jwdvp",
+  api_key: 926249665188791,
+  api_secret:"BN4tpSQbeGqNGIyPoGEAKWAweq0"
 });
 
 // ================= GENERATE SIGNATURE =================
@@ -52,7 +52,7 @@ const generateUploadSignature = async (req, res) => {
     const signature =
       cloudinary.utils.api_sign_request(
         uploadParams,
-        process.env.CLOUD_Secret
+        "BN4tpSQbeGqNGIyPoGEAKWAweq0"
       );
 
     // SEND DATA TO FRONTEND
@@ -61,8 +61,8 @@ const generateUploadSignature = async (req, res) => {
       signature,
       timestamp,
       public_id: publicId,
-      api_key: process.env.CLOUD_KEY,
-      cloud_name: process.env.CLOUD_Secret,
+      api_key: 926249665188791,
+      cloud_name: "dl64jwdvp",
       upload_url:
         "https://api.cloudinary.com/v1_1/dl64jwdvp/video/upload"
     });
