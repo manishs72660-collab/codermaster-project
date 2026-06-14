@@ -1,653 +1,534 @@
-import { useState, useEffect, useRef } from "react";
-import { NavLink } from "react-router";
+import { useEffect, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  Trophy,
+  Clock,
+  Users,
+  ChevronRight,
+  Swords,
+  CalendarDays,
+  Lock,
+  Zap,
+  Code2,
+  LogOut,
+  User as UserIcon,
+  Timer,
+} from 'lucide-react';
+import axiosClient from '../utils/axiosClient';
+import { logoutUser } from '../authSlice';
+import { cn } from '../utils/cn';
 
-// ── MOCK DATA ─────────────────────────────────────────────────────────────────
-const NOW = Date.now();
-const DAY = 86400000;
-const HR  = 3600000;
-const MIN = 60000;
-
-const UPCOMING = [
-  {
-    id: "w503", type: "Weekly", num: 503,
-    date: "Sun, May 25, 08:00 IST",
-    startTs: NOW + 5 * DAY + 19 * HR + 30 * MIN,
-    problems: 4, duration: "1.5 hours",
-    gradient: "linear-gradient(135deg, #ff8c00 0%, #ffa116 40%, #ffcc44 100%)",
-    glowColor: "#ffa116",
-    icon: "🟠",
-    registered: false,
-  },
-  {
-    id: "bw183", type: "Biweekly", num: 183,
-    date: "Sat, May 23, 20:00 IST",
-    startTs: NOW + 5 * DAY + 7 * HR + 30 * MIN,
-    problems: 4, duration: "1.5 hours",
-    gradient: "linear-gradient(135deg, #3b1fa8 0%, #6366f1 50%, #818cf8 100%)",
-    glowColor: "#6366f1",
-    icon: "🟣",
-    registered: false,
-  },
-];
-
-const LEADERBOARD = [
-  { rank: 1, name: "Neal Wu",    country: "US", rating: 3702, attended: 201, avatar: null, init: "N", color: "#ffd700" },
-  { rank: 2, name: "Miruu",      country: "JP", rating: 3686, attended: 189, avatar: null, init: "M", color: "#c084fc" },
-  { rank: 3, name: "Yawn_Sean",  country: "CN", rating: 3644, attended: 174, avatar: null, init: "Y", color: "#cd7f32" },
-  { rank: 4, name: "小羊肖恩",   country: "CN", rating: 3611, attended: 107, avatar: null, init: "X", color: "#4493f8" },
-  { rank: 5, name: "何逊",       country: "CN", rating: 3599, attended: 146, avatar: null, init: "H", color: "#4493f8" },
-  { rank: 6, name: "Joshua Chen",country: "AU", rating: 3589, attended: 100, avatar: null, init: "J", color: "#4493f8" },
-  { rank: 7, name: "Rohin Garg", country: "IN", rating: 3506, attended: 88,  avatar: null, init: "R", color: "#4493f8" },
-  { rank: 8, name: "Aryan Shah",  country: "IN", rating: 3499, attended: 95,  avatar: null, init: "A", color: "#4493f8" },
-  { rank: 9, name: "tourist",    country: "BY", rating: 3491, attended: 212, avatar: null, init: "T", color: "#4493f8" },
-  { rank:10, name: "Um_nik",     country: "UA", rating: 3480, attended: 178, avatar: null, init: "U", color: "#4493f8" },
-];
-
-const PAST_CONTESTS = [
-  { id:"w502", type:"Weekly",   num:502, date:"Sun, May 17, 08:00 IST", solved:"0/4", gradient:"linear-gradient(135deg,#ff8c00,#ffa116,#ffcc44)", participants:28400 },
-  { id:"w501", type:"Weekly",   num:501, date:"Sun, May 10, 08:00 IST", solved:"2/4", gradient:"linear-gradient(135deg,#ff8c00,#ffa116,#ffcc44)", participants:27900 },
-  { id:"bw182",type:"Biweekly", num:182, date:"Sat, May 9, 20:00 IST",  solved:"1/4", gradient:"linear-gradient(135deg,#3b1fa8,#6366f1,#818cf8)",  participants:19200 },
-  { id:"w500", type:"Weekly",   num:500, date:"Sun, May 3, 08:00 IST",  solved:"3/4", gradient:"linear-gradient(135deg,#ff8c00,#ffa116,#ffcc44)", participants:31000 },
-  { id:"w499", type:"Weekly",   num:499, date:"Sun, Apr 26, 08:00 IST", solved:"0/4", gradient:"linear-gradient(135deg,#ff8c00,#ffa116,#ffcc44)", participants:26700 },
-  { id:"bw181",type:"Biweekly", num:181, date:"Sat, Apr 25, 20:00 IST", solved:"2/4", gradient:"linear-gradient(135deg,#3b1fa8,#6366f1,#818cf8)",  participants:18800 },
-  { id:"w498", type:"Weekly",   num:498, date:"Sun, Apr 19, 08:00 IST", solved:"4/4", gradient:"linear-gradient(135deg,#ff8c00,#ffa116,#ffcc44)", participants:29100 },
-  { id:"w497", type:"Weekly",   num:497, date:"Sun, Apr 12, 08:00 IST", solved:"1/4", gradient:"linear-gradient(135deg,#ff8c00,#ffa116,#ffcc44)", participants:25600 },
-];
-
-const MY_STATS = {
-  contestRating: 1842, globalRank: 14203, attended: 23,
-  topPercent: 12.4, bestRank: 234, streak: 4,
+/* ─── helpers ─── */
+const getStatusStyle = (status) => {
+  if (status === 'ongoing')  return { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', dot: 'bg-emerald-400', label: 'Live' };
+  if (status === 'upcoming') return { text: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   dot: 'bg-amber-400',   label: 'Upcoming' };
+  return                            { text: 'text-white/30',     bg: 'bg-white/[0.03]',   border: 'border-white/10',       dot: 'bg-white/20',    label: 'Ended' };
 };
 
-// ── COUNTDOWN ─────────────────────────────────────────────────────────────────
-function useCountdown(targetTs) {
-  const [left, setLeft] = useState(targetTs - Date.now());
+const formatDate = (d) => {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+};
+
+const getDuration = (start, end) => {
+  const ms = new Date(end) - new Date(start);
+  const h  = Math.floor(ms / 3600000);
+  const m  = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+
+/* ─── countdown hook ─── */
+function useCountdown(targetDate) {
+  const calc = () => {
+    const diff = new Date(targetDate) - new Date();
+    if (diff <= 0) return null;
+    return {
+      h: Math.floor(diff / 3600000),
+      m: Math.floor((diff % 3600000) / 60000),
+      s: Math.floor((diff % 60000) / 1000),
+    };
+  };
+  const [time, setTime] = useState(calc);
   useEffect(() => {
-    const id = setInterval(() => setLeft(targetTs - Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [targetTs]);
-  const d  = Math.max(0, Math.floor(left / DAY));
-  const h  = Math.max(0, Math.floor((left % DAY) / HR));
-  const m  = Math.max(0, Math.floor((left % HR) / MIN));
-  const s  = Math.max(0, Math.floor((left % MIN) / 1000));
-  return { d, h, m, s, over: left <= 0 };
+    const t = setInterval(() => setTime(calc()), 1000);
+    return () => clearInterval(t);
+  }, [targetDate]);
+  return time;
 }
 
-function CountdownChip({ targetTs, compact }) {
-  const { d, h, m, s, over } = useCountdown(targetTs);
-  const fmt = n => String(n).padStart(2, "0");
-  if (over) return (
-    <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, fontWeight:700, color:"#00b86b", background:"#0d2218", border:"1px solid #1a3a2a", borderRadius:6, padding:"3px 10px" }}>
-      Live Now
-    </span>
-  );
-  if (compact) return (
-    <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, fontWeight:600, color:"rgba(255,255,255,0.85)", background:"rgba(0,0,0,0.35)", borderRadius:6, padding:"3px 10px", display:"flex", alignItems:"center", gap:5 }}>
-      ⧗ {d}d {fmt(h)}:{fmt(m)}:{fmt(s)}
-    </span>
-  );
-  return (
-    <div style={{ display:"flex", gap:8 }}>
-      {[["Days",d],["Hours",h],["Mins",m],["Secs",s]].map(([lbl,val])=>(
-        <div key={lbl} style={{ textAlign:"center" }}>
-          <div style={{ background:"#0d1117", border:"1px solid #21262d", borderRadius:8, padding:"10px 14px", minWidth:52, fontFamily:"'JetBrains Mono',monospace", fontSize:22, fontWeight:800, color:"#ffa116", lineHeight:1 }}>{fmt(val)}</div>
-          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:"#495366", letterSpacing:1, textTransform:"uppercase", marginTop:4 }}>{lbl}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
+/* ══════════════════════════════════════════
+   MAIN PAGE
+══════════════════════════════════════════ */
+export default function Contest() {
+  const dispatch  = useDispatch();
+  const navigate  = useNavigate();
+  const { user }  = useSelector((s) => s.auth);
 
-// ── 3D CUBE SVG ───────────────────────────────────────────────────────────────
-function CubeArt({ color1, color2, size=120, count=1 }) {
-  const offset = count === 2 ? [-28, 28] : [0];
-  return (
-    <svg width={size} height={size} viewBox="0 0 120 120" style={{ filter:`drop-shadow(0 8px 24px ${color1}88)` }}>
-      {offset.map((ox, i) => {
-        const cx=60+ox, cy=60+ox*0.3;
-        const s=46-Math.abs(ox)*0.2;
-        return (
-          <g key={i} transform={`translate(${cx},${cy})`}>
-            {/* top face */}
-            <polygon points={`0,${-s*0.55} ${s*0.9},0 0,${s*0.55} ${-s*0.9},0`}
-              fill={color2} opacity={0.9}/>
-            {/* right face */}
-            <polygon points={`0,${s*0.55} ${s*0.9},0 ${s*0.9},${s*0.7} 0,${s*1.25}`}
-              fill={color1} opacity={0.85}/>
-            {/* left face */}
-            <polygon points={`0,${s*0.55} ${-s*0.9},0 ${-s*0.9},${s*0.7} 0,${s*1.25}`}
-              fill={color1} opacity={0.65}/>
-            {/* glass edge highlights */}
-            <line x1="0" y1={-s*0.55} x2={s*0.9} y2="0" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/>
-            <line x1="0" y1={-s*0.55} x2={-s*0.9} y2="0" stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
-            <line x1="0" y1={-s*0.55} x2="0" y2={s*1.25} stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-          </g>
-        );
-      })}
-    </svg>
-  );
-}
+  const [contests, setContests]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [tab, setTab]             = useState('all'); // all | ongoing | upcoming | ended
+  const [scrolled, setScrolled]   = useState(false);
 
-// ── CONTEST CARD ──────────────────────────────────────────────────────────────
-function ContestCard({ contest, onRegister }) {
-  const [hov, setHov] = useState(false);
-  const isWeekly = contest.type === "Weekly";
-  return (
-    <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{
-        background: contest.gradient,
-        borderRadius: 16, overflow:"hidden", position:"relative",
-        cursor:"pointer",
-        transform: hov ? "translateY(-4px) scale(1.01)" : "none",
-        transition: "transform 0.22s cubic-bezier(.22,1,.36,1), box-shadow 0.22s",
-        boxShadow: hov ? `0 20px 50px -8px ${contest.glowColor}66` : `0 8px 24px -4px ${contest.glowColor}33`,
-        minHeight: 220,
-      }}>
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
-      {/* Background shimmer */}
-      <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 70% 30%, rgba(255,255,255,0.15) 0%, transparent 60%)", pointerEvents:"none" }} />
+  useEffect(() => {
+    axiosClient.get('/contest/all')
+      .then(({ data }) => setContests(Array.isArray(data) ? data : []))
+      .catch(() => setContests([]))
+      .finally(() => setLoading(false));
+  }, []);
 
-      {/* Countdown pill */}
-      <div style={{ position:"absolute", top:14, right:14, zIndex:2 }}>
-        <CountdownChip targetTs={contest.startTs} compact />
-      </div>
+  const handleLogout = () => dispatch(logoutUser());
 
-      {/* Art */}
-      <div style={{ position:"absolute", right:-10, top:"50%", transform:"translateY(-50%)", opacity:0.9 }}>
-        {isWeekly
-          ? <CubeArt color1="#e67e00" color2="#ffcc44" size={130} count={1}/>
-          : <CubeArt color1="#4338ca" color2="#818cf8" size={130} count={2}/>
-        }
-      </div>
+  const filtered = contests.filter((c) => tab === 'all' || c.computedStatus === tab);
 
-      {/* Content */}
-      <div style={{ position:"relative", zIndex:1, padding:"22px 24px", minHeight:220, display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
-        <div>
-          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", color:"rgba(255,255,255,0.7)", marginBottom:6 }}>
-            {contest.type} Contest
-          </div>
-          <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5, marginBottom:4 }}>
-            {contest.type} Contest {contest.num}
-          </div>
-          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:"rgba(255,255,255,0.7)" }}>
-            {contest.date}
-          </div>
-        </div>
-
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-          <div style={{ display:"flex", gap:12 }}>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"rgba(255,255,255,0.8)" }}>
-              📋 {contest.problems} problems
-            </span>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"rgba(255,255,255,0.8)" }}>
-              ⏱ {contest.duration}
-            </span>
-          </div>
-          <button onClick={e=>{e.stopPropagation();onRegister(contest.id);}}
-            style={{
-              background: contest.registered ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.9)",
-              color: contest.registered ? "#fff" : "#0d1117",
-              border:"none", borderRadius:8, padding:"7px 18px",
-              fontFamily:"'JetBrains Mono',monospace", fontSize:12, fontWeight:700,
-              cursor:"pointer", transition:"all 0.15s",
-              backdropFilter:"blur(4px)",
-            }}>
-            {contest.registered ? "✓ Registered" : "Register"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── LEADERBOARD ROW ───────────────────────────────────────────────────────────
-function PodiumUser({ user, pos }) {
-  const sizes  = { 1: 72, 2: 62, 3: 62 };
-  const yOff   = { 1: 0, 2: 18, 3: 18 };
-  const medals = { 1:"🥇", 2:"🥈", 3:"🥉" };
-  const sz = sizes[pos];
-  return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, marginTop: yOff[pos] }}>
-      <div style={{ position:"relative" }}>
-        <span style={{ position:"absolute", top:-10, left:"50%", transform:"translateX(-50%)", fontSize:16 }}>{medals[pos]}</span>
-        <div style={{
-          width:sz, height:sz, borderRadius:"50%",
-          background: `linear-gradient(135deg, ${pos===1?"#ffd700, #ff8c00":pos===2?"#c084fc,#6366f1":"#cd7f32,#a05a2c"})`,
-          display:"flex", alignItems:"center", justifyContent:"center",
-          fontSize:sz/2.8, fontWeight:800, color:"#fff",
-          boxShadow:`0 0 ${pos===1?24:16}px ${pos===1?"#ffd70088":pos===2?"#c084fc88":"#cd7f3288"}`,
-          border:`2px solid ${pos===1?"#ffd700":pos===2?"#c084fc":"#cd7f32"}`,
-        }}>
-          {user.init}
-        </div>
-      </div>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:12, fontWeight:700, color: pos===1?"#ffd700":pos===2?"#c084fc":"#cd7f32" }}>
-          {user.name.length > 10 ? user.name.slice(0,10)+"…" : user.name}
-        </div>
-        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, fontWeight:800, color:"#e6edf3", letterSpacing:-0.5 }}>
-          {user.rating}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── MAIN ──────────────────────────────────────────────────────────────────────
-export default function ContestPage() {
-  const [contests, setContests] = useState(UPCOMING);
-  const [lbMode, setLbMode]     = useState("Global");
-  const [pastTab, setPastTab]   = useState("Past");
-  const [registered, setRegistered] = useState({});
-
-  const handleRegister = (id) => {
-    setRegistered(r => ({ ...r, [id]: !r[id] }));
-    setContests(prev => prev.map(c => c.id === id ? { ...c, registered: !c.registered } : c));
-  };
-
-  const solvedColor = (s) => {
-    const [a] = s.split("/");
-    return +a === 0 ? "#495366" : +a === 4 ? "#00b86b" : "#ffa116";
-  };
+  const ongoing  = contests.filter((c) => c.computedStatus === 'ongoing').length;
+  const upcoming = contests.filter((c) => c.computedStatus === 'upcoming').length;
+  const ended    = contests.filter((c) => c.computedStatus === 'ended').length;
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #161b22; }
-        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+        .font-display { font-family: 'Syne', sans-serif; }
+        .font-body    { font-family: 'DM Sans', sans-serif; }
+        .font-mono    { font-family: 'JetBrains Mono', monospace; }
 
-        .ct-root {
-          min-height: 100vh;
-          background: #0d1117;
-          color: #e6edf3;
-          font-family: 'Segoe UI', -apple-system, sans-serif;
+        .hero-grid {
+          background-image:
+            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+          background-size: 48px 48px;
         }
+        .noise::after {
+          content: '';
+          position: fixed; inset: 0; pointer-events: none; z-index: 0;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+          opacity: 0.55;
+        }
+        @keyframes glow-pulse { 0%,100%{opacity:0.35} 50%{opacity:0.55} }
+        .glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
 
-        /* TOPBAR */
-        .ct-topbar {
-          height: 48px; background: #161b22;
-          border-bottom: 1px solid #21262d;
-          display: flex; align-items: center;
-          padding: 0 20px; gap: 8px;
-          position: sticky; top: 0; z-index: 30;
+        .card-shimmer::before {
+          content: '';
+          position: absolute; inset: 0;
+          background: linear-gradient(105deg, transparent 40%, rgba(249,115,22,0.04) 50%, transparent 60%);
+          opacity: 0; transition: opacity 0.3s;
         }
-        .ct-logo {
-          width: 28px; height: 28px; border-radius: 6px;
-          background: linear-gradient(135deg, #ffa116, #ff6b00);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: 800; color: #0d1117;
-        }
-        .ct-logo-t { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
-        .ct-sep { width: 1px; height: 20px; background: #21262d; margin: 0 4px; }
-        .ct-crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; }
-        .ct-crumb span { color: #ffa116; }
+        .card-shimmer:hover::before { opacity: 1; }
 
-        /* HERO */
-        .ct-hero {
-          text-align: center;
-          padding: 52px 24px 0;
-          position: relative;
-        }
-        .ct-trophy {
-          font-size: 64px; margin-bottom: 16px;
-          filter: drop-shadow(0 0 32px #ffa11688);
-          animation: ct-float 3s ease-in-out infinite;
-        }
-        @keyframes ct-float {
-          0%,100% { transform: translateY(0); }
-          50%      { transform: translateY(-8px); }
-        }
-        .ct-hero-h1 {
-          font-family: 'Instrument Serif', serif;
-          font-size: clamp(28px, 5vw, 44px);
-          font-weight: 400; letter-spacing: -0.02em;
-          color: #f1f5f9; margin-bottom: 10px;
-        }
-        .ct-hero-h1 em { font-style: italic; color: #ffa116; }
-        .ct-hero-sub { font-size: 14px; color: #8b949e; margin-bottom: 36px; }
+        @keyframes live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.85)} }
+        .live-dot { animation: live-pulse 1.5s ease-in-out infinite; }
 
-        /* MY STATS STRIP */
-        .ct-mystats {
-          display: flex; gap: 0; max-width: 680px;
-          margin: 0 auto 40px;
-          background: #161b22; border: 1px solid #21262d;
-          border-radius: 12px; overflow: hidden;
-        }
-        .ct-mystat { flex: 1; padding: 14px 0; text-align: center; border-right: 1px solid #21262d; }
-        .ct-mystat:last-child { border-right: none; }
-        .ct-mystat-val { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
-        .ct-mystat-lbl { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #495366; letter-spacing: 1px; text-transform: uppercase; margin-top: 3px; }
-
-        /* UPCOMING GRID */
-        .ct-upcoming-grid {
-          display: grid; grid-template-columns: 1fr 1fr;
-          gap: 16px; max-width: 880px; margin: 0 auto;
-        }
-
-        /* MAIN CONTENT */
-        .ct-main {
-          max-width: 1080px; margin: 0 auto;
-          padding: 0 24px 80px;
-          display: grid;
-          grid-template-columns: 1fr 1.15fr;
-          gap: 24px; align-items: start;
-        }
-
-        /* SECTION LABEL */
-        .ct-slabel {
-          display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
-        }
-        .ct-slabel-bar { width: 3px; height: 14px; border-radius: 2px; }
-        .ct-slabel-text { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #495366; }
-        .ct-slabel-line { flex: 1; height: 1px; background: #21262d; }
-
-        /* CARD */
-        .ct-card {
-          background: #161b22; border: 1px solid #21262d;
-          border-radius: 12px; overflow: hidden;
-        }
-        .ct-card-hdr {
-          padding: 12px 18px; border-bottom: 1px solid #21262d;
-          background: #0d1117; display: flex; align-items: center; gap: 8px;
-        }
-        .ct-card-hdr-dot { width: 5px; height: 5px; border-radius: 50%; }
-        .ct-card-hdr-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #495366; }
-
-        /* PODIUM */
-        .ct-podium {
-          display: flex; justify-content: center; align-items: flex-end;
-          gap: 24px; padding: 32px 24px 20px;
-        }
-
-        /* LB ROWS */
-        .ct-lb-row {
-          display: flex; align-items: center; gap: 12px;
-          padding: 10px 18px; border-bottom: 1px solid #21262d;
-          transition: background 0.12s; cursor: pointer;
-        }
-        .ct-lb-row:last-child { border-bottom: none; }
-        .ct-lb-row:hover { background: #1c2130; }
-        .ct-lb-rank { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #495366; width: 24px; text-align: center; flex-shrink: 0; }
-        .ct-lb-avatar {
-          width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 800;
-        }
-        .ct-lb-name { flex: 1; font-size: 13px; font-weight: 600; }
-        .ct-lb-country { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #495366; }
-        .ct-lb-rating { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #ffa116; }
-        .ct-lb-attended { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #495366; }
-
-        /* MODE TOGGLE */
-        .ct-mode-toggle { display: flex; gap: 0; background: #0d1117; border-radius: 8px; overflow: hidden; border: 1px solid #21262d; }
-        .ct-mode-btn { padding: 6px 18px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; font-family: 'JetBrains Mono', monospace; background: transparent; color: #8b949e; transition: all 0.15s; letter-spacing: 0.5px; }
-        .ct-mode-btn.active { background: #ffa116; color: #0d1117; }
-
-        /* PAST TABS */
-        .ct-past-tabs { display: flex; background: #0d1117; border-bottom: 1px solid #21262d; }
-        .ct-past-tab { padding: 10px 20px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #8b949e; border-bottom: 2px solid transparent; transition: all 0.15s; font-family: 'JetBrains Mono', monospace; }
-        .ct-past-tab.active { color: #ffa116; border-bottom-color: #ffa116; }
-
-        /* PAST ROW */
-        .ct-past-row {
-          display: flex; align-items: center; gap: 14px;
-          padding: 12px 18px; border-bottom: 1px solid #21262d;
-          transition: background 0.12s; cursor: pointer;
-        }
-        .ct-past-row:last-child { border-bottom: none; }
-        .ct-past-row:hover { background: #1c2130; }
-        .ct-past-thumb {
-          width: 60px; height: 44px; border-radius: 8px; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; overflow: hidden;
-        }
-        .ct-past-title { font-size: 13px; font-weight: 700; color: #e6edf3; margin-bottom: 2px; }
-        .ct-past-date { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8b949e; }
-        .ct-past-solved { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 2px 10px; background: #0d1117; border: 1px solid #21262d; border-radius: 20px; }
-        .ct-virtual-btn { padding: 4px 12px; background: #120d1e; border: 1px solid #2a1a3a; border-radius: 20px; color: #c084fc; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
-        .ct-virtual-btn:hover { background: #c084fc; color: #0d1117; }
-        .ct-participants { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #495366; }
-
-        /* COUNTDOWN SECTION */
-        .ct-countdown-section { padding: 28px 24px; text-align: center; }
-        .ct-countdown-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #495366; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px; }
-
-        /* ANIMATIONS */
-        @keyframes ct-in { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-        .ct-hero      { animation: ct-in 0.4s ease both 0.05s; }
-        .ct-upcoming-grid { animation: ct-in 0.4s ease both 0.15s; }
-        .ct-main      { animation: ct-in 0.4s ease both 0.2s; }
-        .ct-mystats   { animation: ct-in 0.4s ease both 0.12s; }
-
-        @media (max-width: 768px) {
-          .ct-main { grid-template-columns: 1fr; }
-          .ct-upcoming-grid { grid-template-columns: 1fr; }
-        }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
       `}</style>
 
-      <div className="ct-root">
+      <div className="noise min-h-screen bg-[#050505] text-[#e5e5e5] font-body antialiased">
 
-        {/* TOPBAR */}
-        <div className="ct-topbar">
-          <div className="ct-logo">⌨</div>
-          <span className="ct-logo-t">CodeMaster</span>
-          <div className="ct-sep" />
-          <span className="ct-crumb">
-            <NavLink to={"/"}>
-            Home /
-            </NavLink> <span>Contest</span></span>
-          <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, fontWeight:700, color:"#ffa116", background:"#1e1608", border:"1px solid #3a2e0f", borderRadius:20, padding:"2px 10px" }}>
-              Rating: {MY_STATS.contestRating}
-            </span>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, fontWeight:700, color:"#c084fc", background:"#120d1e", border:"1px solid #2a1a3a", borderRadius:20, padding:"2px 10px" }}>
-              Rank #{MY_STATS.globalRank.toLocaleString()}
-            </span>
-          </div>
+        {/* ambient blobs */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+          <div className="glow-pulse absolute top-[-15%] left-[-8%] w-[500px] h-[500px] bg-orange-500/[0.06] blur-[130px] rounded-full" />
+          <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-purple-500/[0.04] blur-[130px] rounded-full" />
         </div>
 
-        {/* HERO */}
-        <div className="ct-hero">
-          <div className="ct-trophy">🏆</div>
-          <h1 className="ct-hero-h1">CodeMaster <em>Contest</em></h1>
-          <p className="ct-hero-sub">Compete every week. Climb the leaderboard. Prove your skills.</p>
-
-          {/* My Stats */}
-          <div className="ct-mystats">
-            {[
-              { val: MY_STATS.contestRating,            lbl: "Contest Rating", color: "#ffa116" },
-              { val: `#${MY_STATS.globalRank.toLocaleString()}`, lbl: "Global Rank", color: "#c084fc" },
-              { val: MY_STATS.attended,                 lbl: "Attended",       color: "#4493f8" },
-              { val: `Top ${MY_STATS.topPercent}%`,     lbl: "Percentile",     color: "#00b86b" },
-              { val: `#${MY_STATS.bestRank}`,           lbl: "Best Rank",      color: "#ffa116" },
-              { val: `${MY_STATS.streak}🔥`,            lbl: "Streak",         color: "#ff4444" },
-            ].map(s => (
-              <div key={s.lbl} className="ct-mystat">
-                <div className="ct-mystat-val" style={{ color: s.color }}>{s.val}</div>
-                <div className="ct-mystat-lbl">{s.lbl}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Upcoming Contests */}
-          <div style={{ maxWidth: 880, margin: "0 auto 16px", padding: "0 24px" }}>
-            <div className="ct-slabel" style={{ marginBottom:14 }}>
-              <div className="ct-slabel-bar" style={{ background:"#ffa116" }} />
-              <span className="ct-slabel-text">Upcoming Contests</span>
-              <div className="ct-slabel-line" />
-            </div>
-          </div>
-          <div className="ct-upcoming-grid" style={{ padding:"0 24px" }}>
-            {contests.map(c => <ContestCard key={c.id} contest={c} onRegister={handleRegister} />)}
-          </div>
-
-          {/* Next contest countdown */}
-          <div style={{ maxWidth:880, margin:"20px auto 0", padding:"0 24px" }}>
-            <div className="ct-card" style={{ background:"linear-gradient(135deg,#161b22,#1c2130)" }}>
-              <div className="ct-countdown-section">
-                <div className="ct-countdown-label">⧗ Next Contest Starts In</div>
-                <CountdownChip targetTs={contests[1].startTs} compact={false} />
-                <p style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"#8b949e", marginTop:14 }}>
-                  {contests[1].type} Contest {contests[1].num} · {contests[1].date}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* DIVIDER */}
-        <div style={{ height:1, background:"#21262d", margin:"40px 0 32px" }} />
-
-        {/* MAIN CONTENT */}
-        <div className="ct-main">
-
-          {/* LEFT — LEADERBOARD */}
-          <div>
-            <div className="ct-slabel">
-              <div className="ct-slabel-bar" style={{ background:"#ffd700" }} />
-              <span className="ct-slabel-text">Leaderboard</span>
-              <div className="ct-slabel-line" />
-              <div className="ct-mode-toggle">
-                {["Global","LLM"].map(m=>(
-                  <button key={m} className={`ct-mode-btn${lbMode===m?" active":""}`} onClick={()=>setLbMode(m)}>{m}</button>
-                ))}
-              </div>
-            </div>
-
-            <div className="ct-card">
-              {/* Podium top 3 */}
-              <div className="ct-podium">
-                <PodiumUser user={LEADERBOARD[1]} pos={2} />
-                <PodiumUser user={LEADERBOARD[0]} pos={1} />
-                <PodiumUser user={LEADERBOARD[2]} pos={3} />
-              </div>
-
-              {/* Ranks 4-10 */}
-              <div style={{ borderTop:"1px solid #21262d" }}>
-                {LEADERBOARD.slice(3).map(u => (
-                  <div key={u.rank} className="ct-lb-row">
-                    <span className="ct-lb-rank">{u.rank}</span>
-                    <div className="ct-lb-avatar" style={{ background: u.rank <= 3 ? "#1e1608" : "#1c2130", border:`1.5px solid ${u.rank<=3?"#3a2e0f":"#21262d"}`, color:"#e6edf3" }}>
-                      {u.init}
-                    </div>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <span className="ct-lb-name">{u.name}</span>
-                        <span className="ct-lb-country" style={{ fontSize:9 }}>{u.country}</span>
-                      </div>
-                    </div>
-                    <div style={{ textAlign:"right" }}>
-                      <div className="ct-lb-rating">{u.rating}</div>
-                      <div className="ct-lb-attended">{u.attended} contests</div>
-                    </div>
+        {/* ── NAV (exact same as Homepage) ── */}
+        <nav className={cn(
+          "sticky top-0 z-50 transition-all duration-300",
+          scrolled
+            ? "border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+            : "border-b border-transparent bg-transparent"
+        )}>
+          <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <NavLink to="/" className="flex items-center gap-2.5 group">
+                <div className="relative">
+                  <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+                    <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
                   </div>
-                ))}
-              </div>
-
-              {/* View all */}
-              <div style={{ padding:"12px 18px", borderTop:"1px solid #21262d", textAlign:"center" }}>
-                <button style={{ background:"none", border:"1px solid #21262d", borderRadius:8, color:"#8b949e", fontFamily:"'JetBrains Mono',monospace", fontSize:11, fontWeight:600, padding:"7px 24px", cursor:"pointer", transition:"all 0.15s" }}
-                  onMouseEnter={e=>{e.target.style.borderColor="#ffa116";e.target.style.color="#ffa116";}}
-                  onMouseLeave={e=>{e.target.style.borderColor="#21262d";e.target.style.color="#8b949e";}}>
-                  View Full Leaderboard →
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT — PAST CONTESTS */}
-          <div>
-            <div className="ct-slabel">
-              <div className="ct-slabel-bar" style={{ background:"#c084fc" }} />
-              <span className="ct-slabel-text">Contest History</span>
-              <div className="ct-slabel-line" />
-            </div>
-
-            <div className="ct-card">
-              <div className="ct-past-tabs">
-                {["Past Contests", "My Contests"].map(t => (
-                  <button key={t} className={`ct-past-tab${pastTab===t?" active":""}`} onClick={()=>setPastTab(t)}>{t}</button>
-                ))}
-              </div>
-
-              {/* Ratings mini chart */}
-              {pastTab === "My Contests" && (
-                <div style={{ padding:"16px 18px", borderBottom:"1px solid #21262d" }}>
-                  <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:"#495366", letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>Rating History</div>
-                  <svg viewBox="0 0 380 60" width="100%" style={{ display:"block", overflow:"visible" }}>
-                    <defs>
-                      <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ffa116" stopOpacity="0.3"/>
-                        <stop offset="100%" stopColor="#ffa116" stopOpacity="0"/>
-                      </linearGradient>
-                    </defs>
-                    {(() => {
-                      const pts = [1650,1720,1690,1780,1760,1800,1842];
-                      const min=1600,max=1900,w=380,h=60;
-                      const xs = pts.map((_,i)=> (i/(pts.length-1))*(w-20)+10);
-                      const ys = pts.map(p=> h - ((p-min)/(max-min))*(h-10)-5);
-                      const d  = xs.map((x,i)=>`${i===0?"M":"L"}${x},${ys[i]}`).join(" ");
-                      const area= d + ` L${xs[xs.length-1]},${h} L${xs[0]},${h} Z`;
-                      return (<>
-                        <path d={area} fill="url(#rg)"/>
-                        <path d={d} fill="none" stroke="#ffa116" strokeWidth="2" strokeLinecap="round"/>
-                        {xs.map((x,i)=>(
-                          <g key={i}>
-                            <circle cx={x} cy={ys[i]} r={i===pts.length-1?5:3} fill={i===pts.length-1?"#ffa116":"#0d1117"} stroke="#ffa116" strokeWidth="1.5"/>
-                            {i===pts.length-1&&<text x={x} y={ys[i]-10} textAnchor="middle" fill="#ffa116" fontSize="10" fontFamily="'JetBrains Mono',monospace" fontWeight="700">{pts[i]}</text>}
-                          </g>
-                        ))}
-                      </>);
-                    })()}
-                  </svg>
+                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-[#050505]" />
                 </div>
-              )}
+                <span className="font-display text-[17px] font-800 tracking-tight text-white italic">CodeMaster</span>
+              </NavLink>
 
-              {/* Past list */}
-              <div>
-                {PAST_CONTESTS.map((c, i) => (
-                  <div key={c.id} className="ct-past-row">
-                    {/* Thumbnail */}
-                    <div className="ct-past-thumb" style={{ background: c.gradient }}>
-                      <CubeArt
-                        color1={c.type==="Weekly"?"#e67e00":"#4338ca"}
-                        color2={c.type==="Weekly"?"#ffcc44":"#818cf8"}
-                        size={50} count={c.type==="Weekly"?1:2}
-                      />
-                    </div>
-
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div className="ct-past-title">{c.type} Contest {c.num}</div>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <span className="ct-past-date">{c.date}</span>
-                        <span className="ct-participants">· {(c.participants/1000).toFixed(1)}k participants</span>
-                      </div>
-                    </div>
-
-                    <span className="ct-past-solved" style={{ color: solvedColor(c.solved), borderColor: solvedColor(c.solved)+"44", background: solvedColor(c.solved)+"11" }}>
-                      {c.solved}
-                    </span>
-
-                    <button className="ct-virtual-btn">Virtual</button>
-                  </div>
+              <div className="hidden md:flex items-center gap-1">
+                {[
+                  { to: '/explore', label: 'Explorer' },
+                  { to: '/contest', label: 'Contests' },
+                  { to: '/discuss', label: 'Community' },
+                ].map(({ to, label }) => (
+                  <NavLink key={to} to={to}
+                    className={({ isActive }) => cn(
+                      "px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all",
+                      isActive ? "text-white bg-white/[0.06]" : "text-white/50 hover:text-white hover:bg-white/[0.04]"
+                    )}>
+                    {label}
+                  </NavLink>
                 ))}
               </div>
+            </div>
 
-              {/* Load more */}
-              <div style={{ padding:"12px 18px", borderTop:"1px solid #21262d", textAlign:"center" }}>
-                <button style={{ background:"none", border:"1px solid #21262d", borderRadius:8, color:"#8b949e", fontFamily:"'JetBrains Mono',monospace", fontSize:11, fontWeight:600, padding:"7px 24px", cursor:"pointer", transition:"all 0.15s" }}
-                  onMouseEnter={e=>{e.target.style.borderColor="#c084fc";e.target.style.color="#c084fc";}}
-                  onMouseLeave={e=>{e.target.style.borderColor="#21262d";e.target.style.color="#8b949e";}}>
-                  Load More Contests ↓
-                </button>
-              </div>
+            <div className="flex items-center gap-3">
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex flex-col items-end">
+                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">
+                      {user?.role === 'admin' ? 'Grandmaster' : 'Master'}
+                    </span>
+                    <span className="text-sm font-semibold text-white leading-tight">{user?.firstName || 'User'}</span>
+                  </div>
+                  <div className="relative group">
+                    <NavLink to="/profile">
+                      <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 hover:border-orange-500/30 transition-all">
+                        <UserIcon className="w-4 h-4 text-white/70" />
+                      </button>
+                    </NavLink>
+                    <div className="absolute right-0 top-[calc(100%+6px)] w-52 bg-[#0e0e0e] border border-white/[0.08] rounded-2xl shadow-[0_24px_48px_rgba(0,0,0,0.7)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-white/[0.06]">
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Logged in as</p>
+                        <p className="text-sm font-semibold text-white">{user?.firstName || 'User'}</p>
+                      </div>
+                      <div className="p-2">
+                        <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors text-left">
+                          <LogOut className="w-3.5 h-3.5" /> Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <NavLink to="/login">
+                  <button className="bg-orange-500 text-black px-5 py-2 rounded-xl text-sm font-bold hover:bg-orange-400 transition-colors shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+                    Connect
+                  </button>
+                </NavLink>
+              )}
             </div>
           </div>
+        </nav>
 
+        {/* ── HERO ── */}
+        <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
+          <div className="max-w-7xl mx-auto px-5 py-14 relative z-10">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400 live-dot" />
+                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.15em]">Arena</span>
+                </div>
+                {ongoing > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.15em]">{ongoing} Live Now</span>
+                  </div>
+                )}
+              </div>
+              <h1 className="font-display text-4xl md:text-5xl font-800 text-white tracking-tight leading-[1.1] mb-3">
+                Compete. Solve.<br />
+                <span className="text-orange-500">Dominate.</span>
+              </h1>
+              <p className="text-white/40 text-base max-w-md leading-relaxed">
+                Join timed contests, climb the leaderboard, and prove your skills against the best.
+              </p>
+            </motion.div>
+          </div>
+          <div className="absolute top-4 right-4 w-24 h-24 border-r-2 border-t-2 border-white/[0.04] rounded-tr-2xl pointer-events-none" />
+          <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-white/[0.04] rounded-bl-xl pointer-events-none" />
+        </div>
+
+        {/* ── MAIN ── */}
+        <div className="max-w-7xl mx-auto px-5 py-10 relative z-10">
+
+          {/* ── TOP 3 CARDS (Contest + Duel) ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+
+            {/* Card 1 — Join Contest (primary CTA) */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
+              className="md:col-span-2 relative overflow-hidden rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/[0.08] via-white/[0.02] to-transparent p-6 group cursor-pointer hover:border-orange-500/40 transition-all duration-300"
+              onClick={() => document.getElementById('contest-list')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              {/* bg glow */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/[0.06] blur-[80px] rounded-full pointer-events-none" />
+
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
+                    <Trophy className="w-6 h-6 text-orange-400" />
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400 live-dot" />
+                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.12em]">{ongoing} Live</span>
+                  </div>
+                </div>
+
+                <h2 className="font-display text-2xl font-700 text-white mb-2">Join a Contest</h2>
+                <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-sm">
+                  Timed coding battles with live leaderboards. Solve the most problems fastest to reach the top.
+                </p>
+
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="flex flex-col">
+                    <span className="font-display text-2xl font-700 text-orange-400">{ongoing}</span>
+                    <span className="text-[10px] font-black text-white/25 uppercase tracking-widest">Live Now</span>
+                  </div>
+                  <div className="w-px h-10 bg-white/10" />
+                  <div className="flex flex-col">
+                    <span className="font-display text-2xl font-700 text-amber-400">{upcoming}</span>
+                    <span className="text-[10px] font-black text-white/25 uppercase tracking-widest">Upcoming</span>
+                  </div>
+                  <div className="w-px h-10 bg-white/10" />
+                  <div className="flex flex-col">
+                    <span className="font-display text-2xl font-700 text-white/30">{ended}</span>
+                    <span className="text-[10px] font-black text-white/25 uppercase tracking-widest">Ended</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-orange-400 text-sm font-semibold group-hover:gap-3 transition-all">
+                  <span>Browse Contests</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Card 2 — Duel Challenge */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+              className="relative overflow-hidden rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-500/[0.06] via-white/[0.02] to-transparent p-6 group cursor-pointer hover:border-purple-500/35 transition-all duration-300"
+              onClick={() => navigate('/duel')}
+            >
+              <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/[0.05] blur-[60px] rounded-full pointer-events-none" />
+
+              <div className="relative z-10 h-full flex flex-col">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center">
+                    <Swords className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full">
+                    <span className="text-[10px] font-black text-purple-400 uppercase tracking-[0.12em]">1v1</span>
+                  </div>
+                </div>
+
+                <h2 className="font-display text-2xl font-700 text-white mb-2">Duel Challenge</h2>
+                <p className="text-white/40 text-sm leading-relaxed mb-6 flex-1">
+                  Challenge a friend or get matched with a random opponent. First to solve wins.
+                </p>
+
+                <div className="flex items-center gap-2 text-purple-400 text-sm font-semibold group-hover:gap-3 transition-all">
+                  <span>Start a Duel</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* ── TAB BAR ── */}
+          <div id="contest-list">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.07] rounded-xl">
+                {[
+                  { key: 'all',      label: 'All',      count: contests.length },
+                  { key: 'ongoing',  label: 'Live',     count: ongoing  },
+                  { key: 'upcoming', label: 'Upcoming', count: upcoming },
+                  { key: 'ended',    label: 'Ended',    count: ended    },
+                ].map(({ key, label, count }) => (
+                  <button
+                    key={key}
+                    onClick={() => setTab(key)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
+                      tab === key
+                        ? "bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.3)]"
+                        : "text-white/40 hover:text-white/70"
+                    )}
+                  >
+                    {label}
+                    <span className={cn(
+                      "text-[10px] font-black px-1.5 py-0.5 rounded-md",
+                      tab === key ? "bg-black/20 text-black/70" : "bg-white/[0.06] text-white/30"
+                    )}>{count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── CONTEST LIST ── */}
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 rounded-2xl bg-white/[0.02] border border-white/[0.05] animate-pulse" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-28 text-center"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
+                  <Trophy className="w-7 h-7 text-white/15" />
+                </div>
+                <h3 className="font-display text-lg font-700 text-white/30 mb-1">No contests here</h3>
+                <p className="text-sm text-white/20">Check back soon or look at a different tab.</p>
+              </motion.div>
+            ) : (
+              <div className="space-y-3">
+                <AnimatePresence mode="popLayout">
+                  {filtered.map((contest, index) => (
+                    <ContestCard key={contest._id} contest={contest} index={index} />
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   CONTEST CARD
+══════════════════════════════════════════ */
+function ContestCard({ contest, index }) {
+  const navigate  = useNavigate();
+  const status    = getStatusStyle(contest.computedStatus);
+  const isOngoing = contest.computedStatus === 'ongoing';
+  const isUpcoming = contest.computedStatus === 'upcoming';
+
+  // countdown for upcoming contests
+  const countdown = useCountdown(isUpcoming ? contest.startTime : null);
+
+  const handleClick = () => navigate(`/contest/${contest._id}`);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 12 }}
+      layout
+      transition={{ delay: index * 0.05, duration: 0.3 }}
+    >
+      <div
+        onClick={handleClick}
+        className={cn(
+          "card-shimmer group relative flex items-center justify-between px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl hover:bg-white/[0.035] transition-all duration-250 overflow-hidden cursor-pointer",
+          isOngoing && "border-emerald-500/15 hover:border-emerald-500/25",
+          isUpcoming && "hover:border-orange-500/20"
+        )}
+      >
+        {/* live accent line */}
+        {isOngoing && (
+          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-[3px_0_18px_rgba(52,211,153,0.35)]" />
+        )}
+
+        {/* hover glow */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-orange-500/[0.025] to-transparent pointer-events-none" />
+
+        {/* LEFT */}
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          {/* icon */}
+          <div className={cn(
+            "hidden sm:flex w-10 h-10 rounded-xl items-center justify-center flex-shrink-0 border transition-all",
+            isOngoing  ? "bg-emerald-500/10 border-emerald-500/20 group-hover:border-emerald-500/40" :
+            isUpcoming ? "bg-orange-500/10  border-orange-500/20  group-hover:border-orange-500/40"  :
+                         "bg-white/[0.03]   border-white/[0.07]"
+          )}>
+            {isOngoing  ? <Zap       className="w-4 h-4 text-emerald-400" /> :
+             isUpcoming ? <Timer     className="w-4 h-4 text-orange-400"  /> :
+                          <Lock      className="w-4 h-4 text-white/20"    />}
+          </div>
+
+          <div className="min-w-0">
+            {/* title */}
+            <h4 className="text-[14px] font-semibold text-white/80 group-hover:text-white transition-colors truncate mb-1.5">
+              {contest.title}
+            </h4>
+
+            {/* meta row */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* status badge */}
+              <span className={cn(
+                "inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border",
+                status.bg, status.border, status.text
+              )}>
+                <span className={cn("w-1.5 h-1.5 rounded-full", status.dot, isOngoing && "live-dot")} />
+                {status.label}
+              </span>
+
+              {/* duration */}
+              <span className="flex items-center gap-1 text-[11px] text-white/25">
+                <Clock className="w-3 h-3" />
+                {getDuration(contest.startTime, contest.endTime)}
+              </span>
+
+              {/* participants */}
+              <span className="flex items-center gap-1 text-[11px] text-white/25">
+                <Users className="w-3 h-3" />
+                {contest.totalParticipants ?? 0} joined
+              </span>
+
+              {/* problems count */}
+              <span className="flex items-center gap-1 text-[11px] text-white/25">
+                <Code2 className="w-3 h-3" />
+                {contest.totalProblems ?? 0} problems
+              </span>
+
+              {/* date */}
+              <span className="hidden md:flex items-center gap-1 text-[11px] text-white/20">
+                <CalendarDays className="w-3 h-3" />
+                {isOngoing  ? `Ends ${formatDate(contest.endTime)}`   :
+                 isUpcoming ? `Starts ${formatDate(contest.startTime)}` :
+                              formatDate(contest.endTime)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT */}
+        <div className="flex items-center gap-4 flex-shrink-0 ml-4">
+
+          {/* countdown for upcoming */}
+          {isUpcoming && countdown && (
+            <div className="hidden md:flex items-center gap-1 font-mono text-xs">
+              {[
+                { val: String(countdown.h).padStart(2,'0'), label: 'h' },
+                { val: String(countdown.m).padStart(2,'0'), label: 'm' },
+                { val: String(countdown.s).padStart(2,'0'), label: 's' },
+              ].map(({ val, label }, i) => (
+                <span key={label} className="flex items-center">
+                  {i > 0 && <span className="text-white/20 mx-0.5">:</span>}
+                  <span className="flex flex-col items-center">
+                    <span className="text-amber-400 font-black text-sm leading-none">{val}</span>
+                    <span className="text-[8px] text-white/20 uppercase">{label}</span>
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* registered badge */}
+          {contest.isRegistered && (
+            <span className="hidden sm:block text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">
+              Registered
+            </span>
+          )}
+
+          {/* arrow */}
+          <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] transition-all duration-300">
+            <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }

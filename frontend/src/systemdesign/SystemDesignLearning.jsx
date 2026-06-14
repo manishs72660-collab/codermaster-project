@@ -1,734 +1,994 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
+// ─── DATA ─────────────────────────────────────────────────────────────────────
 const TOPICS = {
   lb: {
     title: "Load Balancer",
-    subtitle: "How traffic is distributed across servers",
-    icon: "⇄",
-    tags: ["Intermediate", "Interview favorite"],
+    category: "Infrastructure",
+    color: "#3b82f6",
+    glow: "rgba(59,130,246,0.15)",
+    icon: "⇌",
+    difficulty: "Core",
     steps: [
       {
         heading: "What is a Load Balancer?",
-        text: "A load balancer sits between clients and a pool of servers. It receives every incoming request and decides which server should handle it — spreading the work so no single server gets overwhelmed.",
-        insight: "Think of it as a smart traffic cop: when 10,000 users hit your API at once, the load balancer fans those requests out across your server fleet.",
-        diagram: "lb_intro",
+        body: "A load balancer sits in front of a server pool and distributes every incoming request across them — so no single machine gets crushed. It's the entry point for your entire service.",
+        callout: "Without a load balancer, one server handles everything. Add ten more servers and they're useless — traffic still piles into that first machine.",
+        diagram: "lb_overview",
       },
       {
-        heading: "Round-Robin Distribution",
-        text: "The simplest strategy: requests are sent to each server in sequence — Server 1, Server 2, Server 3, then back to Server 1. Every server gets an equal share of traffic, assuming all requests take similar time.",
-        insight: "Works great when servers are homogeneous. Breaks down if servers have different capacities or if some requests are much heavier than others.",
+        heading: "Round Robin & Weighted Routing",
+        body: "Round Robin cycles requests: S1 → S2 → S3 → S1. Weighted routing lets you send 70% to a beefier server. Least-connections routes to whichever server has fewest active requests right now.",
+        callout: "Use Least-Connections when requests have wildly different durations — otherwise a slow query on S1 keeps piling up while S2 sits idle.",
         diagram: "lb_roundrobin",
       },
       {
         heading: "Health Checks",
-        text: "The load balancer continuously pings each server (e.g. every 5 seconds). If a server fails to respond, the LB removes it from rotation automatically and stops sending traffic to it until it recovers.",
-        insight: "This is how zero-downtime deployments work — you can restart a server and the LB gracefully routes around it.",
+        body: "The LB pings each server every 5s on /health. Three failures in a row → server pulled from rotation automatically. When it recovers, it eases back in.",
+        callout: "This is how zero-downtime deploys work: take a server out, deploy new code, health check passes, traffic flows back. Rolling deploys in one sentence.",
         diagram: "lb_health",
       },
       {
-        heading: "Layer 4 vs Layer 7",
-        text: "L4 load balancers work at TCP level — fast but blind to content. L7 load balancers inspect HTTP content and can route based on URL paths, headers, or cookies — powerful but slightly slower. Modern systems like Nginx and AWS ALB are L7.",
-        insight: "Interview tip: always ask 'do you need path-based routing?' If yes → L7. If pure throughput and low latency → L4.",
+        heading: "L4 vs L7",
+        body: "L4 operates at TCP — sees source IP and port, extremely fast. L7 reads HTTP content: URL paths, headers, cookies. L7 can route /api → API servers, /images → image servers.",
+        callout: "Always ask in interviews: 'Do you need path-based or header-based routing?' If yes → L7 (Nginx, AWS ALB). If raw throughput matters more → L4 (AWS NLB).",
         diagram: "lb_layers",
       },
     ],
   },
   cache: {
     title: "Caching",
-    subtitle: "Storing frequently accessed data in fast memory",
-    icon: "◈",
-    tags: ["Intermediate", "Most popular"],
+    category: "Performance",
+    color: "#10b981",
+    glow: "rgba(16,185,129,0.15)",
+    icon: "⬡",
+    difficulty: "Core",
     steps: [
       {
-        heading: "Why Caching?",
-        text: "Every DB query takes time — caching stores the result of expensive queries in fast memory (RAM). The next identical request reads from cache in microseconds instead of hitting the database.",
-        insight: "A 10ms DB read vs a 0.1ms cache hit — at scale this difference is enormous. Twitter serves ~600k reads/sec, mostly from cache.",
-        diagram: "cache_intro",
+        heading: "Why Caching Exists",
+        body: "Every DB query is a network round-trip plus disk I/O — 5–50ms. A Redis cache read is RAM access — 0.1ms. At Twitter's scale (600k reads/sec), that difference is the entire product.",
+        callout: "Cache is a bet: 'this data will be requested again before it changes.' The higher the hit rate, the better the bet.",
+        diagram: "cache_why",
       },
       {
-        heading: "Cache Hit vs Miss",
-        text: "A cache hit means the data was found in cache — the request is served instantly. A cache miss means we go to the DB, get the result, store it in cache, then return it.",
-        insight: "Cache hit rate is a critical metric. Below 80% and your cache is barely helping. Above 95% and your DB is mostly idle.",
+        heading: "Hit vs Miss",
+        body: "Hit: data found in cache, returned instantly. Miss: fetch from DB, store in cache, return. Hit rate is your north star metric — below 80% your cache barely helps, above 95% the DB is nearly idle.",
+        callout: "Thundering herd: 10,000 concurrent cache misses all hammer the DB simultaneously. Fix with request coalescing or a mutex lock on the cache fill.",
         diagram: "cache_hit",
       },
       {
-        heading: "Eviction Policies",
-        text: "Cache memory is finite. LRU (Least Recently Used) removes the item not accessed for the longest time. LFU removes the least frequently accessed item. TTL expires items after a set duration.",
-        insight: "LRU is the most common default. Use TTL for data that goes stale (weather data) and LFU for hot/cold access patterns.",
+        heading: "Write Strategies",
+        body: "Write-through: write to cache and DB simultaneously. Always consistent, slower writes. Write-around: skip cache on write, data comes in on first read. Write-back: write to cache, flush to DB later. Fast, but risky if cache crashes.",
+        callout: "Write-back is dangerous for anything financial. Write-through is the safe default. Write-around for write-heavy data that's rarely re-read.",
+        diagram: "cache_write",
+      },
+      {
+        heading: "Eviction: LRU, LFU, TTL",
+        body: "Cache memory is finite. LRU (Least Recently Used): evict what hasn't been touched longest. LFU: evict what's accessed least frequently. TTL: expire after a set time regardless.",
+        callout: "LRU is Redis's default and the right answer 80% of the time. TTL for weather/news data. LFU when you have genuine hot/cold patterns with stable hot items.",
         diagram: "cache_evict",
       },
     ],
   },
   cdn: {
     title: "CDN",
-    subtitle: "Serving static assets from edge servers near users",
+    category: "Performance",
+    color: "#f59e0b",
+    glow: "rgba(245,158,11,0.15)",
     icon: "◎",
-    tags: ["Intermediate", "Popular"],
+    difficulty: "Core",
     steps: [
       {
-        heading: "The Problem: Latency by Distance",
-        text: "If your origin server is in Mumbai and a user is in New York, every request travels ~14,000 km. A CDN places cached copies of your content at edge nodes worldwide — reducing that to ~200km.",
-        insight: "A CDN node in New Jersey serves the same file with ~5ms delay instead of 150ms. For images, CSS, and JS — this is transformative.",
-        diagram: "cdn_intro",
+        heading: "Distance = Latency",
+        body: "Mumbai origin server → New York user = 14,000km ≈ 150ms. CDN edge node in New Jersey → New York user = 200km ≈ 5ms. Static assets (images, CSS, JS) never need to touch your origin again.",
+        callout: "CDNs like Cloudflare have 300+ edge nodes. Your content is physically closer to every user on Earth.",
+        diagram: "cdn_distance",
       },
       {
-        heading: "How CDN Caching Works",
-        text: "On a cache miss, the CDN edge fetches from origin, caches it, and serves the user. Future requests hit the cache. The Cache-Control header controls how long the CDN keeps the file.",
-        insight: "Set long TTLs (1 year) on versioned assets like main.a3f7b.js. Short TTLs or no caching for HTML pages that change frequently.",
-        diagram: "cdn_flow",
+        heading: "Cache-Control & TTLs",
+        body: "The origin sets Cache-Control headers that tell CDN edges how long to keep a file. max-age=31536000 for hashed assets like main.a3f7b.css. max-age=0 for HTML that changes with every deploy.",
+        callout: "The trick: content-hash your asset filenames. Never expire the cache, but change the filename when content changes. Best of both worlds.",
+        diagram: "cdn_cache",
+      },
+    ],
+  },
+  db: {
+    title: "Databases",
+    category: "Storage",
+    color: "#8b5cf6",
+    glow: "rgba(139,92,246,0.15)",
+    icon: "◫",
+    difficulty: "Core",
+    steps: [
+      {
+        heading: "SQL vs NoSQL",
+        body: "SQL: relational, ACID, structured schema. Best for financial data, complex joins, strong consistency. NoSQL: flexible schema, horizontal scale. MongoDB (documents), Cassandra (wide-column), Redis (key-value).",
+        callout: "The real question isn't SQL vs NoSQL — it's 'what are my access patterns?' If you need arbitrary queries on structured data, SQL. If you're always querying by user ID, NoSQL shines.",
+        diagram: "db_types",
+      },
+      {
+        heading: "Replication",
+        body: "Primary-replica: all writes go to primary, reads spread across replicas. Primary-primary (multi-master): writes accepted anywhere, conflicts resolved. Replication lag is your enemy — a replica may be 50ms behind.",
+        callout: "After a write, if the user immediately reads from a replica, they may not see their own write. 'Read your own writes' consistency requires routing that user's reads to the primary for a short window.",
+        diagram: "db_replication",
+      },
+      {
+        heading: "Sharding",
+        body: "Sharding splits one huge DB into N smaller ones (shards), each on a separate machine. A shard key determines which shard a record goes to. User ID is a good key — timestamp is a terrible one.",
+        callout: "Hot shards kill you. If 10% of users generate 80% of traffic, user-ID sharding concentrates load on a few shards. Consider consistent hashing to distribute more evenly.",
+        diagram: "db_sharding",
+      },
+      {
+        heading: "Indexes",
+        body: "An index is a sorted data structure (usually a B-tree) that lets the DB find rows without scanning the whole table. Composite indexes cover multi-column queries. Covering indexes include all queried columns, avoiding a table lookup entirely.",
+        callout: "Every index speeds up reads but slows down writes — the index must be updated on every INSERT/UPDATE. Never index every column. Index what your slowest queries filter by.",
+        diagram: "db_indexes",
+      },
+    ],
+  },
+  queue: {
+    title: "Message Queues",
+    category: "Infrastructure",
+    color: "#ec4899",
+    glow: "rgba(236,72,153,0.15)",
+    icon: "⇥",
+    difficulty: "Core",
+    steps: [
+      {
+        heading: "Decoupling with Queues",
+        body: "Without queues: your API calls the email service synchronously — if it's slow, your user waits. With a queue: API drops a job and returns in 1ms. Email worker picks it up asynchronously. Services are decoupled.",
+        callout: "Rule of thumb: 'send email', 'resize image', 'process payment notification', 'generate PDF' — any work that doesn't block the user response should be a queue job.",
+        diagram: "queue_decouple",
+      },
+      {
+        heading: "Kafka vs RabbitMQ",
+        body: "RabbitMQ: broker pushes to consumers, messages deleted after ACK. Perfect for task queues. Kafka: consumers pull at their own pace, messages retained (days/weeks). Perfect for event streaming and audit logs.",
+        callout: "Kafka shines when multiple different consumers need the same events — analytics, billing, and notifications can all consume the same user-signup event independently.",
+        diagram: "queue_types",
+      },
+      {
+        heading: "At-Least-Once Delivery",
+        body: "Queues guarantee at-least-once delivery, not exactly-once. A worker may crash mid-processing, the job re-queues, another worker picks it up. Your consumers must be idempotent — same job processed twice = same result.",
+        callout: "Idempotency key pattern: include a unique job ID. Before processing, check 'have I seen this ID?' If yes, skip. This is how Stripe handles duplicate payment requests.",
+        diagram: "queue_idempotent",
       },
     ],
   },
   twitter: {
-    title: "Twitter Feed",
-    subtitle: "How Twitter generates your personalized timeline",
+    title: "Twitter / X Feed",
+    category: "Real World",
+    color: "#06b6d4",
+    glow: "rgba(6,182,212,0.15)",
     icon: "✦",
-    tags: ["Popular", "Interview favorite"],
+    difficulty: "Case Study",
     steps: [
       {
         heading: "The Fan-out Problem",
-        text: "When a user tweets, their followers need to see it. If a celebrity has 10M followers and tweets once, do you precompute each follower's feed when the tweet is created, or compute the feed at read time?",
-        insight: "Fan-out on Write = fast reads, slow writes. Fan-out on Read = slow reads, fast writes. Twitter uses a hybrid of both.",
+        body: "User tweets → 10M followers need to see it. Option A: precompute each follower's feed on write (fan-out on write). Option B: compute the feed fresh on every read (fan-out on read). Both scale poorly alone.",
+        callout: "Fan-out on write: fast reads, but one celebrity tweet triggers 10M cache writes simultaneously. Fan-out on read: consistent, but every feed load requires 500+ queries merged in real-time.",
         diagram: "twitter_fanout",
       },
       {
         heading: "Twitter's Hybrid Approach",
-        text: "For regular users (<10k followers): fan-out on write — the tweet is pushed to each follower's feed cache immediately. For celebrities (10M+ followers): fan-out on read — merging is done when you open the app.",
-        insight: "This avoids a single tweet triggering 10 million cache writes. Twitter calls this the 'celebrity problem' internally.",
+        body: "Regular users (<10k followers): fan-out on write. Tweet pushed to follower feed caches immediately. Celebrities (10M+ followers): fan-out on read. Their tweets merged in at read time. Threshold is configurable.",
+        callout: "This is called the 'celebrity problem.' One tweet from @BarackObama triggering 130M cache writes would crater the system. So their tweets are treated differently.",
         diagram: "twitter_hybrid",
+      },
+      {
+        heading: "Timeline Cache",
+        body: "Each user has a timeline cache — a Redis sorted set scored by tweet timestamp. Fan-out on write appends to each follower's cache. On open, the app reads the top 800 tweets from cache, merges celebrity tweets, done.",
+        callout: "Twitter caps feed caches at ~800 entries. If you haven't opened Twitter in weeks, your cache is stale — a 'heavy ranker' recomputes it fresh on your next open.",
+        diagram: "twitter_cache",
       },
     ],
   },
   netflix: {
     title: "Netflix",
-    subtitle: "How Netflix delivers video at global scale",
+    category: "Real World",
+    color: "#ef4444",
+    glow: "rgba(239,68,68,0.15)",
     icon: "▶",
-    tags: ["Popular", "Interview favorite"],
+    difficulty: "Case Study",
     steps: [
       {
-        heading: "Microservices Architecture",
-        text: "Netflix runs 700+ microservices. When you press play: your app calls the API Gateway → Auth service → Billing service → Playback service → then CDN delivers the video. Each service is independently deployable.",
-        insight: "Netflix pioneered microservices. They famously migrated from a monolith after a database corruption in 2008 brought down the entire service.",
+        heading: "700+ Microservices",
+        body: "Press play: Client → API Gateway → Auth → Billing → Playback license → Streaming manifest → CDN delivers video. Netflix runs 700+ independently deployable microservices. Each owns its data and scales separately.",
+        callout: "Netflix migrated from a monolith after a DB corruption in 2008 took down the entire service for 3 days. Microservices mean one service failing doesn't cascade.",
         diagram: "netflix_arch",
       },
       {
         heading: "Adaptive Bitrate Streaming",
-        text: "Netflix encodes each video into multiple quality tiers (240p to 4K). Your client measures bandwidth every few seconds and switches tiers — so a 4K stream drops gracefully to 720p if your WiFi weakens.",
-        insight: "The video is split into 2-10 second segments. Buffer 3-4 ahead. Switch quality between segments. This is the ABR algorithm.",
+        body: "Video encoded at 5–20 quality tiers (240p to 4K). Split into 2–10 second segments. Client measures bandwidth every few seconds, switches quality between segments. Buffer 3–4 segments ahead at current quality.",
+        callout: "The ABR algorithm runs on the client. It's balancing: 'how much buffer do I have, what's my current bandwidth estimate, how fast is it changing?' to pick the highest quality that won't stall.",
         diagram: "netflix_abr",
+      },
+      {
+        heading: "Open Connect CDN",
+        body: "Netflix built its own CDN — Open Connect Appliances (OCAs) — placed inside ISP data centers. Popular shows pre-loaded nightly during off-peak hours. 95% of Netflix traffic served from ISP-embedded caches.",
+        callout: "Pre-positioning content is the secret. A new season drops, Netflix detects the title is trending in Japan, pre-loads it to Japanese OCAs overnight. When the episode drops, all traffic hits local cache.",
+        diagram: "netflix_cdn",
       },
     ],
   },
   uber: {
     title: "Uber",
-    subtitle: "Real-time location matching at scale",
+    category: "Real World",
+    color: "#f97316",
+    glow: "rgba(249,115,22,0.15)",
     icon: "⬡",
-    tags: ["Popular", "Interview favorite"],
+    difficulty: "Case Study",
     steps: [
       {
-        heading: "The Matching Problem",
-        text: "Uber needs to match a rider with the nearest available driver in real-time across millions of active users. Drivers send GPS pings every 4 seconds. The system must find all drivers within 2km in under 100ms.",
-        insight: "This is a geospatial index problem. Uber uses H3 (hexagonal hierarchical spatial indexing) to divide the Earth into hexagons.",
-        diagram: "uber_match",
+        heading: "Geospatial Matching",
+        body: "Every active driver pings GPS location every 4 seconds. On ride request: find all drivers within 2km, rank by ETA, dispatch nearest. This must complete in under 100ms across millions of moving data points.",
+        callout: "Uber uses H3 — Uber's own hexagonal hierarchical spatial index. Earth is divided into hexagons at different resolutions. A hex lookup is O(1) vs scanning every driver.",
+        diagram: "uber_geo",
       },
       {
-        heading: "Surge Pricing Algorithm",
-        text: "When demand exceeds supply in a hex region, the multiplier increases. Drivers see higher earnings and move toward the area. Riders see higher prices and some cancel — until equilibrium is reached.",
-        insight: "The surge multiplier is recalculated every few minutes per region. It's a real-time feedback loop, not a simple formula.",
+        heading: "Surge Pricing",
+        body: "Each H3 hex cell tracks demand (ride requests) vs supply (available drivers) in real-time. When demand/supply ratio exceeds a threshold, the surge multiplier increases for that cell. Recalculated every few minutes.",
+        callout: "Surge is a market equilibrium mechanism. Higher prices: some riders cancel (lower demand), some drivers move in (higher supply). The system self-corrects without central control.",
         diagram: "uber_surge",
+      },
+      {
+        heading: "DISCO: Dispatch System",
+        body: "DISCO (DIStributed COordination) matches riders to drivers. It's partitioned by geohash — each partition owns a region. Within a partition, matches are deterministic. Partitions don't talk to each other.",
+        callout: "This is the scalability insight: geographically partition a global problem into thousands of independent local problems. A ride in Mumbai doesn't need to know about rides in New York.",
+        diagram: "uber_dispatch",
       },
     ],
   },
   scale: {
     title: "Scalability",
-    subtitle: "Key patterns for every system design interview",
+    category: "Concepts",
+    color: "#84cc16",
+    glow: "rgba(132,204,22,0.15)",
     icon: "↑",
-    tags: ["Interview essential"],
+    difficulty: "Fundamentals",
     steps: [
       {
-        heading: "Horizontal vs Vertical Scaling",
-        text: "Vertical scaling = buy a bigger machine (more CPU/RAM). Simple but has a ceiling. Horizontal scaling = add more machines. Requires stateless services and a load balancer in front.",
-        insight: "Interview rule: always recommend horizontal scaling + stateless services for production systems. Vertical scaling for quick wins or databases.",
+        heading: "Horizontal vs Vertical",
+        body: "Vertical: bigger machine (more CPU/RAM). Simple, no code changes, but has a hard ceiling and single point of failure. Horizontal: more machines. Requires stateless services + load balancer, but scales infinitely.",
+        callout: "For databases: vertical first (it's simpler). For application servers: horizontal always. A stateless app server is trivially cloneable. Stateful services (DBs, caches) need more thought.",
         diagram: "scale_hv",
       },
       {
-        heading: "Database Sharding",
-        text: "Sharding splits your database into partitions across multiple machines. Each shard holds a subset of the data. Queries go to the right shard based on a shard key.",
-        insight: "Choose shard keys carefully — a bad key causes hot spots. User ID is usually good. Timestamp is bad (all new writes go to one shard).",
-        diagram: "scale_shard",
+        heading: "CAP Theorem",
+        body: "In a distributed system, you can only guarantee 2 of 3: Consistency (all nodes see same data), Availability (every request gets a response), Partition Tolerance (system survives network splits). You must choose.",
+        callout: "Network partitions happen — so really you're choosing: CP (banks, databases) or AP (social feeds, DNS). Most systems choose AP with eventual consistency and tune from there.",
+        diagram: "scale_cap",
       },
       {
-        heading: "Message Queues",
-        text: "A message queue (Kafka, RabbitMQ) decouples producers from consumers. The API writes jobs to a queue and returns immediately. Workers pull and process jobs asynchronously — absorbing traffic spikes.",
-        insight: "Whenever you see 'send an email', 'resize an image', 'process a payment' — these should go through a message queue, not done synchronously.",
-        diagram: "scale_mq",
+        heading: "Rate Limiting",
+        body: "Token bucket: each user gets N tokens per window, each request burns one. Leaky bucket: requests drain at a fixed rate regardless of bursts. Sliding window log: precise but memory-heavy. Redis counters: simple and fast.",
+        callout: "Always rate limit per user AND per IP. A token bucket allows controlled bursting (good for real users). Leaky bucket smooths traffic for downstream services.",
+        diagram: "scale_ratelimit",
       },
     ],
   },
 };
 
-const TAG_COLORS = {
-  "Intermediate": { bg: "#1a2744", text: "#6b9fff" },
-  "Interview favorite": { bg: "#1e1a30", text: "#9b8aff" },
-  "Most popular": { bg: "#0f2520", text: "#4ecb94" },
-  "Popular": { bg: "#0f2520", text: "#4ecb94" },
-  "Interview essential": { bg: "#1e1a30", text: "#9b8aff" },
+const CATEGORIES = {
+  Infrastructure: "#3b82f6",
+  Performance: "#10b981",
+  Storage: "#8b5cf6",
+  "Real World": "#ec4899",
+  Concepts: "#84cc16",
 };
 
-// ─── SVG DIAGRAMS ──────────────────────────────────────────────────────────────
-function DiagramLBIntro() {
-  return (
-    <svg viewBox="0 0 560 175" style={{ width: "100%", display: "block" }}>
-      <defs>
-        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M2 1L8 5L2 9" fill="none" stroke="#6b9fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </marker>
-      </defs>
-      {/* Clients */}
-      {[30, 76, 122].map((y, i) => (
-        <g key={i}>
-          <rect x="10" y={y} width="80" height="34" rx="6" fill="#1a2744" stroke="#2a3a5c" strokeWidth="0.8" />
-          <text x="50" y={y + 21} textAnchor="middle" dominantBaseline="central" fill="#6b9fff" fontSize="12" fontFamily="monospace">Client {i + 1}</text>
-        </g>
-      ))}
-      {/* Flow lines to LB */}
-      {[[90,47,195,82],[90,93,195,93],[90,139,195,104]].map(([x1,y1,x2,y2],i)=>(
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a5a8a" strokeWidth="1.2" markerEnd="url(#arr)" strokeDasharray="5 3">
-          <animate attributeName="strokeDashoffset" from="0" to="-16" dur="1.2s" repeatCount="indefinite"/>
+// ─── DIAGRAMS ─────────────────────────────────────────────────────────────────
+function Diagram({ id, color }) {
+  const diagrams = {
+    lb_overview: (
+      <svg viewBox="0 0 580 180" style={{width:"100%"}}>
+        <defs>
+          <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+        </defs>
+        {/* Clients */}
+        {[28,78,128].map((y,i) => (
+          <g key={i}>
+            <rect x="8" y={y} width="74" height="32" rx="6" fill="#0f172a" stroke="#1e293b" strokeWidth="1"/>
+            <text x="45" y={y+20} textAnchor="middle" dominantBaseline="central" fill="#64748b" fontSize="11" fontFamily="system-ui">Client {i+1}</text>
+          </g>
+        ))}
+        {/* Lines to LB */}
+        {[[82,44,188,85],[82,94,188,92],[82,144,188,99]].map(([x1,y1,x2,y2],i)=>(
+          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#1e3a5f" strokeWidth="1" markerEnd="url(#a1)" strokeDasharray="5 3">
+            <animate attributeName="strokeDashoffset" from="0" to="-16" dur={`${1+i*0.2}s`} repeatCount="indefinite"/>
+          </line>
+        ))}
+        {/* LB */}
+        <rect x="188" y="62" width="130" height="58" rx="10" fill={`rgba(${color==='#3b82f6'?'59,130,246':'16,185,129'},0.08)`} stroke={color} strokeWidth="1.2"/>
+        <text x="253" y="84" textAnchor="middle" dominantBaseline="central" fill={color} fontSize="13" fontWeight="600" fontFamily="system-ui">Load Balancer</text>
+        <text x="253" y="104" textAnchor="middle" dominantBaseline="central" fill={color} opacity="0.5" fontSize="10" fontFamily="system-ui">nginx / AWS ALB</text>
+        {/* Lines to servers */}
+        {[[318,80,400,38],[318,90,400,90],[318,100,400,142]].map(([x1,y1,x2,y2],i)=>(
+          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#1e3a5f" strokeWidth="1" markerEnd="url(#a1)" strokeDasharray="5 3">
+            <animate attributeName="strokeDashoffset" from="0" to="-16" dur={`${1.4+i*0.15}s`} repeatCount="indefinite"/>
+          </line>
+        ))}
+        {/* Servers */}
+        {[["S1",18],["S2",70],["S3",122]].map(([name,y],i)=>(
+          <g key={i}>
+            <rect x="400" y={y} width="80" height="32" rx="6" fill="#0f172a" stroke="#1e293b" strokeWidth="1"/>
+            <circle cx="416" cy={y+16} r="3" fill="#10b981"/>
+            <text x="444" y={y+16} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize="11" fontFamily="system-ui">Server {name[1]}</text>
+          </g>
+        ))}
+        {/* DB */}
+        <rect x="500" y="70" width="72" height="42" rx="6" fill="#0f172a" stroke="#1e293b" strokeWidth="1"/>
+        <text x="536" y="95" textAnchor="middle" dominantBaseline="central" fill="#475569" fontSize="11" fontFamily="system-ui">DB</text>
+      </svg>
+    ),
+    lb_roundrobin: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        <rect x="10" y="55" width="120" height="52" rx="8" fill={`rgba(59,130,246,0.08)`} stroke={color} strokeWidth="1"/>
+        <text x="70" y="74" textAnchor="middle" dominantBaseline="central" fill={color} fontSize="12" fontWeight="600" fontFamily="system-ui">Load Balancer</text>
+        <text x="70" y="94" textAnchor="middle" dominantBaseline="central" fill={color} opacity="0.5" fontSize="10" fontFamily="system-ui">round robin</text>
+        {[["A","#1,#4,#7",12],["B","#2,#5,#8",62],["C","#3,#6,#9",112]].map(([n,req,y],i)=>(
+          <g key={n}>
+            <line x1="130" y1={80} x2="200" y2={y+18} stroke="#1e3a5f" strokeWidth="1" markerEnd={`url(#a2)`} strokeDasharray="4 2">
+              <animate attributeName="strokeDashoffset" from="0" to="-12" dur={`${1+i*0.3}s`} repeatCount="indefinite"/>
+            </line>
+            <rect x="200" y={y} width="140" height="36" rx="6" fill="#0f172a" stroke="#1e293b" strokeWidth="1"/>
+            <circle cx="216" cy={y+18} r="3" fill="#10b981"/>
+            <text x="238" y={y+14} dominantBaseline="central" fill="#94a3b8" fontSize="11" fontFamily="system-ui">Server {n}</text>
+            <text x="238" y={y+28} dominantBaseline="central" fill="#475569" fontSize="10" fontFamily="system-ui">{req}</text>
+          </g>
+        ))}
+        <defs>
+          <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+        </defs>
+        <text x="380" y="83" textAnchor="middle" fill="#334155" fontSize="11" fontFamily="system-ui">equal distribution</text>
+      </svg>
+    ),
+    lb_health: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        <defs>
+          <marker id="a3g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+          <marker id="a3r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+        </defs>
+        <rect x="10" y="55" width="120" height="52" rx="8" fill={`rgba(59,130,246,0.08)`} stroke={color} strokeWidth="1"/>
+        <text x="70" y="74" textAnchor="middle" dominantBaseline="central" fill={color} fontSize="12" fontWeight="600" fontFamily="system-ui">Load Balancer</text>
+        <text x="70" y="94" textAnchor="middle" dominantBaseline="central" fill={color} opacity="0.5" fontSize="10" fontFamily="system-ui">health checker</text>
+        {/* Healthy */}
+        {[[18,"S1"],[68,"S2"]].map(([y,n])=>(
+          <g key={n}>
+            <line x1="130" y1="78" x2="200" y2={y+18} stroke="#10b981" strokeWidth="1" markerEnd="url(#a3g)" strokeDasharray="4 2">
+              <animate attributeName="strokeDashoffset" from="0" to="-12" dur="1.2s" repeatCount="indefinite"/>
+            </line>
+            <rect x="200" y={y} width="130" height="36" rx="6" fill="#022c22" stroke="#10b981" strokeWidth="0.8"/>
+            <circle cx="216" cy={y+18} r="3" fill="#10b981"/>
+            <text x="228" y={y+14} dominantBaseline="central" fill="#10b981" fontSize="11" fontFamily="system-ui">{n} — healthy</text>
+            <text x="228" y={y+28} dominantBaseline="central" fill="#059669" fontSize="10" fontFamily="system-ui">serving traffic</text>
+          </g>
+        ))}
+        {/* Failed */}
+        <line x1="130" y1="95" x2="200" y2="126" stroke="#ef4444" strokeWidth="1" markerEnd="url(#a3r)" strokeDasharray="3 2"/>
+        <text x="165" y="108" textAnchor="middle" fill="#ef4444" fontSize="14">✕</text>
+        <rect x="200" y="108" width="130" height="36" rx="6" fill="#1a0000" stroke="#ef4444" strokeWidth="0.8"/>
+        <circle cx="216" cy="126" r="3" fill="#ef4444"/>
+        <text x="228" y="122" dominantBaseline="central" fill="#ef4444" fontSize="11" fontFamily="system-ui">S3 — failed</text>
+        <text x="228" y="136" dominantBaseline="central" fill="#991b1b" fontSize="10" fontFamily="system-ui">removed from pool</text>
+        <text x="360" y="60" fill="#1e293b" fontSize="11" fontFamily="system-ui">ping /health every 5s</text>
+        <text x="360" y="128" fill="#1e293b" fontSize="11" fontFamily="system-ui">3 failures → auto-remove</text>
+      </svg>
+    ),
+    lb_layers: (
+      <svg viewBox="0 0 580 148" style={{width:"100%"}}>
+        {[
+          ["L4 — TCP Layer","Sees IP + port only. Extremely fast.\nNo HTTP inspection.",["AWS NLB","HAProxy (L4)"],"#0f172a","#1e293b","#64748b",8],
+          ["L7 — HTTP Layer","Reads URL paths, headers, cookies.\nPath-based routing, SSL termination.",["Nginx","AWS ALB","Cloudflare"],"rgba(59,130,246,0.06)",color,"#94a3b8",84],
+        ].map(([title,desc,examples,bg,stroke,tc,y])=>(
+          <g key={title}>
+            <rect x="8" y={y} width="560" height="64" rx="8" fill={bg} stroke={stroke} strokeWidth={y===84?"1.2":"0.8"}/>
+            <text x="20" y={y+22} dominantBaseline="central" fill={y===84?color:"#475569"} fontSize="13" fontWeight="600" fontFamily="system-ui">{title}</text>
+            <text x="20" y={y+44} dominantBaseline="central" fill={tc} fontSize="11" fontFamily="system-ui">{desc.split("\n")[0]}</text>
+            <text x="20" y={y+56} dominantBaseline="central" fill={tc} opacity="0.6" fontSize="11" fontFamily="system-ui">{desc.split("\n")[1]}</text>
+            <text x="540" y={y+32} textAnchor="end" dominantBaseline="central" fill={y===84?color:"#334155"} fontSize="11" fontFamily="system-ui">{examples.join(" · ")}</text>
+          </g>
+        ))}
+      </svg>
+    ),
+    cache_why: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        <defs>
+          <marker id="cg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+          <marker id="cb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+        </defs>
+        <rect x="8" y="58" width="80" height="36" rx="6" fill="#0f172a" stroke="#1e293b" strokeWidth="1"/>
+        <text x="48" y="78" textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize="12" fontFamily="system-ui">Client</text>
+        {/* Cache */}
+        <line x1="88" y1="76" x2="158" y2="76" stroke="#10b981" strokeWidth="1" markerEnd="url(#cg)" strokeDasharray="4 2">
+          <animate attributeName="strokeDashoffset" from="0" to="-12" dur="1s" repeatCount="indefinite"/>
         </line>
-      ))}
-      {/* Load Balancer */}
-      <rect x="195" y="62" width="130" height="60" rx="10" fill="#1e1a40" stroke="#6b55ff" strokeWidth="1.2" />
-      <text x="260" y="86" textAnchor="middle" dominantBaseline="central" fill="#c0b8ff" fontSize="13" fontWeight="600" fontFamily="monospace">Load Balancer</text>
-      <text x="260" y="104" textAnchor="middle" dominantBaseline="central" fill="#6b5fcc" fontSize="11" fontFamily="monospace">distributes traffic</text>
-      {/* Lines from LB to servers */}
-      {[[325,78,400,38],[325,90,400,90],[325,102,400,142]].map(([x1,y1,x2,y2],i)=>(
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a5a8a" strokeWidth="1.2" markerEnd="url(#arr)" strokeDasharray="5 3">
-          <animate attributeName="strokeDashoffset" from="0" to="-16" dur="1.5s" repeatCount="indefinite"/>
-        </line>
-      ))}
-      {/* Servers */}
-      {[20,72,124].map((y,i)=>(
-        <g key={i}>
-          <rect x="400" y={y} width="80" height="34" rx="6" fill="#1a2a1a" stroke="#2a5a3a" strokeWidth="0.8"/>
-          <text x="440" y={y+21} textAnchor="middle" dominantBaseline="central" fill="#4ecb94" fontSize="12" fontFamily="monospace">Server {i+1}</text>
-        </g>
-      ))}
-      {/* DB */}
-      <rect x="500" y="72" width="52" height="34" rx="6" fill="#1a1a2a" stroke="#3a3a5a" strokeWidth="0.8"/>
-      <text x="526" y="93" textAnchor="middle" dominantBaseline="central" fill="#7070aa" fontSize="11" fontFamily="monospace">DB</text>
+        <rect x="158" y="48" width="110" height="56" rx="8" fill="rgba(16,185,129,0.08)" stroke="#10b981" strokeWidth="1.2"/>
+        <text x="213" y="72" textAnchor="middle" dominantBaseline="central" fill="#10b981" fontSize="13" fontWeight="600" fontFamily="system-ui">Cache</text>
+        <text x="213" y="90" textAnchor="middle" dominantBaseline="central" fill="#10b981" opacity="0.5" fontSize="10" fontFamily="system-ui">Redis / Memcached</text>
+        {/* Cache hit path */}
+        <path d="M213 48 C213 16 48 16 48 58" stroke="#10b981" strokeWidth="1" strokeDasharray="4 2" fill="none" markerEnd="url(#cg)"/>
+        <text x="130" y="10" textAnchor="middle" fill="#059669" fontSize="11" fontFamily="system-ui">hit: 0.1ms ✓</text>
+        {/* DB */}
+        <line x1="268" y1="76" x2="338" y2="76" stroke="#475569" strokeWidth="1" markerEnd="url(#cb)" fill="none"/>
+        <rect x="338" y="48" width="110" height="56" rx="8" fill="#0f172a" stroke="#1e293b" strokeWidth="1"/>
+        <text x="393" y="72" textAnchor="middle" dominantBaseline="central" fill="#64748b" fontSize="12" fontWeight="600" fontFamily="system-ui">Database</text>
+        <text x="393" y="90" textAnchor="middle" dominantBaseline="central" fill="#475569" fontSize="10" fontFamily="system-ui">disk I/O: 10–50ms</text>
+        <path d="M393 104 C393 136 213 136 213 104" stroke="#334155" strokeWidth="1" strokeDasharray="3 2" fill="none" markerEnd="url(#cb)"/>
+        <text x="305" y="152" textAnchor="middle" fill="#334155" fontSize="11" fontFamily="system-ui">miss: store result in cache</text>
+      </svg>
+    ),
+    cache_hit: (
+      <svg viewBox="0 0 580 148" style={{width:"100%"}}>
+        {[
+          {label:"HIT",color:"#10b981",bg:"rgba(16,185,129,0.06)",steps:[["Request","#0f172a","#64748b",8],["Cache ✓","rgba(16,185,129,0.08)","#10b981",130],["0.1ms","rgba(16,185,129,0.1)","#10b981",252]],y:14},
+          {label:"MISS",color:"#f59e0b",bg:"rgba(245,158,11,0.06)",steps:[["Request","#0f172a","#64748b",8],["Cache ✗","rgba(127,29,29,0.2)","#ef4444",130],["DB 10ms","#0f172a","#64748b",252],["Cache store","rgba(16,185,129,0.08)","#10b981",390]],y:84},
+        ].map(({label,color:lc,bg,steps,y})=>(
+          <g key={label}>
+            <rect x="4" y={y} width="570" height="54" rx="8" fill={bg} stroke={lc} strokeWidth="0.6"/>
+            <text x="16" y={y+30} dominantBaseline="central" fill={lc} fontSize="11" fontWeight="700" fontFamily="system-ui">{label}</text>
+            {steps.map(([txt,sbg,stc,x],i)=>(
+              <g key={txt}>
+                {i > 0 && <line x1={x-8} y1={y+28} x2={x-2} y2={y+28} stroke={lc} strokeWidth="1" opacity="0.4"/>}
+                <rect x={x+50} y={y+14} width={txt.length*7+10} height="28" rx="5" fill={sbg} stroke={stc} strokeWidth="0.7"/>
+                <text x={x+50+(txt.length*7+10)/2} y={y+28} textAnchor="middle" dominantBaseline="central" fill={stc} fontSize="11" fontFamily="system-ui">{txt}</text>
+              </g>
+            ))}
+          </g>
+        ))}
+      </svg>
+    ),
+    cache_write: (
+      <svg viewBox="0 0 580 148" style={{width:"100%"}}>
+        {[
+          ["Write-through","Write to cache + DB together","Always consistent, slower writes","#10b981",10],
+          ["Write-around","Skip cache on write","Good for write-heavy, rarely-read data","#f59e0b",62],
+          ["Write-back","Write cache, flush DB later","Fastest writes, data loss risk","#ef4444",114],
+        ].map(([name,desc1,desc2,c,y])=>(
+          <g key={name}>
+            <rect x="8" y={y} width="560" height="42" rx="7" fill="#0f172a" stroke="#1e293b" strokeWidth="0.8"/>
+            <rect x="8" y={y} width="4" height="42" rx="2" fill={c}/>
+            <text x="22" y={y+16} dominantBaseline="central" fill={c} fontSize="12" fontWeight="600" fontFamily="system-ui">{name}</text>
+            <text x="22" y={y+32} dominantBaseline="central" fill="#475569" fontSize="11" fontFamily="system-ui">{desc1}</text>
+            <text x="560" y={y+24} textAnchor="end" dominantBaseline="central" fill="#334155" fontSize="11" fontFamily="system-ui">{desc2}</text>
+          </g>
+        ))}
+      </svg>
+    ),
+    cache_evict: (
+      <svg viewBox="0 0 580 120" style={{width:"100%"}}>
+        {[
+          ["LRU","Least Recently Used","Default for Redis","#3b82f6",6],
+          ["LFU","Least Frequently Used","Hot/cold patterns","#8b5cf6",202],
+          ["TTL","Time To Live","News, weather data","#f59e0b",398],
+        ].map(([name,desc,use,c,x])=>(
+          <g key={name}>
+            <rect x={x} y="8" width="170" height="104" rx="10" fill="rgba(15,23,42,0.8)" stroke={c} strokeWidth="1"/>
+            <rect x={x} y="8" width="170" height="36" rx="10" fill={`rgba(${c==='#3b82f6'?'59,130,246':c==='#8b5cf6'?'139,92,246':'245,158,11'},0.15)`}/>
+            <rect x={x} y="30" width="170" height="14" fill={`rgba(${c==='#3b82f6'?'59,130,246':c==='#8b5cf6'?'139,92,246':'245,158,11'},0.08)`}/>
+            <text x={x+85} y="30" textAnchor="middle" dominantBaseline="central" fill={c} fontSize="16" fontWeight="700" fontFamily="system-ui">{name}</text>
+            <text x={x+85} y="66" textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize="11" fontFamily="system-ui">{desc}</text>
+            <text x={x+85} y="90" textAnchor="middle" dominantBaseline="central" fill="#475569" fontSize="10" fontFamily="system-ui">{use}</text>
+          </g>
+        ))}
+      </svg>
+    ),
+    twitter_fanout: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        <defs>
+          <marker id="tf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+        </defs>
+        {/* Tweet */}
+        <rect x="8" y="60" width="110" height="40" rx="7" fill="rgba(6,182,212,0.08)" stroke="#06b6d4" strokeWidth="1.2"/>
+        <text x="63" y="76" textAnchor="middle" dominantBaseline="central" fill="#06b6d4" fontSize="12" fontWeight="600" fontFamily="system-ui">Tweet</text>
+        <text x="63" y="92" textAnchor="middle" dominantBaseline="central" fill="#0891b2" fontSize="10" fontFamily="system-ui">10M followers</text>
+        {/* Fan-out lines */}
+        {[["Write","Precompute all feeds",26,200],["Read","Compute on open",74,200],["Hybrid","Smart blend",122,200]].map(([l,s,y,x])=>(
+          <g key={l}>
+            <line x1="118" y1="80" x2={x} y2={y+14} stroke="#0e7490" strokeWidth="1" markerEnd="url(#tf)" strokeDasharray="4 2">
+              <animate attributeName="strokeDashoffset" from="0" to="-12" dur="1.3s" repeatCount="indefinite"/>
+            </line>
+            <rect x={x} y={y} width="150" height="28" rx="6" fill="#0f172a" stroke="#1e293b" strokeWidth="0.8"/>
+            <text x={x+12} y={y+10} dominantBaseline="central" fill="#94a3b8" fontSize="11" fontWeight="600" fontFamily="system-ui">Fan-out on {l}</text>
+            <text x={x+12} y={y+22} dominantBaseline="central" fill="#475569" fontSize="10" fontFamily="system-ui">{s}</text>
+          </g>
+        ))}
+        <text x="390" y="36" fill="#164e63" fontSize="11" fontFamily="system-ui">Twitter answer: Hybrid</text>
+        <text x="390" y="52" fill="#164e63" fontSize="11" fontFamily="system-ui">Regular users → write fan-out</text>
+        <text x="390" y="68" fill="#164e63" fontSize="11" fontFamily="system-ui">Celebrities → read fan-out</text>
+      </svg>
+    ),
+    netflix_arch: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        <defs>
+          <marker id="na" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+            <path d="M1 1L9 5L1 9" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </marker>
+        </defs>
+        {[["Client",8],["API Gateway",92],["Auth",210],["Playback",310],["CDN",430]].map(([n,x],i,arr)=>(
+          <g key={n}>
+            <rect x={x} y="60" width={n==="API Gateway"?80:80} height="36" rx="6" fill={i===0?"#0f172a":"rgba(239,68,68,0.08)"} stroke={i===0?"#1e293b":"#ef4444"} strokeWidth={i===0?0.8:1}/>
+            <text x={x+40} y="78" textAnchor="middle" dominantBaseline="central" fill={i===0?"#64748b":"#ef4444"} fontSize="10" fontWeight="600" fontFamily="system-ui">{n}</text>
+            {i < arr.length-1 && <line x1={x+(n==="API Gateway"?80:80)} y1="78" x2={arr[i+1][1]} y2="78" stroke="#7f1d1d" strokeWidth="1" markerEnd="url(#na)" strokeDasharray="4 2">
+              <animate attributeName="strokeDashoffset" from="0" to="-12" dur={`${1+i*0.2}s`} repeatCount="indefinite"/>
+            </line>}
+          </g>
+        ))}
+        <text x="8" y="128" fill="#1e293b" fontSize="11" fontFamily="system-ui">+ Billing · Recommendations · Search · Streaming manifest · Analytics · …700+ services total</text>
+        <text x="8" y="148" fill="#1e293b" fontSize="10" fontFamily="system-ui">Each service: independently deployable, owns its own database, scales separately</text>
+      </svg>
+    ),
+    uber_geo: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        {/* Hexagon grid */}
+        {[[290,77],[250,100],[330,100],[210,77],[370,77],[250,54],[330,54]].map(([cx,cy],i)=>{
+          const r=28, pts = Array.from({length:6},(_,j)=>{const a=j*60-30;return `${cx+r*Math.cos(a*Math.PI/180)},${cy+r*Math.sin(a*Math.PI/180)}`;}).join(" ");
+          return <polygon key={i} points={pts} fill={i===0?"rgba(249,115,22,0.15)":"rgba(249,115,22,0.04)"} stroke={i===0?"#f97316":"#431407"} strokeWidth={i===0?1.2:0.6}/>;
+        })}
+        {/* Driver dots */}
+        {[[275,70],[305,82],[285,95]].map(([x,y],i)=>(
+          <circle key={i} cx={x} cy={y} r="4" fill="#f97316">
+            <animate attributeName="r" values="4;5;4" dur={`${1.5+i*0.3}s`} repeatCount="indefinite"/>
+          </circle>
+        ))}
+        <circle cx="290" cy="77" r="7" fill="none" stroke="#fbbf24" strokeWidth="1.5">
+          <animate attributeName="r" values="7;14;7" dur="2s" repeatCount="indefinite" calcMode="ease-in-out"/>
+          <animate attributeName="opacity" values="1;0;1" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <text x="290" y="140" textAnchor="middle" fill="#ea580c" fontSize="11" fontFamily="system-ui">H3 hex cell — GPS update every 4s</text>
+        <text x="8" y="20" fill="#431407" fontSize="11" fontFamily="system-ui">H3 geospatial index divides Earth into hexagons</text>
+        <text x="8" y="36" fill="#431407" fontSize="11" fontFamily="system-ui">Lookup drivers in a cell: O(1) vs scanning all drivers</text>
+      </svg>
+    ),
+    scale_hv: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        {/* Vertical */}
+        <rect x="20" y="16" width="240" height="120" rx="10" fill="#0f172a" stroke="#1e293b" strokeWidth="0.8"/>
+        <text x="140" y="36" textAnchor="middle" fill="#475569" fontSize="11" fontWeight="600" fontFamily="system-ui">VERTICAL SCALING</text>
+        {[["1 big server","+ more CPU, RAM","ceiling exists","❌ single failure",["#334155","#334155","#334155","#374151"]],].map(([...lines])=>(
+          lines.map(([t,c],i)=>(
+            <text key={i} x="140" y={60+i*22} textAnchor="middle" dominantBaseline="central" fill={typeof t==="string"?t:"#94a3b8"} fontSize="12" fontFamily="system-ui">{lines[0][i] || (typeof lines[i]==="string"?lines[i]:"")}</text>
+          ))
+        ))}
+        {[["1 big server","#94a3b8"],["+ more CPU, RAM","#64748b"],["ceiling exists","#475569"],["❌ single failure","#ef4444"]].map(([txt,clr],i)=>(
+          <text key={txt} x="140" y={58+i*22} textAnchor="middle" dominantBaseline="central" fill={clr} fontSize="12" fontFamily="system-ui">{txt}</text>
+        ))}
+        {/* Horizontal */}
+        <rect x="320" y="16" width="240" height="120" rx="10" fill="rgba(132,204,22,0.06)" stroke="#84cc16" strokeWidth="1.2"/>
+        <text x="440" y="36" textAnchor="middle" fill="#84cc16" fontSize="11" fontWeight="600" fontFamily="system-ui">HORIZONTAL SCALING</text>
+        {[["N smaller servers","+ load balancer","scales infinitely","✓ fault tolerant"],].flat()}
+        {[["N smaller servers","#94a3b8"],["+ load balancer","#64748b"],["scales infinitely","#84cc16"],["✓ fault tolerant","#4ade80"]].map(([txt,clr],i)=>(
+          <text key={txt} x="440" y={58+i*22} textAnchor="middle" dominantBaseline="central" fill={clr} fontSize="12" fontFamily="system-ui">{txt}</text>
+        ))}
+        <text x="280" y="80" textAnchor="middle" fill="#334155" fontSize="18" fontFamily="system-ui">vs</text>
+      </svg>
+    ),
+    scale_cap: (
+      <svg viewBox="0 0 580 155" style={{width:"100%"}}>
+        {/* Triangle */}
+        <polygon points="290,16 140,142 440,142" fill="none" stroke="#1e293b" strokeWidth="1"/>
+        {[["Consistency",290,26,"#f59e0b"],["Availability",118,148,"#10b981"],["Partition\nTolerance",444,148,"#3b82f6"]].map(([label,x,y,c])=>(
+          <g key={label}>
+            <circle cx={x} cy={y} r="22" fill={`rgba(${c==='#f59e0b'?'245,158,11':c==='#10b981'?'16,185,129':'59,130,246'},0.12)`} stroke={c} strokeWidth="1"/>
+            {label.split("\n").map((line,i)=>(
+              <text key={i} x={x} y={y+(i-label.split("\n").length/2+0.5)*14} textAnchor="middle" dominantBaseline="central" fill={c} fontSize="10" fontWeight="600" fontFamily="system-ui">{line}</text>
+            ))}
+          </g>
+        ))}
+        <text x="210" y="88" textAnchor="middle" fill="#334155" fontSize="11" fontFamily="system-ui">CP: banks, finance</text>
+        <text x="370" y="88" textAnchor="middle" fill="#334155" fontSize="11" fontFamily="system-ui">AP: social feeds</text>
+        <text x="290" y="128" textAnchor="middle" fill="#1e293b" fontSize="10" fontFamily="system-ui">Choose 2</text>
+      </svg>
+    ),
+  };
+  return diagrams[id] || (
+    <svg viewBox="0 0 580 100" style={{width:"100%"}}>
+      <rect x="10" y="10" width="560" height="80" rx="8" fill="#0f172a" stroke="#1e293b"/>
+      <text x="290" y="55" textAnchor="middle" dominantBaseline="central" fill="#334155" fontSize="13" fontFamily="system-ui">{id}</text>
     </svg>
   );
 }
-
-function DiagramLBRoundRobin() {
-  return (
-    <svg viewBox="0 0 560 160" style={{ width: "100%", display: "block" }}>
-      <defs>
-        <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M2 1L8 5L2 9" fill="none" stroke="#6b9fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </marker>
-      </defs>
-      <rect x="20" y="58" width="120" height="50" rx="8" fill="#1e1a40" stroke="#6b55ff" strokeWidth="1.2"/>
-      <text x="80" y="79" textAnchor="middle" dominantBaseline="central" fill="#c0b8ff" fontSize="13" fontWeight="600" fontFamily="monospace">Load Balancer</text>
-      <text x="80" y="97" textAnchor="middle" dominantBaseline="central" fill="#6b5fcc" fontSize="11" fontFamily="monospace">Round robin</text>
-      {[[140,68,255,30],[140,83,255,83],[140,98,255,136]].map(([x1,y1,x2,y2],i)=>(
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a5a8a" strokeWidth="1.3" markerEnd="url(#arr2)" fill="none"/>
-      ))}
-      {[["Server A","Req #1, #4, #7…",14],["Server B","Req #2, #5, #8…",64],["Server C","Req #3, #6, #9…",116]].map(([name,sub,y],i)=>(
-        <g key={i}>
-          <rect x="255" y={y} width="130" height="44" rx="6" fill="#1a2a1a" stroke="#2a5a3a" strokeWidth="0.8"/>
-          <text x="320" y={y+16} textAnchor="middle" dominantBaseline="central" fill="#4ecb94" fontSize="12" fontWeight="600" fontFamily="monospace">{name}</text>
-          <text x="320" y={y+32} textAnchor="middle" dominantBaseline="central" fill="#2a8a5a" fontSize="11" fontFamily="monospace">{sub}</text>
-        </g>
-      ))}
-      <text x="420" y="88" textAnchor="middle" dominantBaseline="central" fill="#4a6a8a" fontSize="12" fontFamily="monospace">= equal load</text>
-    </svg>
-  );
-}
-
-function DiagramLBHealth() {
-  return (
-    <svg viewBox="0 0 560 175" style={{ width: "100%", display: "block" }}>
-      <defs>
-        <marker id="arr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M2 1L8 5L2 9" fill="none" stroke="#6b9fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </marker>
-      </defs>
-      <rect x="20" y="65" width="120" height="50" rx="8" fill="#1e1a40" stroke="#6b55ff" strokeWidth="1.2"/>
-      <text x="80" y="85" textAnchor="middle" dominantBaseline="central" fill="#c0b8ff" fontSize="13" fontWeight="600" fontFamily="monospace">Load Balancer</text>
-      <text x="80" y="103" textAnchor="middle" dominantBaseline="central" fill="#6b5fcc" fontSize="11" fontFamily="monospace">Health checker</text>
-      {/* Ping lines to healthy servers */}
-      {[[140,76,238,40],[140,90,238,90]].map(([x1,y1,x2,y2],i)=>(
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a5a8a" strokeWidth="1" strokeDasharray="5 3" markerEnd="url(#arr3)" fill="none"/>
-      ))}
-      {/* Healthy servers */}
-      {[["Server A","✓ healthy",16],["Server B","✓ healthy",66]].map(([name,status,y],i)=>(
-        <g key={i}>
-          <rect x="238" y={y} width="115" height="48" rx="6" fill="#0f2a1f" stroke="#1a5a3a" strokeWidth="0.8"/>
-          <text x="295" y={y+18} textAnchor="middle" dominantBaseline="central" fill="#4ecb94" fontSize="12" fontWeight="600" fontFamily="monospace">{name}</text>
-          <text x="295" y={y+34} textAnchor="middle" dominantBaseline="central" fill="#2a8a5a" fontSize="11" fontFamily="monospace">{status}</text>
-        </g>
-      ))}
-      {/* Failed line with X */}
-      <line x1="140" y1="100" x2="238" y2="136" stroke="#cc3333" strokeWidth="1.5" strokeDasharray="4 3" fill="none"/>
-      <text x="178" y="122" textAnchor="middle" fill="#cc3333" fontSize="18" fontWeight="bold">✕</text>
-      {/* Failed server */}
-      <rect x="238" y="116" width="115" height="48" rx="6" fill="#2a0f0f" stroke="#5a1a1a" strokeWidth="0.8"/>
-      <text x="295" y="134" textAnchor="middle" dominantBaseline="central" fill="#ff5555" fontSize="12" fontWeight="600" fontFamily="monospace">Server C</text>
-      <text x="295" y="150" textAnchor="middle" dominantBaseline="central" fill="#aa3333" fontSize="11" fontFamily="monospace">✗ removed</text>
-      {/* Labels */}
-      <text x="388" y="40" textAnchor="start" fill="#4a6a8a" fontSize="11" fontFamily="monospace">Ping every 5s</text>
-      <text x="388" y="88" textAnchor="start" fill="#4a6a8a" fontSize="11" fontFamily="monospace">Traffic routed to</text>
-      <text x="388" y="102" textAnchor="start" fill="#4a6a8a" fontSize="11" fontFamily="monospace">healthy servers only</text>
-      <text x="388" y="140" textAnchor="start" fill="#aa3333" fontSize="11" fontFamily="monospace">Auto-removed from pool</text>
-    </svg>
-  );
-}
-
-function DiagramLBLayers() {
-  return (
-    <svg viewBox="0 0 560 165" style={{ width: "100%", display: "block" }}>
-      <rect x="20" y="20" width="240" height="58" rx="8" fill="#0f1f3a" stroke="#2a4a7a" strokeWidth="0.8"/>
-      <text x="140" y="44" textAnchor="middle" dominantBaseline="central" fill="#6b9fff" fontSize="13" fontWeight="600" fontFamily="monospace">L4 Load Balancer</text>
-      <text x="140" y="62" textAnchor="middle" dominantBaseline="central" fill="#3a6aaa" fontSize="11" fontFamily="monospace">TCP/UDP — sees IP + port only</text>
-      <rect x="20" y="95" width="240" height="58" rx="8" fill="#1e1a40" stroke="#6b55ff" strokeWidth="1.2"/>
-      <text x="140" y="119" textAnchor="middle" dominantBaseline="central" fill="#c0b8ff" fontSize="13" fontWeight="600" fontFamily="monospace">L7 Load Balancer</text>
-      <text x="140" y="137" textAnchor="middle" dominantBaseline="central" fill="#6b5fcc" fontSize="11" fontFamily="monospace">HTTP — reads URL, headers, cookies</text>
-      {/* L4 features */}
-      <text x="280" y="32" textAnchor="start" fill="#4a6a8a" fontSize="11" fontFamily="monospace">Very fast, low overhead</text>
-      <text x="280" y="48" textAnchor="start" fill="#4a6a8a" fontSize="11" fontFamily="monospace">No content inspection</text>
-      <text x="280" y="64" textAnchor="start" fill="#3a5a8a" fontSize="11" fontFamily="monospace">e.g. AWS NLB, HAProxy</text>
-      {/* L7 features */}
-      <text x="280" y="108" textAnchor="start" fill="#7a6acc" fontSize="11" fontFamily="monospace">Path-based routing</text>
-      <text x="280" y="124" textAnchor="start" fill="#7a6acc" fontSize="11" fontFamily="monospace">SSL termination</text>
-      <text x="280" y="140" textAnchor="start" fill="#5a4aaa" fontSize="11" fontFamily="monospace">e.g. Nginx, AWS ALB</text>
-    </svg>
-  );
-}
-
-function DiagramCacheIntro() {
-  return (
-    <svg viewBox="0 0 560 165" style={{ width: "100%", display: "block" }}>
-      <defs>
-        <marker id="ca" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M2 1L8 5L2 9" fill="none" stroke="#4ecb94" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </marker>
-      </defs>
-      <rect x="10" y="66" width="80" height="36" rx="6" fill="#1a2744" stroke="#2a3a5c" strokeWidth="0.8"/>
-      <text x="50" y="88" textAnchor="middle" dominantBaseline="central" fill="#6b9fff" fontSize="12" fontFamily="monospace">Client</text>
-      <line x1="90" y1="84" x2="155" y2="84" stroke="#3a5a8a" strokeWidth="1.2" markerEnd="url(#ca)" fill="none" strokeDasharray="5 3">
-        <animate attributeName="strokeDashoffset" from="0" to="-16" dur="1s" repeatCount="indefinite"/>
-      </line>
-      <rect x="155" y="54" width="115" height="60" rx="8" fill="#0f2a1a" stroke="#1a6a4a" strokeWidth="1"/>
-      <text x="212" y="79" textAnchor="middle" dominantBaseline="central" fill="#4ecb94" fontSize="13" fontWeight="600" fontFamily="monospace">Cache</text>
-      <text x="212" y="97" textAnchor="middle" dominantBaseline="central" fill="#2a8a5a" fontSize="11" fontFamily="monospace">Redis / Memcached</text>
-      {/* Cache hit path */}
-      <path d="M212 54 C212 22 50 22 50 66" stroke="#4ecb94" strokeWidth="1.2" strokeDasharray="5 3" fill="none" markerEnd="url(#ca)"/>
-      <text x="130" y="14" textAnchor="middle" fill="#2a8a5a" fontSize="11" fontFamily="monospace">cache hit: ~0.1ms</text>
-      {/* Miss */}
-      <line x1="270" y1="84" x2="336" y2="84" stroke="#4a6a8a" strokeWidth="1.2" markerEnd="url(#ca)" fill="none"/>
-      <rect x="336" y="54" width="100" height="60" rx="8" fill="#1a1a2a" stroke="#2a2a5a" strokeWidth="0.8"/>
-      <text x="386" y="79" textAnchor="middle" dominantBaseline="central" fill="#7a7acc" fontSize="13" fontWeight="600" fontFamily="monospace">Database</text>
-      <text x="386" y="97" textAnchor="middle" dominantBaseline="central" fill="#4a4a8a" fontSize="11" fontFamily="monospace">~10ms query</text>
-      {/* Store back */}
-      <path d="M386 54 C386 130 212 130 212 114" stroke="#3a4a6a" strokeWidth="1" strokeDasharray="4 3" fill="none" markerEnd="url(#ca)"/>
-      <text x="305" y="152" textAnchor="middle" fill="#3a5a7a" fontSize="11" fontFamily="monospace">store result in cache</text>
-    </svg>
-  );
-}
-
-function DiagramCacheHit() {
-  return (
-    <svg viewBox="0 0 560 162" style={{ width: "100%", display: "block" }}>
-      <defs>
-        <marker id="ch" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M2 1L8 5L2 9" fill="none" stroke="#4ecb94" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </marker>
-        <marker id="cm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M2 1L8 5L2 9" fill="none" stroke="#6b9fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </marker>
-      </defs>
-      <text x="20" y="22" fill="#c0b8ff" fontSize="12" fontWeight="600" fontFamily="monospace">Cache hit path</text>
-      {[["Request","#1a2744","#6b9fff",20],["Cache ✓","#0f2a1a","#4ecb94",112],["Return 0.1ms","#0a1f0a","#2ecb74",204]].map(([label,bg,color,x],i)=>(
-        <g key={i}><rect x={x} y="32" width={i===2?120:80} height="32" rx="5" fill={bg} stroke={color} strokeWidth="0.8"/>
-        <text x={x+(i===2?60:40)} y="52" textAnchor="middle" dominantBaseline="central" fill={color} fontSize="11" fontFamily="monospace">{label}</text></g>
-      ))}
-      <line x1="100" y1="48" x2="112" y2="48" stroke="#4ecb94" strokeWidth="1.2" markerEnd="url(#ch)" fill="none"/>
-      <line x1="192" y1="48" x2="204" y2="48" stroke="#4ecb94" strokeWidth="1.2" markerEnd="url(#ch)" fill="none"/>
-      <text x="20" y="105" fill="#c0b8ff" fontSize="12" fontWeight="600" fontFamily="monospace">Cache miss path</text>
-      {[["Request","#1a2744","#6b9fff",20],["Cache ✗","#2a0f0f","#ff5555",112],["DB 10ms","#1a1a2a","#7a7acc",204],["Store cache","#0f2a1a","#4ecb94",330]].map(([label,bg,color,x],i)=>(
-        <g key={i}><rect x={x} y="115" width={i===3?120:80} height="32" rx="5" fill={bg} stroke={color} strokeWidth="0.8"/>
-        <text x={x+(i===3?60:40)} y="135" textAnchor="middle" dominantBaseline="central" fill={color} fontSize="11" fontFamily="monospace">{label}</text></g>
-      ))}
-      <line x1="100" y1="131" x2="112" y2="131" stroke="#6b9fff" strokeWidth="1.2" markerEnd="url(#cm)" fill="none"/>
-      <line x1="192" y1="131" x2="204" y2="131" stroke="#6b9fff" strokeWidth="1.2" markerEnd="url(#cm)" fill="none"/>
-      <line x1="284" y1="131" x2="330" y2="131" stroke="#6b9fff" strokeWidth="1.2" markerEnd="url(#cm)" fill="none"/>
-    </svg>
-  );
-}
-
-function DiagramCacheEvict() {
-  return (
-    <svg viewBox="0 0 560 140" style={{ width: "100%", display: "block" }}>
-      {[
-        ["LRU","Evict least recently used","Best default choice","#1a2744","#6b9fff",10],
-        ["LFU","Evict least frequently used","Hot/cold patterns","#1a2030","#9b8aff",196],
-        ["TTL","Expire after fixed time","Stale data (news, weather)","#0f2a1a","#4ecb94",382],
-      ].map(([title,sub,note,bg,color,x])=>(
-        <g key={title}>
-          <rect x={x} y="20" width="156" height="64" rx="8" fill={bg} stroke={color} strokeWidth="0.8"/>
-          <text x={x+78} y="44" textAnchor="middle" dominantBaseline="central" fill={color} fontSize="14" fontWeight="700" fontFamily="monospace">{title}</text>
-          <text x={x+78} y="66" textAnchor="middle" dominantBaseline="central" fill={color} fontSize="10" fontFamily="monospace" opacity="0.7">{sub}</text>
-          <text x={x+78} y="104" textAnchor="middle" fill={color} fontSize="11" fontFamily="monospace" opacity="0.5">{note}</text>
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-function DiagramCDNIntro() {
-  return (
-    <svg viewBox="0 0 560 165" style={{ width: "100%", display: "block" }}>
-      <defs>
-        <marker id="cdna" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M2 1L8 5L2 9" fill="none" stroke="#4ecb94" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </marker>
-      </defs>
-      {/* Origin */}
-      <rect x="220" y="60" width="110" height="48" rx="8" fill="#1a1a2a" stroke="#2a2a5a" strokeWidth="0.8"/>
-      <text x="275" y="80" textAnchor="middle" dominantBaseline="central" fill="#7a7acc" fontSize="12" fontWeight="600" fontFamily="monospace">Origin Server</text>
-      <text x="275" y="98" textAnchor="middle" dominantBaseline="central" fill="#4a4a8a" fontSize="11" fontFamily="monospace">Mumbai, India</text>
-      {/* Edges */}
-      {[["CDN Edge","New York",20],["CDN Edge","London",74],["CDN Edge","Singapore",124]].map(([t,c,y])=>(
-        <g key={c}>
-          <rect x="10" y={y} width="100" height="40" rx="6" fill="#0f1f3a" stroke="#1a3a6a" strokeWidth="0.8"/>
-          <text x="60" y={y+16} textAnchor="middle" dominantBaseline="central" fill="#6b9fff" fontSize="11" fontWeight="600" fontFamily="monospace">{t}</text>
-          <text x="60" y={y+30} textAnchor="middle" dominantBaseline="central" fill="#3a6aaa" fontSize="11" fontFamily="monospace">{c}</text>
-        </g>
-      ))}
-      {/* Dashed lines to origin */}
-      {[[110,40,218,76],[110,94,218,84],[110,144,218,96]].map(([x1,y1,x2,y2],i)=>(
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#2a3a6a" strokeWidth="0.8" strokeDasharray="4 3" fill="none"/>
-      ))}
-      {/* Users */}
-      {[["US users",20],["EU users",74],["SEA users",124]].map(([label,y])=>(
-        <g key={label}>
-          <rect x="440" y={y} width="90" height="40" rx="6" fill="#1a2744" stroke="#2a3a5c" strokeWidth="0.8"/>
-          <text x="485" y={y+24} textAnchor="middle" dominantBaseline="central" fill="#6b9fff" fontSize="11" fontFamily="monospace">{label}</text>
-        </g>
-      ))}
-      {/* User to edge flows */}
-      {[[440,40,112,40],[440,94,112,94],[440,144,112,144]].map(([x1,y1,x2,y2],i)=>(
-        <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3a5a8a" strokeWidth="1.2" markerEnd="url(#cdna)" fill="none" strokeDasharray="5 3">
-          <animate attributeName="strokeDashoffset" from="0" to="-16" dur={`${1.2+i*0.3}s`} repeatCount="indefinite"/>
-        </line>
-      ))}
-      <text x="275" y="150" textAnchor="middle" fill="#3a5a7a" fontSize="11" fontFamily="monospace">~5ms each vs ~150ms to origin</text>
-    </svg>
-  );
-}
-
-function DiagramGeneric({ title }) {
-  return (
-    <svg viewBox="0 0 560 120" style={{ width: "100%", display: "block" }}>
-      <rect x="160" y="20" width="240" height="80" rx="10" fill="#1a1a2a" stroke="#2a2a5a" strokeWidth="0.8"/>
-      <text x="280" y="65" textAnchor="middle" dominantBaseline="central" fill="#4a4a8a" fontSize="13" fontFamily="monospace">{title}</text>
-    </svg>
-  );
-}
-
-const DIAGRAM_MAP = {
-  lb_intro: <DiagramLBIntro />,
-  lb_roundrobin: <DiagramLBRoundRobin />,
-  lb_health: <DiagramLBHealth />,
-  lb_layers: <DiagramLBLayers />,
-  cache_intro: <DiagramCacheIntro />,
-  cache_hit: <DiagramCacheHit />,
-  cache_evict: <DiagramCacheEvict />,
-  cdn_intro: <DiagramCDNIntro />,
-  cdn_flow: <DiagramGeneric title="CDN cache flow" />,
-  twitter_fanout: <DiagramGeneric title="Fan-out on write" />,
-  twitter_hybrid: <DiagramGeneric title="Hybrid fan-out" />,
-  netflix_arch: <DiagramGeneric title="Netflix microservices" />,
-  netflix_abr: <DiagramGeneric title="Adaptive bitrate streaming" />,
-  uber_match: <DiagramGeneric title="H3 geospatial matching" />,
-  uber_surge: <DiagramGeneric title="Surge pricing feedback loop" />,
-  scale_hv: <DiagramGeneric title="Horizontal vs vertical scaling" />,
-  scale_shard: <DiagramGeneric title="Database sharding" />,
-  scale_mq: <DiagramGeneric title="Message queue decoupling" />,
-};
 
 // ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
-export default function SystemDesignLearning() {
-  const [activeTopic, setActiveTopic] = useState("lb");
+export default function SystemDesign() {
+  const [active, setActive] = useState("lb");
   const [step, setStep] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [animKey, setAnimKey] = useState(0);
+  const [filter, setFilter] = useState("All");
+  const contentRef = useRef(null);
 
-  const topic = TOPICS[activeTopic];
-  const currentStep = topic.steps[step];
-  const totalSteps = topic.steps.length;
+  const topic = TOPICS[active];
+  const current = topic.steps[step];
 
-  const selectTopic = (id) => {
-    setActiveTopic(id);
+  const go = (id) => {
+    setActive(id);
     setStep(0);
+    setAnimKey(k => k + 1);
   };
 
-  const NAV = [
-    { group: "Core Concepts", items: [["lb","⇄","Load Balancer"],["cache","◈","Caching"],["cdn","◎","CDN"]] },
-    { group: "Real-world Systems", items: [["twitter","✦","Twitter Feed"],["netflix","▶","Netflix"],["uber","⬡","Uber"]] },
-    { group: "Interview Prep", items: [["scale","↑","Scalability"]] },
-  ];
+  const nextStep = () => {
+    if (step < topic.steps.length - 1) {
+      setStep(s => s + 1);
+      setAnimKey(k => k + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (step > 0) {
+      setStep(s => s - 1);
+      setAnimKey(k => k + 1);
+    }
+  };
+
+  const cats = ["All", ...Object.keys(CATEGORIES)];
+  const filtered = Object.entries(TOPICS).filter(([,t]) => filter === "All" || t.category === filter);
 
   return (
     <div style={{
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-      background: "#0a0e1a",
+      fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
+      background: "#020617",
       minHeight: "100vh",
-      color: "#c0c8e0",
-      padding: "24px",
+      color: "#e2e8f0",
+      padding: "0",
+      display: "flex",
+      flexDirection: "column",
     }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#6b9fff", boxShadow: "0 0 8px #6b9fff" }} />
-            <span style={{ fontSize: "20px", fontWeight: "700", color: "#e0e8ff", letterSpacing: "-0.02em" }}>
-              System Design
-            </span>
-          </div>
-          <div style={{ fontSize: "12px", color: "#3a5a8a", marginTop: "2px", marginLeft: "18px" }}>
-            Interactive visual walkthroughs
-          </div>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-dot {
+          0%,100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .topic-row:hover { background: rgba(255,255,255,0.03) !important; }
+        .step-btn:hover { opacity: 0.8; }
+        .nav-btn:hover { background: rgba(255,255,255,0.06) !important; }
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+      `}</style>
+
+      {/* Top bar */}
+      <div style={{
+        borderBottom: "1px solid #0f172a",
+        background: "rgba(2,6,23,0.95)",
+        backdropFilter: "blur(12px)",
+        padding: "0 24px",
+        height: "52px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        position: "sticky",
+        top: 0,
+        zIndex: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{
+            width: "28px", height: "28px", borderRadius: "7px",
+            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "14px",
+          }}>⚙</div>
+          <span style={{ fontSize: "14px", fontWeight: "600", color: "#f1f5f9", letterSpacing: "-0.02em" }}>
+            System Design
+          </span>
+          <span style={{
+            fontSize: "10px", padding: "2px 7px", borderRadius: "20px",
+            background: "rgba(59,130,246,0.1)", color: "#3b82f6",
+            border: "1px solid rgba(59,130,246,0.2)", fontWeight: "500",
+          }}>BETA</span>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          {["All topics", "Interview mode"].map((label) => (
-            <button key={label} style={{
-              fontSize: "11px", padding: "6px 12px",
-              borderRadius: "6px", border: "0.5px solid #1e3a5a",
-              background: "transparent", color: "#4a7aaa", cursor: "pointer",
-              fontFamily: "inherit", letterSpacing: "0.02em",
-            }}>{label}</button>
+        <div style={{ display: "flex", gap: "6px" }}>
+          {cats.map(cat => (
+            <button key={cat} onClick={() => setFilter(cat)} style={{
+              fontSize: "11px", padding: "4px 10px", borderRadius: "6px",
+              border: `1px solid ${filter === cat ? (CATEGORIES[cat] || "#3b82f6") + "66" : "#1e293b"}`,
+              background: filter === cat ? `rgba(${cat==="All"?"59,130,246":cat==="Infrastructure"?"59,130,246":cat==="Performance"?"16,185,129":cat==="Storage"?"139,92,246":cat==="Real World"?"236,72,153":"132,204,22"},0.08)` : "transparent",
+              color: filter === cat ? (CATEGORIES[cat] || "#3b82f6") : "#475569",
+              cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+            }}>{cat}</button>
           ))}
         </div>
       </div>
 
-      {/* Main layout */}
-      <div style={{
-        display: "flex", gap: "0",
-        border: "0.5px solid #1a2a3a",
-        borderRadius: "14px", overflow: "hidden",
-        minHeight: "540px",
-      }}>
+      {/* Body */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "calc(100vh - 52px)" }}>
         {/* Sidebar */}
         <div style={{
-          width: "210px", minWidth: "210px",
-          background: "#0d1220",
-          borderRight: "0.5px solid #1a2a3a",
-          padding: "16px 0",
-          display: "flex", flexDirection: "column", gap: "0",
+          width: "220px", minWidth: "220px",
+          borderRight: "1px solid #0f172a",
+          background: "#020617",
+          overflowY: "auto",
+          padding: "12px 0",
         }}>
-          {NAV.map(({ group, items }) => (
-            <div key={group}>
-              <div style={{
-                fontSize: "10px", fontWeight: "600", color: "#2a4a6a",
-                letterSpacing: "0.1em", textTransform: "uppercase",
-                padding: "10px 16px 6px",
-              }}>{group}</div>
-              {items.map(([id, icon, label]) => (
-                <div key={id} onClick={() => selectTopic(id)} style={{
-                  display: "flex", alignItems: "center", gap: "8px",
-                  padding: "8px 16px", cursor: "pointer",
-                  fontSize: "13px",
-                  color: activeTopic === id ? "#c0d8ff" : "#4a6a8a",
-                  background: activeTopic === id ? "#0f1f38" : "transparent",
-                  borderLeft: `2px solid ${activeTopic === id ? "#6b9fff" : "transparent"}`,
-                  transition: "all 0.15s",
-                }}>
-                  <span style={{ fontSize: "14px", opacity: activeTopic === id ? 1 : 0.5 }}>{icon}</span>
-                  {label}
-                </div>
-              ))}
-              <div style={{ height: "0.5px", background: "#1a2a3a", margin: "8px 16px" }} />
+          {filtered.map(([id, t]) => (
+            <div
+              key={id}
+              className="topic-row"
+              onClick={() => go(id)}
+              style={{
+                display: "flex", alignItems: "center", gap: "10px",
+                padding: "9px 14px", cursor: "pointer",
+                background: active === id ? `rgba(${t.color==='#3b82f6'?'59,130,246':t.color==='#10b981'?'16,185,129':t.color==='#f59e0b'?'245,158,11':t.color==='#8b5cf6'?'139,92,246':t.color==='#ec4899'?'236,72,153':t.color==='#06b6d4'?'6,182,212':t.color==='#ef4444'?'239,68,68':t.color==='#f97316'?'249,115,22':'132,204,22'},0.08)` : "transparent",
+                borderLeft: `2px solid ${active === id ? t.color : "transparent"}`,
+                transition: "all 0.15s",
+              }}
+            >
+              <span style={{ fontSize: "15px", opacity: active === id ? 1 : 0.4, minWidth: "18px" }}>{t.icon}</span>
+              <div>
+                <div style={{ fontSize: "12px", color: active === id ? "#f1f5f9" : "#64748b", fontWeight: active === id ? "600" : "400", lineHeight: 1.3 }}>{t.title}</div>
+                <div style={{ fontSize: "10px", color: active === id ? t.color : "#334155", marginTop: "1px" }}>{t.category}</div>
+              </div>
+              {active === id && (
+                <div style={{ marginLeft: "auto", width: "5px", height: "5px", borderRadius: "50%", background: t.color, animation: "pulse-dot 2s infinite" }}/>
+              )}
             </div>
           ))}
         </div>
 
         {/* Main panel */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#0c1018" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Topic header */}
           <div style={{
-            padding: "20px 24px 16px",
-            borderBottom: "0.5px solid #1a2a3a",
-            display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+            padding: "18px 24px 14px",
+            borderBottom: "1px solid #0f172a",
+            background: `linear-gradient(135deg, ${topic.glow} 0%, transparent 60%)`,
           }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                <span style={{ fontSize: "22px", color: "#6b9fff", lineHeight: 1 }}>{topic.icon}</span>
-                <span style={{ fontSize: "16px", fontWeight: "700", color: "#e0e8ff" }}>{topic.title}</span>
-              </div>
-              <div style={{ fontSize: "12px", color: "#3a5a8a", marginBottom: "8px" }}>{topic.subtitle}</div>
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                {topic.tags.map((tag) => {
-                  const c = TAG_COLORS[tag] || { bg: "#1a2744", text: "#6b9fff" };
-                  return (
-                    <span key={tag} style={{
-                      fontSize: "10px", padding: "3px 9px",
-                      borderRadius: "20px", fontWeight: "600",
-                      background: c.bg, color: c.text,
-                      letterSpacing: "0.04em",
-                    }}>{tag}</span>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Step progress */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px", minWidth: "80px" }}>
-              <span style={{ fontSize: "11px", color: "#2a4a6a" }}>Step {step + 1} of {totalSteps}</span>
-              <div style={{ display: "flex", gap: "5px" }}>
-                {Array.from({ length: totalSteps }).map((_, i) => (
-                  <div key={i} onClick={() => setStep(i)} style={{
-                    width: "8px", height: "8px", borderRadius: "50%", cursor: "pointer",
-                    background: i < step ? "#6b9fff" : i === step ? "#c0d8ff" : "#1a2a3a",
-                    boxShadow: i === step ? "0 0 6px #6b9fff" : "none",
-                    transition: "all 0.2s",
-                  }} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Step content */}
-          <div key={`${activeTopic}-${step}`} style={{
-            flex: 1, padding: "20px 24px",
-            display: "flex", flexDirection: "column", gap: "14px",
-            overflowY: "auto",
-            animation: "fadeUp 0.25s ease",
-          }}>
-            <style>{`@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-
-            {/* Heading */}
-            <div style={{ fontSize: "15px", fontWeight: "700", color: "#c0d8ff", letterSpacing: "-0.01em" }}>
-              {currentStep.heading}
-            </div>
-
-            {/* Explanation */}
-            <div style={{ fontSize: "13px", color: "#5a7aaa", lineHeight: "1.75" }}>
-              {currentStep.text}
-            </div>
-
-            {/* Diagram */}
-            {currentStep.diagram && (
-              <div style={{
-                background: "#0a0f1c",
-                border: "0.5px solid #1a2a3a",
-                borderRadius: "10px",
-                padding: "16px",
-                overflow: "hidden",
-              }}>
-                {DIAGRAM_MAP[currentStep.diagram] || <DiagramGeneric title={currentStep.diagram} />}
-              </div>
-            )}
-
-            {/* Insight callout */}
-            {currentStep.insight && (
-              <div style={{
-                background: "#0d1a2a",
-                border: "0.5px solid #1a3a5a",
-                borderLeft: "3px solid #6b9fff",
-                borderRadius: "8px",
-                padding: "12px 16px",
-                display: "flex", gap: "10px", alignItems: "flex-start",
-              }}>
-                <span style={{ color: "#6b9fff", fontSize: "14px", marginTop: "1px" }}>💡</span>
-                <div style={{ fontSize: "12px", color: "#4a7aaa", lineHeight: "1.65" }}>
-                  {currentStep.insight}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+                  <div style={{
+                    width: "32px", height: "32px", borderRadius: "8px",
+                    background: `rgba(${topic.color==='#3b82f6'?'59,130,246':topic.color==='#10b981'?'16,185,129':topic.color==='#f59e0b'?'245,158,11':topic.color==='#8b5cf6'?'139,92,246':topic.color==='#ec4899'?'236,72,153':topic.color==='#06b6d4'?'6,182,212':topic.color==='#ef4444'?'239,68,68':topic.color==='#f97316'?'249,115,22':'132,204,22'},0.15)`,
+                    border: `1px solid ${topic.color}33`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "16px",
+                  }}>{topic.icon}</div>
+                  <div>
+                    <div style={{ fontSize: "15px", fontWeight: "700", color: "#f1f5f9", letterSpacing: "-0.02em" }}>{topic.title}</div>
+                    <div style={{ fontSize: "10px", color: "#334155", marginTop: "1px" }}>{topic.category} · {topic.difficulty}</div>
+                  </div>
                 </div>
               </div>
-            )}
+              {/* Progress */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                <span style={{ fontSize: "10px", color: "#334155", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {step + 1} / {topic.steps.length}
+                </span>
+                <div style={{ display: "flex", gap: "4px" }}>
+                  {topic.steps.map((_, i) => (
+                    <div
+                      key={i}
+                      onClick={() => { setStep(i); setAnimKey(k => k + 1); }}
+                      style={{
+                        height: "3px",
+                        width: i === step ? "20px" : "8px",
+                        borderRadius: "2px",
+                        background: i <= step ? topic.color : "#1e293b",
+                        cursor: "pointer",
+                        transition: "all 0.25s",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Step navigation */}
+          {/* Content */}
+          <div
+            ref={contentRef}
+            key={animKey}
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "20px 24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              animation: "slideIn 0.22s ease",
+            }}
+          >
+            {/* Step heading */}
+            <div>
+              <div style={{
+                display: "inline-flex", alignItems: "center", gap: "6px",
+                fontSize: "10px", fontFamily: "'JetBrains Mono', monospace",
+                color: topic.color, letterSpacing: "0.08em", textTransform: "uppercase",
+                marginBottom: "6px",
+              }}>
+                <span style={{ opacity: 0.5 }}>◆</span>
+                Step {step + 1}
+              </div>
+              <h2 style={{
+                margin: 0, fontSize: "17px", fontWeight: "700",
+                color: "#f1f5f9", letterSpacing: "-0.02em", lineHeight: 1.3,
+              }}>{current.heading}</h2>
+            </div>
+
+            {/* Body text */}
+            <p style={{
+              margin: 0, fontSize: "13px", color: "#64748b",
+              lineHeight: "1.8", letterSpacing: "0.01em",
+            }}>{current.body}</p>
+
+            {/* Diagram */}
+            <div style={{
+              background: "#030712",
+              border: "1px solid #0f172a",
+              borderRadius: "10px",
+              padding: "16px",
+              overflow: "hidden",
+            }}>
+              <div style={{ fontSize: "10px", color: "#1e293b", fontFamily: "'JetBrains Mono', monospace", marginBottom: "10px" }}>
+                DIAGRAM / {current.diagram}
+              </div>
+              <Diagram id={current.diagram} color={topic.color} />
+            </div>
+
+            {/* Callout */}
+            <div style={{
+              background: `linear-gradient(135deg, ${topic.glow} 0%, rgba(2,6,23,0.4) 100%)`,
+              border: `1px solid ${topic.color}22`,
+              borderLeft: `3px solid ${topic.color}`,
+              borderRadius: "8px",
+              padding: "14px 16px",
+              display: "flex",
+              gap: "10px",
+            }}>
+              <span style={{ fontSize: "14px", marginTop: "1px", flexShrink: 0 }}>💡</span>
+              <p style={{ margin: 0, fontSize: "12px", color: "#94a3b8", lineHeight: "1.7" }}>{current.callout}</p>
+            </div>
+          </div>
+
+          {/* Nav */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "12px 24px",
-            borderTop: "0.5px solid #1a2a3a",
-            background: "#0d1220",
+            borderTop: "1px solid #0f172a",
+            background: "#020617",
           }}>
             <button
-              onClick={() => setStep(s => Math.max(0, s - 1))}
+              className="nav-btn"
+              onClick={prevStep}
               disabled={step === 0}
               style={{
                 display: "flex", alignItems: "center", gap: "6px",
-                padding: "7px 14px", borderRadius: "7px",
-                fontSize: "12px", fontWeight: "600", cursor: step === 0 ? "not-allowed" : "pointer",
-                border: "0.5px solid #1a2a3a",
-                background: "transparent", color: step === 0 ? "#1e3a5a" : "#4a7aaa",
-                fontFamily: "inherit", letterSpacing: "0.02em",
-                transition: "all 0.15s",
+                padding: "8px 16px", borderRadius: "8px",
+                fontSize: "12px", fontWeight: "500",
+                cursor: step === 0 ? "not-allowed" : "pointer",
+                border: "1px solid #0f172a",
+                background: "transparent",
+                color: step === 0 ? "#1e293b" : "#475569",
+                fontFamily: "inherit", transition: "all 0.15s",
+                opacity: step === 0 ? 0.4 : 1,
               }}
-            >
-              ← Previous
-            </button>
+            >← Prev</button>
 
-            {/* Step pills */}
-            <div style={{ display: "flex", gap: "6px" }}>
-              {Array.from({ length: totalSteps }).map((_, i) => (
-                <div key={i} onClick={() => setStep(i)} style={{
-                  width: i === step ? "24px" : "8px", height: "8px",
-                  borderRadius: "4px", cursor: "pointer",
-                  background: i === step ? "#6b9fff" : i < step ? "#2a4a7a" : "#1a2a3a",
-                  transition: "all 0.2s",
-                }} />
+            {/* Step dots */}
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              {topic.steps.map((s, i) => (
+                <button
+                  key={i}
+                  className="step-btn"
+                  onClick={() => { setStep(i); setAnimKey(k => k + 1); }}
+                  style={{
+                    width: i === step ? "28px" : "6px",
+                    height: "6px", borderRadius: "3px",
+                    background: i === step ? topic.color : i < step ? `${topic.color}55` : "#1e293b",
+                    border: "none", cursor: "pointer",
+                    transition: "all 0.25s ease",
+                    padding: 0,
+                  }}
+                />
               ))}
             </div>
 
-            {step < totalSteps - 1 ? (
+            {step < topic.steps.length - 1 ? (
               <button
-                onClick={() => setStep(s => s + 1)}
+                className="nav-btn"
+                onClick={nextStep}
                 style={{
                   display: "flex", alignItems: "center", gap: "6px",
-                  padding: "7px 14px", borderRadius: "7px",
-                  fontSize: "12px", fontWeight: "600", cursor: "pointer",
-                  border: "0.5px solid #6b9fff",
-                  background: "#0f1f38", color: "#6b9fff",
-                  fontFamily: "inherit", letterSpacing: "0.02em",
-                  transition: "all 0.15s",
+                  padding: "8px 16px", borderRadius: "8px",
+                  fontSize: "12px", fontWeight: "600",
+                  cursor: "pointer",
+                  border: `1px solid ${topic.color}44`,
+                  background: `rgba(${topic.color==='#3b82f6'?'59,130,246':topic.color==='#10b981'?'16,185,129':topic.color==='#f59e0b'?'245,158,11':topic.color==='#8b5cf6'?'139,92,246':topic.color==='#ec4899'?'236,72,153':topic.color==='#06b6d4'?'6,182,212':topic.color==='#ef4444'?'239,68,68':topic.color==='#f97316'?'249,115,22':'132,204,22'},0.08)`,
+                  color: topic.color,
+                  fontFamily: "inherit", transition: "all 0.15s",
                 }}
-              >
-                Next →
-              </button>
+              >Next →</button>
             ) : (
               <button
+                className="nav-btn"
                 style={{
                   display: "flex", alignItems: "center", gap: "6px",
-                  padding: "7px 14px", borderRadius: "7px",
-                  fontSize: "12px", fontWeight: "600", cursor: "pointer",
-                  border: "0.5px solid #4ecb94",
-                  background: "#0a2a1a", color: "#4ecb94",
-                  fontFamily: "inherit", letterSpacing: "0.02em",
+                  padding: "8px 16px", borderRadius: "8px",
+                  fontSize: "12px", fontWeight: "600",
+                  cursor: "pointer",
+                  border: "1px solid rgba(16,185,129,0.3)",
+                  background: "rgba(16,185,129,0.08)",
+                  color: "#10b981",
+                  fontFamily: "inherit",
                 }}
-              >
-                Practice ✦
-              </button>
+              >Complete ✦</button>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Footer stats */}
-      <div style={{ display: "flex", gap: "24px", marginTop: "14px", padding: "0 2px" }}>
-        {[
-          ["7", "Topics"],
-          ["20+", "Concepts"],
-          ["Step-by-step", "Walkthroughs"],
-          ["Interview", "Ready"],
-        ].map(([val, label]) => (
-          <div key={label} style={{ fontSize: "11px", color: "#2a4a6a" }}>
-            <span style={{ color: "#3a6aaa", fontWeight: "700" }}>{val}</span>{" "}
-            <span style={{ color: "#1e3a5a" }}>{label}</span>
-          </div>
-        ))}
+        {/* Right panel — concept index */}
+        <div style={{
+          width: "176px", minWidth: "176px",
+          borderLeft: "1px solid #0f172a",
+          background: "#020617",
+          padding: "12px",
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+        }}>
+          <div style={{ fontSize: "9px", color: "#1e293b", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: "600" }}>On this topic</div>
+          {topic.steps.map((s, i) => (
+            <div
+              key={i}
+              onClick={() => { setStep(i); setAnimKey(k => k + 1); }}
+              style={{
+                padding: "8px 10px",
+                borderRadius: "7px",
+                background: i === step ? topic.glow : "transparent",
+                border: `1px solid ${i === step ? topic.color + "33" : "#0f172a"}`,
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              <div style={{
+                fontSize: "9px", color: i === step ? topic.color : "#1e293b",
+                fontFamily: "'JetBrains Mono', monospace",
+                marginBottom: "3px",
+              }}>0{i + 1}</div>
+              <div style={{
+                fontSize: "11px", color: i === step ? "#f1f5f9" : "#334155",
+                fontWeight: i === step ? "600" : "400",
+                lineHeight: 1.4,
+              }}>{s.heading}</div>
+            </div>
+          ))}
+
+          <div style={{ height: "1px", background: "#0f172a", margin: "4px 0" }}/>
+          <div style={{ fontSize: "9px", color: "#1e293b", letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: "600" }}>Stats</div>
+          {[
+            [`${Object.keys(TOPICS).length}`, "topics"],
+            [`${Object.values(TOPICS).reduce((a,t)=>a+t.steps.length,0)}`, "concepts"],
+            ["3", "real systems"],
+          ].map(([n, l]) => (
+            <div key={l} style={{ display: "flex", alignItems: "baseline", gap: "5px" }}>
+              <span style={{ fontSize: "16px", fontWeight: "700", color: "#1e293b", letterSpacing: "-0.02em" }}>{n}</span>
+              <span style={{ fontSize: "10px", color: "#0f172a" }}>{l}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
