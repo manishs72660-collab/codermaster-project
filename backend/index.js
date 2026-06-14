@@ -1,7 +1,7 @@
 require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
 const express = require("express");
-const { createServer } = require("http");           // ✅ NEW
-const { Server } = require("socket.io");            // ✅ NEW
+const { createServer } = require("http");           
+const { Server } = require("socket.io");           
 const main = require("./config/db");
 const User = require("./models/Userschema");
 const authRouter = require("./routes/auth");
@@ -12,12 +12,13 @@ const problemRouter = require("./routes/problemCreator");
 const submitroute = require("./routes/submitroute");
 const airoute = require("./routes/aichat");
 const videoRouter = require("./routes/videocreator");
-const duelRouter = require("./routes/duelroute");   // ✅ NEW
+const duelRouter = require("./routes/duelroute");
+const contestRouter = require('./routes/contestroute');   
 require('dotenv').config();
 const cors = require('cors');
 
 const app = express();
-const httpServer = createServer(app);               // ✅ NEW — wrap express in http server
+const httpServer = createServer(app);
 
 // ✅ NEW — Socket.io attached to http server
 const io = new Server(httpServer, {
@@ -34,7 +35,6 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieparser());
 app.use(rateLimiter);
-
 // ✅ Make io accessible in routes/controllers
 app.set("io", io);
 
@@ -43,8 +43,9 @@ app.use("/problem", problemRouter);
 app.use("/code", submitroute);
 app.use("/ai", airoute);
 app.use("/video", videoRouter);
-app.use("/duel", duelRouter);                       // ✅ NEW
-
+app.use("/duel", duelRouter);   
+app.use('/contest', contestRouter);              // ✅ NEW
+//app.use('/api', ogRoutes);
 // ✅ Socket.io connection handler
 io.on("connection", (socket) => {
   console.log("Socket connected:", socket.id);
@@ -81,6 +82,15 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("Socket disconnected:", socket.id);
   });
+
+
+  socket.on("contest:join", ({ contestId, userId }) => {
+    socket.join(`contest-${contestId}`);
+});
+
+socket.on("contest:leave", ({ contestId }) => {
+    socket.leave(`contest-${contestId}`);
+});
 });
 
 const InitlizeConnection = async () => {
