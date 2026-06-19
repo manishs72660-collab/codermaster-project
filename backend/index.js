@@ -45,8 +45,6 @@ app.use("/ai", airoute);
 app.use("/video", videoRouter);
 app.use("/duel", duelRouter);   
 app.use('/contest', contestRouter);              // ✅ NEW
-//app.use('/api', ogRoutes);
-// ✅ Socket.io connection handler
 io.on("connection", (socket) => {
   console.log("Socket connected:", socket.id);
 

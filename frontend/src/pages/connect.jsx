@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Navbar from "../component/navbar"; // adjust path to match your folder structure
 
 const FAQS = [
   {
@@ -110,7 +111,6 @@ export default function ContactPage() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .ct-root {
           min-height: 100vh;
@@ -123,39 +123,6 @@ export default function ContactPage() {
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: #161b22; }
         ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-
-        /* ── TOPBAR ── */
-        .ct-topbar {
-          height: 48px; background: #161b22;
-          border-bottom: 1px solid #21262d;
-          display: flex; align-items: center;
-          padding: 0 20px; gap: 8px;
-          position: sticky; top: 0; z-index: 20;
-        }
-        .ct-logo-icon {
-          width: 28px; height: 28px; border-radius: 6px;
-          background: linear-gradient(135deg, #ffa116, #ff6b00);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: 800; color: #0d1117;
-        }
-        .ct-logo-text { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
-        .ct-sep { width: 1px; height: 20px; background: #21262d; margin: 0 4px; }
-        .ct-crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; }
-        .ct-crumb span { color: #ffa116; }
-        .ct-topbar-badge {
-          margin-left: auto;
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          font-weight: 600; letter-spacing: 1px;
-          color: #00b86b; background: #0f2a1a;
-          border: 1px solid #1a3a2a; border-radius: 20px;
-          padding: 2px 10px; display: flex; align-items: center; gap: 5px;
-        }
-        .ct-topbar-badge::before {
-          content: ''; width: 5px; height: 5px; border-radius: 50%;
-          background: #00b86b; box-shadow: 0 0 6px #00b86b;
-          animation: ct-pulse 2s ease-in-out infinite;
-        }
-        @keyframes ct-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
 
         /* ── HERO ── */
         .ct-hero {
@@ -414,14 +381,8 @@ export default function ContactPage() {
 
       <div className="ct-root">
 
-        {/* TOPBAR */}
-        <div className="ct-topbar">
-          <div className="ct-logo-icon">⌨</div>
-          <span className="ct-logo-text">CodeMaster</span>
-          <div className="ct-sep" />
-          <span className="ct-crumb">Home / <span>Contact</span></span>
-          <div className="ct-topbar-badge">Support Online</div>
-        </div>
+        {/* NAVBAR (shared) */}
+        <Navbar />
 
         {/* HERO */}
         <div className="ct-hero">

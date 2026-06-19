@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { NavLink } from "react-router-dom";
+import Navbar from "../component/navbar"; // adjust path to match your folder structure
 const exploreCards = [
   {
     id: "dsa-visualizer",
@@ -94,12 +94,13 @@ const stats = [
   { label: "Active Users", value: "84k", sub: "this month" },
   { label: "Avg Rating", value: "4.9★", sub: "from learners" },
 ];
+
 export default function Explore() {
   const [hovered, setHovered] = useState(null);
   const [filter, setFilter] = useState("All");
 
   const filters = ["All", "Interactive", "Curated", "Daily", "Foundations", "Advanced", "Popular"];
-   const navigate = useNavigate();
+  const navigate = useNavigate();
   const filtered =
     filter === "All"
       ? exploreCards
@@ -109,7 +110,6 @@ export default function Explore() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .ex-root {
           min-height: 100vh;
@@ -123,36 +123,6 @@ export default function Explore() {
         ::-webkit-scrollbar-track { background: #161b22; }
         ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #484f58; }
-
-        /* ── TOPBAR ── */
-        .ex-topbar {
-          background: #161b22;
-          border-bottom: 1px solid #21262d;
-          height: 48px;
-          display: flex; align-items: center;
-          padding: 0 20px; gap: 8px;
-          position: sticky; top: 0; z-index: 20;
-        }
-        .ex-logo-icon {
-          width: 28px; height: 28px;
-          background: linear-gradient(135deg, #ffa116, #ff6b00);
-          border-radius: 6px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: 800; color: #0d1117; flex-shrink: 0;
-        }
-        .ex-logo-text { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
-        .ex-nav-sep { width: 1px; height: 20px; background: #21262d; margin: 0 6px; }
-        .ex-nav-crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; }
-        .ex-nav-crumb span { color: #ffa116; }
-        .ex-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-        .ex-search {
-          background: #21262d; border: 1px solid #30363d; border-radius: 6px;
-          color: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 12px;
-          padding: 5px 12px; outline: none; width: 200px;
-          transition: border-color 0.15s;
-        }
-        .ex-search::placeholder { color: #495366; }
-        .ex-search:focus { border-color: #ffa116; }
 
         /* ── HERO ── */
         .ex-hero {
@@ -412,20 +382,8 @@ export default function Explore() {
 
       <div className="ex-root">
 
-        {/* ── TOPBAR ── */}
-        <div className="ex-topbar">
-          <div className="ex-logo-icon">⌨</div>
-          <span className="ex-logo-text">CodeMaster</span>
-          <div className="ex-nav-sep" />
-          <span className="ex-nav-crumb">
-            <NavLink  to={`/`}>
-            Home  </NavLink>/ <span>Explore</span>
-           
-          </span>
-          <div className="ex-topbar-right">
-            <input className="ex-search" placeholder="Search topics…" />
-          </div>
-        </div>
+        {/* ── NAVBAR (shared) ── */}
+        <Navbar />
 
         {/* ── HERO ── */}
         <div className="ex-hero">
