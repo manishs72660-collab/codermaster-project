@@ -31,6 +31,8 @@ import ContestDetail from "./component/Contestdetail";
 import AdminCreateContest from "./component/creatcontest";
 import AdminManageContests from "./component/managecontext";
 import ContestProblemEditor from "./component/Contestproblemeditor";
+import CheatSheet from "./component/cheatsheet";
+import ComplexityVisualizer from "./component/complexity";
 function App(){
   const dispatch = useDispatch();
   const {isAuthenticated,user} = useSelector((state)=>state.auth);
@@ -69,6 +71,8 @@ function App(){
     <Route path="/admin/contest/create" element={<AdminCreateContest></AdminCreateContest>}></Route>
     <Route path="/admin/contest/manage" element={<AdminManageContests></AdminManageContests>}></Route>
     <Route path="/contest/:contestId/problem/:problemId" element={<ContestProblemEditor></ContestProblemEditor>}></Route>
+    <Route path="/explore/cheatsheet" element={<CheatSheet></CheatSheet>}></Route>
+    <Route path="/explore/complexity" element={<ComplexityVisualizer></ComplexityVisualizer>}></Route>
     </Routes>
   </>
   )

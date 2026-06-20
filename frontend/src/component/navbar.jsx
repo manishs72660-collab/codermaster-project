@@ -102,7 +102,9 @@ function Navbar() {
             </div>
           ) : (
             <button className="bg-orange-500 text-black px-5 py-2 rounded-xl text-sm font-bold hover:bg-orange-400 transition-colors shadow-[0_0_20px_rgba(249,115,22,0.3)]">
-              Connect
+              <NavLink to='/login'>
+                  Connect
+              </NavLink>
             </button>
           )}
         </div>
