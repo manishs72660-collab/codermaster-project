@@ -13,7 +13,7 @@ import Admin from "./pages/admin";
 import AdminPanel from "./component/creat";
 import DSAVisualizer from "./pages/visu";
 import Explore from "./pages/expore";
-import Profiledad from "./pages/profile";
+import Profilepage from "./component/profile"
 import ContactPage from "./pages/connect";
 import Contest from "./pages/context";
 import AdminVideo from "./component/adminvideo";
@@ -50,7 +50,7 @@ function App(){
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
       <Route path="/signup" element={isAuthenticated?<Navigate to="/" />:<Signup></Signup>}></Route>
       <Route path="/problem/:problemId" element={<ProblemPage></ProblemPage>}></Route>
-      <Route path="/profile" element={<UserProfile></UserProfile>}></Route>
+      <Route path="/profile" element={<Profilepage></Profilepage>}></Route>
         <Route path="/admin" element={isAuthenticated && user?.role == 'admin' ? <Admin /> : <Navigate to="/" />} />
       <Route path="/admin/create" element={isAuthenticated && user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" />} />
       <Route path="/explore/dsa-visualizer" element={<DSAVisualizer></DSAVisualizer>}></Route>

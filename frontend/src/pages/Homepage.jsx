@@ -41,7 +41,7 @@ function Homepage() {
   const dispatch  = useDispatch();
   const { user }  = useSelector((s) => s.auth);
   const { stats } = useSelector((s) => s.userState);
- //console.log(stats);
+ console.log(stats);
   //const [problems, setProblems]             = useState([]);
   const { problems, loading, error } = useSelector(
   (state) => state.problem

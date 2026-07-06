@@ -8,6 +8,7 @@ import { logoutUser } from '../authSlice';
 function Navbar() {
   const dispatch = useDispatch();
   const { user } = useSelector((s) => s.auth);
+  console.log(user);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
