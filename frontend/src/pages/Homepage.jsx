@@ -40,15 +40,16 @@ const getDifficultyStyle = (difficulty) => {
 function Homepage() {
   const dispatch  = useDispatch();
   const { user }  = useSelector((s) => s.auth);
+//  console.log(user);
   const { stats } = useSelector((s) => s.userState);
- console.log(stats);
+ //console.log(stats);
   //const [problems, setProblems]             = useState([]);
   const { problems, loading, error } = useSelector(
   (state) => state.problem
 );
  // console.log(problems);
   const [solvedProblems, setSolvedProblems] = useState([]);
-  console.log(solvedProblems)
+ // console.log(solvedProblems)
   const [searchQuery, setSearchQuery]       = useState('');
   const [filters, setFilters]               = useState({ difficulty: 'all', tag: 'all', status: 'all' });
   const [streak]                            = useState(0);

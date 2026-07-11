@@ -33,18 +33,42 @@ import AdminManageContests from "./component/managecontext";
 import ContestProblemEditor from "./component/Contestproblemeditor";
 import CheatSheet from "./component/cheatsheet";
 import ComplexityVisualizer from "./component/complexity";
+import AdminListPage from "./pages/AdminListPage";
+import IncomingChatPopup from "./component/IncomingChatPopup"; // 👈 new import
+import socket from "./utils/socket";
+import ChatRoomPage from "./pages/chatroompage";
 function App(){
   const dispatch = useDispatch();
-  const {isAuthenticated,user} = useSelector((state)=>state.auth);
-  
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+
+  // connect socket + mark user online once authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !user?._id) return;
+
+    socket.connect();
+    socket.on("connect", () => {
+      socket.emit("user:online", { userId: user._id, role: user.role });
+    });
+
+    return () => {
+      socket.off("connect");
+      socket.disconnect();
+    };
+  }, [isAuthenticated, user?._id, user?.role]);
+
   // check initial authentication
   useEffect(() => {
     dispatch(checkAuth());
     dispatch(fetchUserState());
     dispatch(fetchProblems());
   }, [dispatch]);
+
   return(
   <>
+    {/* Shows an Accept/Decline popup to admins whenever a user requests a chat.
+        Mounted here (outside <Routes>) so it works no matter which page the admin is on. */}
+    {isAuthenticated && user?.role === "admin" && <IncomingChatPopup />}
+
     <Routes>
       <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route>
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
@@ -73,6 +97,8 @@ function App(){
     <Route path="/contest/:contestId/problem/:problemId" element={<ContestProblemEditor></ContestProblemEditor>}></Route>
     <Route path="/explore/cheatsheet" element={<CheatSheet></CheatSheet>}></Route>
     <Route path="/explore/complexity" element={<ComplexityVisualizer></ComplexityVisualizer>}></Route>
+    <Route path="/explore/talkadmin" element={<AdminListPage /> } />
+    <Route path="/chat/:roomName" element={isAuthenticated ? <ChatRoomPage /> : <Navigate to="/login" />} />
     </Routes>
   </>
   )

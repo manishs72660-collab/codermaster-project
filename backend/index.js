@@ -14,6 +14,9 @@ const airoute = require("./routes/aichat");
 const videoRouter = require("./routes/videocreator");
 const duelRouter = require("./routes/duelroute");
 const contestRouter = require('./routes/contestroute');
+const initializeSocket = require("./socket/index"); // 👈 new import
+const adminListRouter = require("./routes/onlineadmin");
+const chatrouter = require("./routes/chatroute");
 
 require('dotenv').config();
 const cors = require('cors');
@@ -27,7 +30,6 @@ const io = new Server(httpServer, {
     credentials: true
   }
 });
-
 
 app.use(cors({
   origin: 'http://localhost:5173',
@@ -45,48 +47,11 @@ app.use("/ai", airoute);
 app.use("/video", videoRouter);
 app.use("/duel", duelRouter);
 app.use('/contest', contestRouter);
+app.use("/api", adminListRouter);
+app.use("/api", chatrouter); // 👈 FIX: this was required but never mounted before
 
-// your existing duel/contest socket logic stays untouched
-io.on("connection", (socket) => {
-  console.log("Socket connected:", socket.id);
-
-  socket.on("duel:join_room", ({ roomCode, userId }) => {
-    socket.join(roomCode);
-    socket.to(roomCode).emit("duel:opponent_joined", { userId });
-    console.log(`User ${userId} joined room ${roomCode}`);
-  });
-
-  socket.on("duel:ready", ({ roomCode, userId }) => {
-    socket.to(roomCode).emit("duel:opponent_ready", { userId });
-  });
-
-  socket.on("duel:progress", ({ roomCode, userId, testCasesPassed, total }) => {
-    socket.to(roomCode).emit("duel:opponent_progress", {
-      userId,
-      testCasesPassed,
-      total
-    });
-  });
-
-  socket.on("disconnecting", () => {
-    const rooms = [...socket.rooms];
-    rooms.forEach(room => {
-      socket.to(room).emit("duel:opponent_left");
-    });
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
-  });
-
-  socket.on("contest:join", ({ contestId, userId }) => {
-    socket.join(`contest-${contestId}`);
-  });
-
-  socket.on("contest:leave", ({ contestId }) => {
-    socket.leave(`contest-${contestId}`);
-  });
-});
+// socket logic now lives in ./sockets/index.js
+initializeSocket(io);
 
 const InitlizeConnection = async () => {
   try {
