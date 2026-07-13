@@ -17,6 +17,8 @@ const contestRouter = require('./routes/contestroute');
 const initializeSocket = require("./socket/index"); // 👈 new import
 const adminListRouter = require("./routes/onlineadmin");
 const chatrouter = require("./routes/chatroute");
+const doubtRouter=require("./routes/doubtroute");
+const answerRouter=require("./routes/answerrote");
 
 require('dotenv').config();
 const cors = require('cors');
@@ -49,6 +51,8 @@ app.use("/duel", duelRouter);
 app.use('/contest', contestRouter);
 app.use("/api", adminListRouter);
 app.use("/api", chatrouter); // 👈 FIX: this was required but never mounted before
+app.use("/doubt",doubtRouter);
+app.use("/answer",answerRouter);
 
 // socket logic now lives in ./sockets/index.js
 initializeSocket(io);

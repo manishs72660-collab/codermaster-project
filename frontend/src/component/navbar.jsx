@@ -49,6 +49,7 @@ function Navbar() {
               { to: '/explore', label: 'Explorer' },
               { to: '/contest', label: 'Contests' },
               { to: '/discuss', label: 'Community' },
+              {to: '/doubts', label: 'solveqoubt'}
             ].map(({ to, label }) => (
               <NavLink
                 key={to} to={to}

@@ -37,6 +37,9 @@ import AdminListPage from "./pages/AdminListPage";
 import IncomingChatPopup from "./component/IncomingChatPopup"; // 👈 new import
 import socket from "./utils/socket";
 import ChatRoomPage from "./pages/chatroompage";
+import DoubtBoard from "../src/pages/Doubtboard"
+import AskDoubt from "../src/pages/Askdoubt"
+import DoubtDetail from "../src/pages/Doubtdetai"
 function App(){
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -99,6 +102,9 @@ function App(){
     <Route path="/explore/complexity" element={<ComplexityVisualizer></ComplexityVisualizer>}></Route>
     <Route path="/explore/talkadmin" element={<AdminListPage /> } />
     <Route path="/chat/:roomName" element={isAuthenticated ? <ChatRoomPage /> : <Navigate to="/login" />} />
+    <Route path="/doubts" element={<DoubtBoard />} />
+<Route path="/doubts/ask" element={isAuthenticated ? <AskDoubt /> : <Navigate to="/login" />} />
+<Route path="/doubts/:id" element={<DoubtDetail />} />
     </Routes>
   </>
   )
