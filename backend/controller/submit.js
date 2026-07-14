@@ -86,12 +86,13 @@ const submitCode = async (req, res) => {
     }
 
     res.status(201).json({
-      accepted: status === "accepted",
-      totalTestCases: submittedResult.testCasesTotal,
-      passedTestCases: testCasesPassed,
-      runtime,
-      memory,
-    });
+  submissionId: submittedResult._id,   // ← add this line
+  accepted: status === "accepted",
+  totalTestCases: submittedResult.testCasesTotal,
+  passedTestCases: testCasesPassed,
+  runtime,
+  memory,
+});
 
   } catch (err) {
     res.status(500).json({ message: "Internal Server Error", error: err.message });

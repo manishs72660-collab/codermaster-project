@@ -19,7 +19,7 @@ const adminListRouter = require("./routes/onlineadmin");
 const chatrouter = require("./routes/chatroute");
 const doubtRouter=require("./routes/doubtroute");
 const answerRouter=require("./routes/answerrote");
-
+const postrouter=require("./routes/solutionpost");
 require('dotenv').config();
 const cors = require('cors');
 
@@ -53,6 +53,7 @@ app.use("/api", adminListRouter);
 app.use("/api", chatrouter); // 👈 FIX: this was required but never mounted before
 app.use("/doubt",doubtRouter);
 app.use("/answer",answerRouter);
+app.use("/solution",postrouter)
 
 // socket logic now lives in ./sockets/index.js
 initializeSocket(io);

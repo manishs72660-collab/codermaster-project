@@ -32,6 +32,22 @@ const ProblemPage = () => {
   const [editorTheme, setEditorTheme] = useState('vs-dark'); // 'vs-dark' | 'hc-black'
   const startTimeRef = useRef(Date.now());
 
+  // ── POST SOLUTION STATE ──
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postExplanation, setPostExplanation] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState('');
+  const [hasPosted, setHasPosted] = useState(false);
+
+  // ── COMMUNITY SOLUTIONS STATE ──
+  const [communityPosts, setCommunityPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [postsFetched, setPostsFetched] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [loadingSinglePost, setLoadingSinglePost] = useState(false);
+  const [deletingPost, setDeletingPost] = useState(false);
+
   // ── TIMER ──
   useEffect(() => {
     const interval = setInterval(() => {
@@ -44,6 +60,15 @@ const ProblemPage = () => {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
     const sec = (s % 60).toString().padStart(2, '0');
     return `${m}:${sec}`;
+  };
+
+  const formatDate = (d) => {
+    if (!d) return '';
+    try {
+      return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return '';
+    }
   };
 
   // ── KEYBOARD SHORTCUT: Ctrl+Enter = Run ──
@@ -191,6 +216,7 @@ const ProblemPage = () => {
   const handleSubmitCode = async () => {
     setLoading(true);
     setSubmitResult(null);
+    setHasPosted(false);
     try {
       const response = await axiosClient.post(`/code/submit/${problemId}`, { code, language: selectedLanguage });
       setSubmitResult(response.data);
@@ -221,6 +247,90 @@ const ProblemPage = () => {
       case 'java': return 'java';
       case 'cpp': return 'cpp';
       default: return 'javascript';
+    }
+  };
+
+  // ── POST SOLUTION ──
+  const openPostModal = () => {
+    setPostError('');
+    setPostTitle(problem?.title ? `My approach to ${problem.title}` : '');
+    setPostExplanation('');
+    setShowPostModal(true);
+  };
+
+  const handlePostSolution = async () => {
+    if (!postTitle.trim()) {
+      setPostError('Please add a title for your post.');
+      return;
+    }
+    const submissionId = submitResult?.submissionId || submitResult?._id || submitResult?.id;
+    if (!submissionId) {
+      setPostError('Missing submission id from the server response — make sure /code/submit returns "submissionId".');
+      return;
+    }
+    setPosting(true);
+    setPostError('');
+    try {
+      await axiosClient.post('/solution/post', {
+        submissionId,
+        title: postTitle.trim(),
+        explanation: postExplanation.trim(),
+      });
+      setHasPosted(true);
+      setShowPostModal(false);
+      // refresh community list if it's already been loaded
+      if (postsFetched) fetchCommunityPosts();
+    } catch (err) {
+      setPostError(err?.response?.data?.message || 'Failed to post your solution. Please try again.');
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  // ── COMMUNITY SOLUTIONS ──
+  const fetchCommunityPosts = async () => {
+    setLoadingPosts(true);
+    try {
+      const res = await axiosClient.post(`/solution/posts/${problemId}`, {});
+      setCommunityPosts(res.data.posts || []);
+      setPostsFetched(true);
+    } catch (err) {
+      console.error('Error fetching community posts:', err);
+      setPostsFetched(true);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeLeftTab === 'community' && problemId && !postsFetched) {
+      fetchCommunityPosts();
+    }
+  }, [activeLeftTab, problemId]);
+
+  const openPost = async (postId) => {
+    setLoadingSinglePost(true);
+    setSelectedPost(null);
+    try {
+      const res = await axiosClient.post(`/solution/post/${postId}`, {});
+      setSelectedPost(res.data.post);
+    } catch (err) {
+      console.error('Error fetching post:', err);
+    } finally {
+      setLoadingSinglePost(false);
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    setDeletingPost(true);
+    try {
+      await axiosClient.post(`/solution/post/delete/${postId}`, {});
+      setSelectedPost(null);
+      fetchCommunityPosts();
+    } catch (err) {
+      console.error('Error deleting post:', err);
+    } finally {
+      setDeletingPost(false);
     }
   };
 
@@ -659,6 +769,96 @@ const ProblemPage = () => {
           display: flex; align-items: center; justify-content: center; font-size: 13px;
         }
 
+        /* ── POST SOLUTION ── */
+        .cm-post-solution-btn {
+          display: inline-flex; align-items: center; gap: 7px;
+          background: rgba(45,186,110,0.12); color: var(--gr);
+          border: 1px solid rgba(45,186,110,0.28); border-radius: var(--r);
+          cursor: pointer; font-family: 'Outfit', system-ui, sans-serif;
+          font-size: 12px; font-weight: 800; padding: 9px 16px;
+          transition: all 0.15s; width: 100%; justify-content: center;
+        }
+        .cm-post-solution-btn:hover:not(:disabled) { background: rgba(45,186,110,0.2); border-color: rgba(45,186,110,0.5); transform: translateY(-1px); }
+        .cm-post-solution-btn:disabled { opacity: 0.55; cursor: default; }
+
+        .cm-post-modal {
+          width: min(560px, 92vw); max-height: 88vh;
+          background: var(--s1); border: 1px solid var(--b2); border-radius: 16px;
+          display: flex; flex-direction: column; overflow: hidden;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.75);
+          animation: cm-slideup 0.2s ease;
+        }
+        .cm-post-body { padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+        .cm-field-label { font-size: 10px; font-weight: 700; color: var(--mu); letter-spacing: 0.6px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; margin-bottom: 7px; display: block; }
+        .cm-field-input {
+          width: 100%; background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r);
+          color: var(--tx); font-family: 'Outfit', system-ui, sans-serif; font-size: 13px;
+          padding: 10px 12px; outline: none; transition: border-color 0.14s;
+        }
+        .cm-field-input:focus { border-color: rgba(255,161,22,0.5); }
+        .cm-field-textarea { resize: vertical; min-height: 110px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; }
+        .cm-post-code-preview { background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r); padding: 10px 12px; max-height: 160px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7e92b0; }
+        .cm-post-error { color: var(--rd); font-size: 11px; font-family: 'JetBrains Mono', monospace; background: rgba(240,79,79,0.08); border: 1px solid rgba(240,79,79,0.2); padding: 8px 12px; border-radius: 6px; }
+        .cm-post-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--b1); background: var(--s2); flex-shrink: 0; }
+        .cm-btn-ghost {
+          background: none; border: 1px solid var(--b1); color: var(--mu);
+          border-radius: var(--r); cursor: pointer; padding: 9px 16px;
+          font-family: 'Outfit', system-ui, sans-serif; font-size: 12px; font-weight: 700; transition: all 0.14s;
+        }
+        .cm-btn-ghost:hover { color: var(--tx); border-color: var(--b2); }
+        .cm-btn-confirm {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: var(--ac); color: #000; border: none; border-radius: var(--r);
+          cursor: pointer; padding: 9px 18px;
+          font-family: 'Outfit', system-ui, sans-serif; font-size: 12px; font-weight: 800; transition: all 0.14s;
+        }
+        .cm-btn-confirm:hover:not(:disabled) { background: #ffb347; }
+        .cm-btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Already posted banner */
+        .cm-already-posted { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r2); background: rgba(45,186,110,0.07); border: 1px solid rgba(45,186,110,0.2); color: var(--gr); font-size: 12px; font-weight: 700; }
+
+        /* Community list */
+        .cm-community-list { display: flex; flex-direction: column; gap: 8px; }
+        .cm-community-card {
+          background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r2);
+          padding: 13px 15px; cursor: pointer; transition: all 0.14s;
+        }
+        .cm-community-card:hover { border-color: rgba(255,161,22,0.35); background: rgba(255,161,22,0.03); }
+        .cm-cc-title { font-size: 13px; font-weight: 700; color: var(--tx); margin-bottom: 8px; line-height: 1.4; }
+        .cm-cc-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .cm-cc-author { display: flex; align-items: center; gap: 6px; }
+        .cm-cc-avatar {
+          width: 18px; height: 18px; border-radius: 50%; background: var(--s3);
+          border: 1px solid var(--b2); display: flex; align-items: center; justify-content: center;
+          font-size: 9px; font-weight: 800; color: var(--mu); overflow: hidden; flex-shrink: 0;
+        }
+        .cm-cc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .cm-cc-name { font-size: 11px; color: var(--mu); font-weight: 600; }
+        .cm-cc-dot { color: var(--di); font-size: 10px; }
+        .cm-cc-stat { font-size: 10px; color: var(--di); font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 3px; }
+
+        /* Post detail modal */
+        .cm-post-detail-modal {
+          width: min(760px, 94vw); height: min(720px, 88vh);
+          background: var(--s1); border: 1px solid var(--b2); border-radius: 16px;
+          display: flex; flex-direction: column; overflow: hidden;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.75);
+          animation: cm-slideup 0.2s ease;
+        }
+        .cm-pd-body { flex: 1; overflow-y: auto; padding: 20px 22px; }
+        .cm-pd-title { font-size: 19px; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.4px; line-height: 1.3; }
+        .cm-pd-meta-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .cm-pd-explanation { font-size: 13px; line-height: 1.85; color: #b8c2d9; white-space: pre-wrap; margin-bottom: 20px; }
+        .cm-btn-danger {
+          display: inline-flex; align-items: center; gap: 5px;
+          background: rgba(240,79,79,0.1); color: var(--rd); border: 1px solid rgba(240,79,79,0.28);
+          border-radius: var(--r); cursor: pointer; padding: 6px 12px;
+          font-family: 'Outfit', system-ui, sans-serif; font-size: 11px; font-weight: 700; transition: all 0.14s;
+        }
+        .cm-btn-danger:hover:not(:disabled) { background: rgba(240,79,79,0.18); }
+        .cm-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
         @keyframes cm-anim { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
         .cm-anim { animation: cm-anim 0.2s ease both; }
       `}</style>
@@ -727,6 +927,7 @@ const ProblemPage = () => {
                 { id: 'description', icon: '≡', label: 'Description' },
                 { id: 'editorial',   icon: '✎', label: 'Editorial' },
                 { id: 'solutions',   icon: '◈', label: 'Solutions' },
+                { id: 'community',   icon: '☰', label: 'Community' },
                 { id: 'submissions', icon: '⊕', label: 'Submissions' },
               ].map(tab => (
                 <button
@@ -796,6 +997,62 @@ const ProblemPage = () => {
                 ) : (
                   <div style={{ color: 'var(--mu)', fontSize: 12, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.8 }}>
                     Solutions unlock after solving the problem.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── COMMUNITY SOLUTIONS TAB ── */}
+            {activeLeftTab === 'community' && (
+              <div className="cm-scroll cm-anim">
+                <div className="cm-section-title">Community Solutions</div>
+
+                {submitResult?.accepted && (
+                  <div style={{ marginBottom: 16 }}>
+                    {hasPosted ? (
+                      <div className="cm-already-posted">✓ You posted your solution for this problem</div>
+                    ) : (
+                      <button className="cm-post-solution-btn" onClick={openPostModal}>
+                        ✎ Post Your Solution
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {loadingPosts ? (
+                  <div className="cm-empty" style={{ padding: '30px 0' }}>
+                    <span className="cm-spinner-light" style={{ width: 22, height: 22, borderWidth: 3 }} />
+                    <div className="cm-empty-sub" style={{ marginTop: 8 }}>Loading community solutions…</div>
+                  </div>
+                ) : communityPosts.length > 0 ? (
+                  <div className="cm-community-list">
+                    {communityPosts.map((post) => (
+                      <div key={post._id} className="cm-community-card" onClick={() => openPost(post._id)}>
+                        <div className="cm-cc-title">{post.title}</div>
+                        <div className="cm-cc-meta">
+                          <div className="cm-cc-author">
+                            <div className="cm-cc-avatar">
+                              {post.userId?.profileImage
+                                ? <img src={post.userId.profileImage} alt="" />
+                                : (post.userId?.name?.[0]?.toUpperCase() || '?')}
+                            </div>
+                            <span className="cm-cc-name">{post.userId?.name || 'Anonymous'}</span>
+                          </div>
+                          <span className="cm-cc-dot">·</span>
+                          <span className="cm-lang-badge" style={{ fontSize: 8, padding: '1px 6px' }}>{post.language}</span>
+                          <span className="cm-cc-dot">·</span>
+                          <span className="cm-cc-stat">👁 {post.views || 0}</span>
+                          <span className="cm-cc-dot">·</span>
+                          <span className="cm-cc-stat">{formatDate(post.createdAt)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="cm-empty" style={{ padding: '30px 0' }}>
+                    <div className="cm-empty-icon">☰</div>
+                    <div className="cm-empty-title">No solutions posted yet</div>
+                    <div className="cm-empty-sub">Be the first to share your approach</div>
                   </div>
                 )}
               </div>
@@ -1036,6 +1293,20 @@ const ProblemPage = () => {
                       </span>
                       <span>/ {submitResult.totalTestCases}</span>
                     </div>
+
+                    {/* ── POST SOLUTION CTA ── */}
+                    {submitResult.accepted && (
+                      hasPosted ? (
+                        <div className="cm-already-posted" style={{ marginBottom: 14 }}>
+                          ✓ Your solution has been posted to the community
+                        </div>
+                      ) : (
+                        <button className="cm-post-solution-btn" style={{ marginBottom: 14 }} onClick={openPostModal}>
+                          ✎ Post Your Solution
+                        </button>
+                      )
+                    )}
+
                     {submitResult.accepted && (
                       <ShareOnLinkedIn
                         problem={problem}
@@ -1091,6 +1362,124 @@ const ProblemPage = () => {
               </div>
               <div className="cm-modal-body">
                 <CodeBoard />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── POST SOLUTION MODAL ── */}
+        {showPostModal && (
+          <div className="cm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowPostModal(false); }}>
+            <div className="cm-post-modal">
+              <div className="cm-modal-hdr">
+                <div className="cm-modal-title">
+                  <div className="cm-ai-icon" style={{ background: 'rgba(45,186,110,0.15)', borderColor: 'rgba(45,186,110,0.3)' }}>✎</div>
+                  <div>
+                    <div className="cm-modal-label">Post Your Solution</div>
+                    <div className="cm-modal-sub">Share your accepted approach with the community</div>
+                  </div>
+                </div>
+                <div className="cm-modal-close" onClick={() => setShowPostModal(false)}>✕</div>
+              </div>
+
+              <div className="cm-post-body">
+                {postError && <div className="cm-post-error">{postError}</div>}
+
+                <div>
+                  <label className="cm-field-label">Title</label>
+                  <input
+                    className="cm-field-input"
+                    type="text"
+                    value={postTitle}
+                    onChange={(e) => setPostTitle(e.target.value)}
+                    placeholder="e.g. Clean O(n) two-pointer solution"
+                    maxLength={120}
+                  />
+                </div>
+
+                <div>
+                  <label className="cm-field-label">Explanation (optional)</label>
+                  <textarea
+                    className="cm-field-input cm-field-textarea"
+                    value={postExplanation}
+                    onChange={(e) => setPostExplanation(e.target.value)}
+                    placeholder="Walk others through your approach, time & space complexity, edge cases…"
+                  />
+                </div>
+
+                <div>
+                  <label className="cm-field-label">
+                    Code <span className="cm-lang-badge" style={{ marginLeft: 6 }}>{selectedLanguage}</span>
+                  </label>
+                  <div className="cm-post-code-preview">
+                    <pre style={{ margin: 0 }}>{code}</pre>
+                  </div>
+                </div>
+              </div>
+
+              <div className="cm-post-footer">
+                <button className="cm-btn-ghost" onClick={() => setShowPostModal(false)} disabled={posting}>Cancel</button>
+                <button className="cm-btn-confirm" onClick={handlePostSolution} disabled={posting}>
+                  {posting ? <span className="cm-spinner" /> : '✎'}
+                  {posting ? 'Posting…' : 'Post Solution'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── POST DETAIL MODAL ── */}
+        {(selectedPost || loadingSinglePost) && (
+          <div className="cm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedPost(null); }}>
+            <div className="cm-post-detail-modal">
+              <div className="cm-modal-hdr">
+                <div className="cm-modal-title">
+                  <div className="cm-cc-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>
+                    {selectedPost?.userId?.profileImage
+                      ? <img src={selectedPost.userId.profileImage} alt="" />
+                      : (selectedPost?.userId?.name?.[0]?.toUpperCase() || '?')}
+                  </div>
+                  <div>
+                    <div className="cm-modal-label">{selectedPost?.userId?.firstName || 'Anonymous'}</div>
+                    <div className="cm-modal-sub">{formatDate(selectedPost?.createdAt)}</div>
+                  </div>
+                </div>
+                <div className="cm-modal-close" onClick={() => setSelectedPost(null)}>✕</div>
+              </div>
+
+              <div className="cm-pd-body">
+                {loadingSinglePost ? (
+                  <div className="cm-empty" style={{ height: 240 }}>
+                    <span className="cm-spinner-light" style={{ width: 22, height: 22, borderWidth: 3 }} />
+                  </div>
+                ) : selectedPost && (
+                  <>
+                    <div className="cm-pd-title">{selectedPost.title}</div>
+                    <div className="cm-pd-meta-row">
+                      <span className="cm-lang-badge">{selectedPost.language}</span>
+                      <span className="cm-cc-stat">👁 {selectedPost.views || 0} views</span>
+                      {selectedPost.userId?._id === problem?.userId && null}
+                      <button
+                        className="cm-btn-danger"
+                        style={{ marginLeft: 'auto' }}
+                        onClick={() => handleDeletePost(selectedPost._id)}
+                        disabled={deletingPost}
+                      >
+                        {deletingPost ? <span className="cm-spinner-light" /> : '🗑'} Delete
+                      </button>
+                    </div>
+                    {selectedPost.explanation && (
+                      <div className="cm-pd-explanation">{selectedPost.explanation}</div>
+                    )}
+                    <div className="cm-code-block">
+                      <div className="cm-code-block-hdr">
+                        <span style={{ fontSize: 12 }}>Solution</span>
+                        <span className="cm-lang-badge">{selectedPost.language}</span>
+                      </div>
+                      <pre><code>{selectedPost.code}</code></pre>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
