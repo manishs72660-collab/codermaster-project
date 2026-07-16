@@ -59,18 +59,25 @@ function App(){
     };
   }, [isAuthenticated, user?._id, user?.role]);
 
-  // check initial authentication
+  // check initial authentication (runs once on app load)
   useEffect(() => {
     dispatch(checkAuth());
-    dispatch(fetchUserState());
-    dispatch(fetchProblems());
   }, [dispatch]);
+
+  // fetch user state + problems whenever auth status becomes true
+  // (this re-runs right after login, so data shows without needing a refresh)
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchUserState());
+      dispatch(fetchProblems());
+    }
+  }, [dispatch, isAuthenticated]);
 
   return(
   <>
     {/* Shows an Accept/Decline popup to admins whenever a user requests a chat.
         Mounted here (outside <Routes>) so it works no matter which page the admin is on. */}
-    {isAuthenticated && user?.role === "admin" && <IncomingChatPopup />}
+    {isAuthenticated && user?.role === "Admin" && <IncomingChatPopup />}
 
     <Routes>
       <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route>
@@ -78,8 +85,8 @@ function App(){
       <Route path="/signup" element={isAuthenticated?<Navigate to="/" />:<Signup></Signup>}></Route>
       <Route path="/problem/:problemId" element={<ProblemPage></ProblemPage>}></Route>
       <Route path="/profile" element={<Profilepage></Profilepage>}></Route>
-        <Route path="/admin" element={isAuthenticated && user?.role == 'admin' ? <Admin /> : <Navigate to="/" />} />
-      <Route path="/admin/create" element={isAuthenticated && user?.role === 'admin' ? <AdminPanel /> : <Navigate to="/" />} />
+        <Route path="/admin" element={isAuthenticated && user?.role == 'Admin' ? <Admin /> : <Navigate to="/" />} />
+      <Route path="/admin/create" element={isAuthenticated && user?.role === 'Admin' ? <AdminPanel /> : <Navigate to="/" />} />
       <Route path="/explore/dsa-visualizer" element={<DSAVisualizer></DSAVisualizer>}></Route>
       <Route path="/explore" element={<Explore></Explore>}></Route>
       <Route path="/discuss" element={<ContactPage></ContactPage>}></Route>

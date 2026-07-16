@@ -2,19 +2,18 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axiosClient from './utils/axiosClient'
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
+
 export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-    const response =  await axiosClient.post('/auth/register', userData);
-    console.log(response);
-    return response.data.user;
+      const response = await axiosClient.post('/auth/register', userData);
+      return response.data.user;
     } catch (error) {
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data);
     }
   }
 );
-
 
 export const loginUser = createAsyncThunk(
   'auth/login',
@@ -23,7 +22,7 @@ export const loginUser = createAsyncThunk(
       const response = await axiosClient.post('/auth/login', credentials);
       return response.data.user;
     } catch (error) {
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data);
     }
   }
 );
@@ -35,7 +34,7 @@ export const checkAuth = createAsyncThunk(
       const { data } = await axiosClient.get('/auth/check');
       return data.user;
     } catch (error) {
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data);
     }
   }
 );
@@ -44,13 +43,18 @@ export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
     try {
-      await axiosClient.post('auth/logout');
+      await axiosClient.post('/auth/logout');
       return null;
     } catch (error) {
-      return rejectWithValue(error);
+      return rejectWithValue(error.response?.data);
     }
   }
 );
+
+// Previously this only did the Firebase popup and never told the backend
+// anything happened - isAuthenticated flipped to true in Redux, but there
+// was no cookie/session, so the very next protected request would fail.
+// Now it exchanges the Firebase profile for a real backend session.
 export const googleSignIn = createAsyncThunk(
   'auth/googleSignIn',
   async (_, { rejectWithValue }) => {
@@ -58,18 +62,18 @@ export const googleSignIn = createAsyncThunk(
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
-      return {
-        uid: user.uid,
-        firstName: user.displayName,
+      const response = await axiosClient.post('/auth/google', {
         emailId: user.email,
+        firstName: user.displayName,
         photoURL: user.photoURL,
-      };
+      });
+
+      return response.data.user;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
-
 
 const authSlice = createSlice({
   name: 'auth',
@@ -79,8 +83,7 @@ const authSlice = createSlice({
     loading: false,
     error: null
   },
-  reducers: {
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       // Register User Cases
@@ -92,7 +95,6 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.user = action.payload;
-        console.log('Payload:', action.payload);
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
@@ -100,7 +102,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
       })
-  
+
       // Login User Cases
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
@@ -110,7 +112,6 @@ const authSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = !!action.payload;
         state.user = action.payload;
-        console.log(action.payload);
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -118,7 +119,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
       })
-  
+
       // Check Auth Cases
       .addCase(checkAuth.pending, (state) => {
         state.loading = true;
@@ -135,7 +136,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.user = null;
       })
-  
+
       // Logout User Cases
       .addCase(logoutUser.pending, (state) => {
         state.loading = true;
@@ -152,23 +153,25 @@ const authSlice = createSlice({
         state.error = action.payload?.message || 'Something went wrong';
         state.isAuthenticated = false;
         state.user = null;
-      });
+      })
 
-      //addcase
-      builder
-  .addCase(googleSignIn.pending, (state) => {
-    state.loading = true;
-  })
-  .addCase(googleSignIn.fulfilled, (state, action) => {
-    state.loading = false;
-    state.isAuthenticated = true;
-    state.user = action.payload;
-    state.error = null;
-  })
-  .addCase(googleSignIn.rejected, (state, action) => {
-    state.loading = false;
-    state.error = action.payload;
-  });
+      // Google Sign-In Cases
+      .addCase(googleSignIn.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(googleSignIn.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload;
+        state.error = null;
+      })
+      .addCase(googleSignIn.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.isAuthenticated = false;
+        state.user = null;
+      });
   }
 });
 

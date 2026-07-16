@@ -14,7 +14,7 @@ const airoute = require("./routes/aichat");
 const videoRouter = require("./routes/videocreator");
 const duelRouter = require("./routes/duelroute");
 const contestRouter = require('./routes/contestroute');
-const initializeSocket = require("./socket/index"); // 👈 new import
+const initializeSocket = require("./socket/index");
 const adminListRouter = require("./routes/onlineadmin");
 const chatrouter = require("./routes/chatroute");
 const doubtRouter=require("./routes/doubtroute");
@@ -25,7 +25,11 @@ const cors = require('cors');
 
 const app = express();
 const httpServer = createServer(app);
-
+app.get("/", (req, res) => {
+    res.status(200).json({
+        status: "Server is running"
+    });
+});
 const io = new Server(httpServer, {
   cors: {
     origin: "http://localhost:5173",
@@ -50,12 +54,11 @@ app.use("/video", videoRouter);
 app.use("/duel", duelRouter);
 app.use('/contest', contestRouter);
 app.use("/api", adminListRouter);
-app.use("/api", chatrouter); // 👈 FIX: this was required but never mounted before
+app.use("/api", chatrouter); 
 app.use("/doubt",doubtRouter);
 app.use("/answer",answerRouter);
-app.use("/solution",postrouter)
+app.use("/solution",postrouter);
 
-// socket logic now lives in ./sockets/index.js
 initializeSocket(io);
 
 const InitlizeConnection = async () => {

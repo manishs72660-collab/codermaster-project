@@ -14,12 +14,12 @@ const UserSchema = new Schema({
         trim: true,
     },
     emailId: {
-        type: String,
-        lowercase: true,
-        trim: true,
-        required: true,
-        immutable: true,
-    },
+  type: String,
+  required: true,
+  unique: true,
+  trim: true,
+  lowercase: true,
+},
     password: {
         type: String,
         minLength: [6, "Password must be at least 6 characters long"],

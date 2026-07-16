@@ -236,9 +236,9 @@ function Admin() {
 
         <div className="adm-topbar">
           <div className="adm-logo-icon">⌨</div>
-          <span className="adm-logo-text">CodeMaster</span>
+          <span className="adm-logo-text"><NavLink to={"/"}>CodeMaster </NavLink></span>
           <div className="adm-topbar-sep" />
-          <span className="adm-topbar-crumb">Dashboard / <span>Admin</span></span>
+          <span className="adm-topbar-crumb"><NavLink to={"/"}>Dashboard / </NavLink><span>Admin</span></span>
         </div>
 
         <div className="adm-main">

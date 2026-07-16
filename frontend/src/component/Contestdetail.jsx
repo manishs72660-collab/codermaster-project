@@ -48,11 +48,7 @@ function useCountdown(targetDate) {
   };
   const [time, setTime] = useState(calc);
   useEffect(() => {
-    if (!targetDate) {
-      setTime(null);
-      return;
-    }
-    setTime(calc());
+    if (!targetDate) return;
     const t = setInterval(() => setTime(calc()), 1000);
     return () => clearInterval(t);
   }, [targetDate]);
@@ -66,35 +62,46 @@ export default function ContestDetail() {
   const { contestId } = useParams();
   const navigate = useNavigate();
   const { user } = useSelector((s) => s.auth);
-  const [contest, setContest]       = useState(null);
-  const [problems, setProblems]     = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [mySubmissions, setMySubmissions] = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [registering, setRegistering] = useState(false);
-  const [tab, setTab]               = useState('problems'); // problems | leaderboard | submissions
-  const [scrolled, setScrolled]     = useState(false);
 
+  // ── ALL STATE AT TOP ──
+  const [contest, setContest]             = useState(null);
+  const [problems, setProblems]           = useState([]);
+  const [leaderboard, setLeaderboard]     = useState([]);
+  const [mySubmissions, setMySubmissions] = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [registering, setRegistering]     = useState(false);
+  const [tab, setTab]                     = useState('problems');
+  const [scrolled, setScrolled]           = useState(false);
+
+  // ── compute status from state (safe when contest is null) ──
+  const now        = new Date();
+  const isUpcoming = contest ? now < new Date(contest.startTime) : false;
+  const isOngoing  = contest ? now >= new Date(contest.startTime) && now <= new Date(contest.endTime) : false;
+  const isEnded    = contest ? now > new Date(contest.endTime) : false;
+
+  // ── useCountdown ALWAYS called at top level, never conditionally ──
+  const countdownTarget = contest
+    ? isUpcoming ? contest.startTime
+    : isOngoing  ? contest.endTime
+    : null
+    : null;
+  const countdown = useCountdown(countdownTarget);
+
+  // ── ALL useEffects ──
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* fetch contest detail */
   useEffect(() => {
     axiosClient.get(`/contest/${contestId}`)
-      .then(({ data }) => {
-        setContest(data);
-        setLoading(false);
-      })
+      .then(({ data }) => { setContest(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, [contestId]);
 
-  /* fetch problems once contest starts and user is registered */
   useEffect(() => {
     if (!contest) return;
-    const now = new Date();
     if (now >= new Date(contest.startTime) && contest.isRegistered) {
       axiosClient.get(`/contest/${contestId}/problems`)
         .then(({ data }) => setProblems(data.problems || []))
@@ -102,10 +109,8 @@ export default function ContestDetail() {
     }
   }, [contest, contestId]);
 
-  /* fetch leaderboard if contest ended */
   useEffect(() => {
     if (!contest) return;
-    const now = new Date();
     if (now > new Date(contest.endTime) && contest.isRegistered) {
       axiosClient.get(`/contest/${contestId}/leaderboard`)
         .then(({ data }) => setLeaderboard(Array.isArray(data) ? data : []))
@@ -113,7 +118,6 @@ export default function ContestDetail() {
     }
   }, [contest, contestId]);
 
-  /* fetch my submissions */
   useEffect(() => {
     if (!contest?.isRegistered) return;
     axiosClient.get(`/contest/${contestId}/my-submissions`)
@@ -121,17 +125,7 @@ export default function ContestDetail() {
       .catch(() => {});
   }, [contest, contestId]);
 
-  /* ─── derive status flags safely, even before contest loads ─── */
-  const now = new Date();
-  const isUpcoming = contest ? now < new Date(contest.startTime) : false;
-  const isOngoing  = contest ? (now >= new Date(contest.startTime) && now <= new Date(contest.endTime)) : false;
-  const isEnded    = contest ? now > new Date(contest.endTime) : false;
-
-  /* ─── countdown hook must be called unconditionally, every render ─── */
-  const countdownTarget = isUpcoming ? contest?.startTime : isOngoing ? contest?.endTime : null;
-  const countdown = useCountdown(countdownTarget);
-
-  /* ─── early returns AFTER all hooks ─── */
+  // ── EARLY RETURNS after all hooks ──
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -154,7 +148,18 @@ export default function ContestDetail() {
     );
   }
 
-  /* solved problem ids from my submissions */
+  const handleRegister = async () => {
+    setRegistering(true);
+    try {
+      await axiosClient.post(`/contest/${contestId}/register`);
+      setContest((prev) => ({ ...prev, isRegistered: true, totalParticipants: (prev.totalParticipants || 0) + 1 }));
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Registration failed');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   const solvedIds = new Set(
     mySubmissions.filter((s) => s.status === 'accepted').map((s) => s.problemId?._id || s.problemId)
   );
@@ -205,7 +210,6 @@ export default function ContestDetail() {
               <span className="text-white/20 text-sm">/</span>
               <span className="text-white/60 text-sm truncate max-w-[200px]">{contest.title}</span>
             </div>
-
             {user && (
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex flex-col items-end">
@@ -234,7 +238,6 @@ export default function ContestDetail() {
                            "border-white/[0.07]   bg-white/[0.02]"
             )}
           >
-            {/* bg glow */}
             <div className={cn(
               "absolute top-0 right-0 w-80 h-80 blur-[100px] rounded-full pointer-events-none",
               isOngoing ? "bg-emerald-500/[0.06]" : isUpcoming ? "bg-orange-500/[0.06]" : "bg-white/[0.02]"
@@ -243,8 +246,7 @@ export default function ContestDetail() {
             <div className="relative z-10">
               {/* top row */}
               <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                  {/* status badge */}
+                <div className="flex items-center gap-3 flex-wrap">
                   {isOngoing && (
                     <span className="flex items-center gap-1.5 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full uppercase tracking-widest">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" /> Live
@@ -267,17 +269,15 @@ export default function ContestDetail() {
                   )}
                 </div>
 
-                {/* register / countdown */}
                 <div className="flex items-center gap-3">
                   {/* countdown */}
                   {(isUpcoming || isOngoing) && countdown && (
                     <div className="flex items-center gap-1">
                       {[
-                        { val: String(countdown.h).padStart(2, '0'), label: isUpcoming ? 'Starts in' : 'Ends in', show: true, first: true },
                         { val: String(countdown.h).padStart(2, '0'), label: 'h' },
                         { val: String(countdown.m).padStart(2, '0'), label: 'm' },
                         { val: String(countdown.s).padStart(2, '0'), label: 's' },
-                      ].slice(1).map(({ val, label }, i) => (
+                      ].map(({ val, label }, i) => (
                         <span key={label} className="flex items-center">
                           {i > 0 && <span className="text-white/20 mx-1 font-mono">:</span>}
                           <span className="flex flex-col items-center min-w-[36px] bg-white/[0.04] border border-white/[0.07] rounded-lg px-2 py-1">
@@ -289,35 +289,27 @@ export default function ContestDetail() {
                     </div>
                   )}
 
-                  {/* register button */}
                   {!contest.isRegistered && !isEnded && (
-                    <button
-                      onClick={handleRegister}
-                      disabled={registering}
-                      className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-5 py-2.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-50"
-                    >
-                      {registering ? (
-                        <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                      ) : <Trophy className="w-4 h-4" />}
+                    <button onClick={handleRegister} disabled={registering}
+                      className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-5 py-2.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-50">
+                      {registering
+                        ? <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                        : <Trophy className="w-4 h-4" />}
                       {registering ? 'Joining…' : 'Register Now'}
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* title */}
-              <h1 className="font-display text-3xl md:text-4xl font-700 text-white tracking-tight mb-3">
-                {contest.title}
-              </h1>
+              <h1 className="font-display text-3xl md:text-4xl font-700 text-white tracking-tight mb-3">{contest.title}</h1>
               <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-2xl">{contest.description}</p>
 
-              {/* meta grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { icon: <CalendarDays className="w-4 h-4" />, label: 'Start', value: formatDate(contest.startTime), color: 'text-white/60' },
-                  { icon: <CalendarDays className="w-4 h-4" />, label: 'End',   value: formatDate(contest.endTime),   color: 'text-white/60' },
-                  { icon: <Clock        className="w-4 h-4" />, label: 'Duration', value: getDuration(contest.startTime, contest.endTime), color: 'text-orange-400' },
-                  { icon: <Users        className="w-4 h-4" />, label: 'Participants', value: contest.totalParticipants ?? 0, color: 'text-blue-400' },
+                  { icon: <CalendarDays className="w-4 h-4" />, label: 'Start',        value: formatDate(contest.startTime),                        color: 'text-white/60' },
+                  { icon: <CalendarDays className="w-4 h-4" />, label: 'End',          value: formatDate(contest.endTime),                          color: 'text-white/60' },
+                  { icon: <Clock        className="w-4 h-4" />, label: 'Duration',     value: getDuration(contest.startTime, contest.endTime),       color: 'text-orange-400' },
+                  { icon: <Users        className="w-4 h-4" />, label: 'Participants', value: contest.totalParticipants ?? 0,                        color: 'text-blue-400' },
                 ].map(({ icon, label, value, color }) => (
                   <div key={label} className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-3">
                     <div className="flex items-center gap-1.5 text-white/25 mb-1.5">
@@ -334,20 +326,15 @@ export default function ContestDetail() {
           {/* ── TABS ── */}
           <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.07] rounded-xl mb-6 w-fit">
             {[
-              { key: 'problems',     label: 'Problems',     count: problems.length },
-              ...(isEnded && contest.isRegistered ? [{ key: 'leaderboard', label: 'Leaderboard', count: leaderboard.length }] : []),
-              ...(contest.isRegistered ? [{ key: 'submissions', label: 'My Submissions', count: mySubmissions.length }] : []),
+              { key: 'problems',     label: 'Problems',       count: problems.length },
+              ...(isEnded && contest.isRegistered ? [{ key: 'leaderboard',  label: 'Leaderboard',    count: leaderboard.length }] : []),
+              ...(contest.isRegistered             ? [{ key: 'submissions', label: 'My Submissions', count: mySubmissions.length }] : []),
             ].map(({ key, label, count }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
+              <button key={key} onClick={() => setTab(key)}
                 className={cn(
                   "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
-                  tab === key
-                    ? "bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.3)]"
-                    : "text-white/40 hover:text-white/70"
-                )}
-              >
+                  tab === key ? "bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.3)]" : "text-white/40 hover:text-white/70"
+                )}>
                 {label}
                 <span className={cn("text-[10px] font-black px-1.5 py-0.5 rounded-md", tab === key ? "bg-black/20 text-black/70" : "bg-white/[0.06] text-white/30")}>
                   {count}
@@ -359,7 +346,6 @@ export default function ContestDetail() {
           {/* ══ PROBLEMS TAB ══ */}
           {tab === 'problems' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              {/* not registered */}
               {!contest.isRegistered && (
                 <div className="flex flex-col items-center justify-center py-24 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
@@ -376,7 +362,6 @@ export default function ContestDetail() {
                 </div>
               )}
 
-              {/* registered but not started */}
               {contest.isRegistered && isUpcoming && (
                 <div className="flex flex-col items-center justify-center py-24 text-center">
                   <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-5">
@@ -387,76 +372,59 @@ export default function ContestDetail() {
                 </div>
               )}
 
-              {/* problems list */}
               {contest.isRegistered && (isOngoing || isEnded) && (
                 <div className="space-y-3">
-                  {problems.length === 0 ? (
-                    <div className="text-center py-16 text-white/20 text-sm">No problems found.</div>
-                  ) : problems.map((problem, index) => {
-                    const isSolved = solvedIds.has(problem._id);
-                    const diff = getDiffStyle(problem.difficulty);
-                    return (
-                      <motion.div
-                        key={problem._id}
-                        initial={{ opacity: 0, x: -12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                      >
-                        <div
-                          onClick={() => isOngoing
-                            ? navigate(`/contest/${contestId}/problem/${problem._id}`)
-                            : null
-                          }
-                          className={cn(
-                            "group relative flex items-center justify-between px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl transition-all duration-250 overflow-hidden",
-                            isOngoing ? "cursor-pointer hover:bg-white/[0.035] hover:border-white/[0.12]" : "cursor-default opacity-70"
-                          )}
-                        >
-                          {isSolved && (
-                            <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-orange-400 to-orange-600 shadow-[3px_0_18px_rgba(249,115,22,0.35)]" />
-                          )}
-                          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-orange-500/[0.02] to-transparent pointer-events-none" />
+                  {problems.length === 0
+                    ? <div className="text-center py-16 text-white/20 text-sm">No problems found.</div>
+                    : problems.map((problem, index) => {
+                        const isSolved = solvedIds.has(problem._id);
+                        const diff = getDiffStyle(problem.difficulty);
+                        return (
+                          <motion.div key={problem._id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
+                            <div
+                              onClick={() => isOngoing ? navigate(`/contest/${contestId}/problem/${problem._id}`) : null}
+                              className={cn(
+                                "group relative flex items-center justify-between px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl transition-all duration-250 overflow-hidden",
+                                isOngoing ? "cursor-pointer hover:bg-white/[0.035] hover:border-white/[0.12]" : "cursor-default opacity-70"
+                              )}
+                            >
+                              {isSolved && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-orange-400 to-orange-600 shadow-[3px_0_18px_rgba(249,115,22,0.35)]" />}
+                              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-orange-500/[0.02] to-transparent pointer-events-none" />
 
-                          <div className="flex items-center gap-4 min-w-0">
-                            {/* index */}
-                            <div className="hidden sm:flex w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.06] items-center justify-center flex-shrink-0">
-                              <span className="text-[11px] font-black text-white/25">
-                                {String(index + 1).padStart(2, '0')}
-                              </span>
-                            </div>
-                            <div className="min-w-0">
-                              <h4 className="text-[14px] font-semibold text-white/80 group-hover:text-white transition-colors truncate mb-1.5 flex items-center gap-2">
-                                {problem.title}
-                                {isSolved && <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" strokeWidth={2.5} />}
-                              </h4>
-                              <div className="flex items-center gap-2">
-                                <span className={cn("text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border", diff.bg, diff.border, diff.text)}>
-                                  {problem.difficulty}
-                                </span>
-                                {problem.tags && (
-                                  <span className="text-[10px] text-white/25">#{problem.tags}</span>
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div className="hidden sm:flex w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.06] items-center justify-center flex-shrink-0">
+                                  <span className="text-[11px] font-black text-white/25">{String(index + 1).padStart(2, '0')}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="text-[14px] font-semibold text-white/80 group-hover:text-white transition-colors truncate mb-1.5 flex items-center gap-2">
+                                    {problem.title}
+                                    {isSolved && <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" strokeWidth={2.5} />}
+                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                    <span className={cn("text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border", diff.bg, diff.border, diff.text)}>
+                                      {problem.difficulty}
+                                    </span>
+                                    {problem.tags && <span className="text-[10px] text-white/25">#{problem.tags}</span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                                {isSolved ? (
+                                  <span className="text-[10px] font-black text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">Solved</span>
+                                ) : isOngoing ? (
+                                  <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] transition-all duration-300">
+                                    <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black transition-all" />
+                                  </div>
+                                ) : (
+                                  <Lock className="w-4 h-4 text-white/15" />
                                 )}
                               </div>
                             </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                            {isSolved ? (
-                              <span className="text-[10px] font-black text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">
-                                Solved
-                              </span>
-                            ) : isOngoing ? (
-                              <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] transition-all duration-300">
-                                <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black transition-all" />
-                              </div>
-                            ) : (
-                              <Lock className="w-4 h-4 text-white/15" />
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                          </motion.div>
+                        );
+                      })
+                  }
                 </div>
               )}
             </motion.div>
@@ -466,42 +434,33 @@ export default function ContestDetail() {
           {tab === 'leaderboard' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="space-y-2">
-                {leaderboard.length === 0 ? (
-                  <div className="text-center py-16 text-white/20 text-sm">No rankings yet.</div>
-                ) : leaderboard.map((entry, index) => (
-                  <div key={entry.user?._id || index}
-                    className="flex items-center gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl">
-                    {/* rank */}
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display font-700 text-lg",
-                      index === 0 ? "bg-amber-500/15 border border-amber-500/30 text-amber-400" :
-                      index === 1 ? "bg-white/[0.06] border border-white/15 text-white/50" :
-                      index === 2 ? "bg-orange-500/10 border border-orange-500/20 text-orange-500/70" :
-                                   "bg-white/[0.03] border border-white/[0.06] text-white/25"
-                    )}>
-                      {index === 0 ? <Crown className="w-5 h-5" /> :
-                       index === 1 ? <Medal className="w-4 h-4" /> :
-                       index === 2 ? <Medal className="w-4 h-4" /> :
-                       entry.rank}
-                    </div>
-
-                    {/* user */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">
-                        {entry.user?.firstName} {entry.user?.lastName}
-                      </p>
-                      <p className="text-[11px] text-white/25 font-mono">
-                        Last solved: {entry.lastSolvedAt ? new Date(entry.lastSolvedAt).toLocaleTimeString() : '—'}
-                      </p>
-                    </div>
-
-                    {/* solved count */}
-                    <div className="flex flex-col items-end">
-                      <span className="font-display text-xl font-700 text-orange-400">{entry.totalSolved}</span>
-                      <span className="text-[10px] text-white/25 uppercase font-mono tracking-widest">solved</span>
-                    </div>
-                  </div>
-                ))}
+                {leaderboard.length === 0
+                  ? <div className="text-center py-16 text-white/20 text-sm">No rankings yet.</div>
+                  : leaderboard.map((entry, index) => (
+                      <div key={entry.user?._id || index} className="flex items-center gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display font-700 text-lg",
+                          index === 0 ? "bg-amber-500/15 border border-amber-500/30 text-amber-400" :
+                          index === 1 ? "bg-white/[0.06] border border-white/15 text-white/50" :
+                          index === 2 ? "bg-orange-500/10 border border-orange-500/20 text-orange-500/70" :
+                                        "bg-white/[0.03] border border-white/[0.06] text-white/25"
+                        )}>
+                          {index === 0 ? <Crown className="w-5 h-5" /> :
+                           index === 1 ? <Medal className="w-4 h-4" /> :
+                           index === 2 ? <Medal className="w-4 h-4" /> :
+                           entry.rank}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{entry.user?.firstName} {entry.user?.lastName}</p>
+                          <p className="text-[11px] text-white/25 font-mono">Last solved: {entry.lastSolvedAt ? new Date(entry.lastSolvedAt).toLocaleTimeString() : '—'}</p>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span className="font-display text-xl font-700 text-orange-400">{entry.totalSolved}</span>
+                          <span className="text-[10px] text-white/25 uppercase font-mono tracking-widest">solved</span>
+                        </div>
+                      </div>
+                    ))
+                }
               </div>
             </motion.div>
           )}
@@ -510,39 +469,33 @@ export default function ContestDetail() {
           {tab === 'submissions' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="space-y-2">
-                {mySubmissions.length === 0 ? (
-                  <div className="text-center py-16 text-white/20 text-sm">No submissions yet.</div>
-                ) : mySubmissions.map((sub, i) => (
-                  <div key={sub._id || i}
-                    className="flex items-center gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full flex-shrink-0",
-                      sub.status === 'accepted' ? "bg-emerald-400" :
-                      sub.status === 'wrong'    ? "bg-rose-400" : "bg-amber-400"
-                    )} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">
-                        {sub.problemId?.title || 'Problem'}
-                      </p>
-                      <p className="text-[11px] text-white/25 font-mono">
-                        {sub.language} · {new Date(sub.submittedAt).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[11px] text-white/30 font-mono">
-                        {sub.testCasesPassed}/{sub.testCasesTotal} tests
-                      </span>
-                      <span className={cn(
-                        "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border",
-                        sub.status === 'accepted' ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
-                        sub.status === 'wrong'    ? "text-rose-400 bg-rose-500/10 border-rose-500/20" :
-                                                    "text-amber-400 bg-amber-500/10 border-amber-500/20"
-                      )}>
-                        {sub.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                {mySubmissions.length === 0
+                  ? <div className="text-center py-16 text-white/20 text-sm">No submissions yet.</div>
+                  : mySubmissions.map((sub, i) => (
+                      <div key={sub._id || i} className="flex items-center gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full flex-shrink-0",
+                          sub.status === 'accepted' ? "bg-emerald-400" :
+                          sub.status === 'wrong'    ? "bg-rose-400" : "bg-amber-400"
+                        )} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{sub.problemId?.title || 'Problem'}</p>
+                          <p className="text-[11px] text-white/25 font-mono">{sub.language} · {new Date(sub.submittedAt).toLocaleString()}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-white/30 font-mono">{sub.testCasesPassed}/{sub.testCasesTotal} tests</span>
+                          <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border",
+                            sub.status === 'accepted' ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" :
+                            sub.status === 'wrong'    ? "text-rose-400 bg-rose-500/10 border-rose-500/20" :
+                                                        "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                          )}>
+                            {sub.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                }
               </div>
             </motion.div>
           )}

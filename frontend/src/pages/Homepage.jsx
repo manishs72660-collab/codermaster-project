@@ -39,7 +39,7 @@ const getDifficultyStyle = (difficulty) => {
 ══════════════════════════════════════════ */
 function Homepage() {
   const dispatch  = useDispatch();
-  const { user }  = useSelector((s) => s.auth);
+  const { user, isAuthenticated }  = useSelector((s) => s.auth);
 //  console.log(user);
   const { stats } = useSelector((s) => s.userState);
  //console.log(stats);
@@ -66,9 +66,14 @@ function Homepage() {
   //   axiosClient.get('/problem/').then(({ data }) => setProblems(Array.isArray(data) ? data : [])).catch(() => setProblems([]));
   // }, [user]);
 
+  // fetch solved problems only once we know the user is authenticated.
+  // re-runs automatically right after login (no page refresh needed).
   useEffect(() => {
-    axiosClient.get('/code/solveduniqueproblem').then(({ data }) => setSolvedProblems(Array.isArray(data) ? data : [])).catch(() => setSolvedProblems([]));
-  }, []);
+    if (!isAuthenticated) return;
+    axiosClient.get('/code/solveduniqueproblem')
+      .then(({ data }) => setSolvedProblems(Array.isArray(data) ? data : []))
+      .catch(() => setSolvedProblems([]));
+  }, [isAuthenticated]);
 
   //const handleLogout = () => { dispatch(logoutUser()); setSolvedProblems([]); };
 

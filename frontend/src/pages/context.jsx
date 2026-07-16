@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'motion/react';
-import Navbar from '../component/navbar';
 import {
   Trophy,
   Clock,
@@ -144,7 +143,79 @@ export default function Contest() {
         </div>
 
         {/* ── NAV (exact same as Homepage) ── */}
-       <Navbar></Navbar>
+        <nav className={cn(
+          "sticky top-0 z-50 transition-all duration-300",
+          scrolled
+            ? "border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+            : "border-b border-transparent bg-transparent"
+        )}>
+          <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <NavLink to="/" className="flex items-center gap-2.5 group">
+                <div className="relative">
+                  <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+                    <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
+                  </div>
+                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-[#050505]" />
+                </div>
+                <span className="font-display text-[17px] font-800 tracking-tight text-white italic">CodeMaster</span>
+              </NavLink>
+
+              <div className="hidden md:flex items-center gap-1">
+                {[
+                  { to: '/explore', label: 'Explorer' },
+                  { to: '/contest', label: 'Contests' },
+                  { to: '/discuss', label: 'Community' },
+                ].map(({ to, label }) => (
+                  <NavLink key={to} to={to}
+                    className={({ isActive }) => cn(
+                      "px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all",
+                      isActive ? "text-white bg-white/[0.06]" : "text-white/50 hover:text-white hover:bg-white/[0.04]"
+                    )}>
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex flex-col items-end">
+                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">
+                      {user?.role === 'admin' ? 'Grandmaster' : 'Master'}
+                    </span>
+                    <span className="text-sm font-semibold text-white leading-tight">{user?.firstName || 'User'}</span>
+                  </div>
+                  <div className="relative group">
+                    <NavLink to="/profile">
+                      <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 hover:border-orange-500/30 transition-all">
+                        <UserIcon className="w-4 h-4 text-white/70" />
+                      </button>
+                    </NavLink>
+                    <div className="absolute right-0 top-[calc(100%+6px)] w-52 bg-[#0e0e0e] border border-white/[0.08] rounded-2xl shadow-[0_24px_48px_rgba(0,0,0,0.7)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-white/[0.06]">
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Logged in as</p>
+                        <p className="text-sm font-semibold text-white">{user?.firstName || 'User'}</p>
+                      </div>
+                      <div className="p-2">
+                        <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors text-left">
+                          <LogOut className="w-3.5 h-3.5" /> Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <NavLink to="/login">
+                  <button className="bg-orange-500 text-black px-5 py-2 rounded-xl text-sm font-bold hover:bg-orange-400 transition-colors shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+                    Connect
+                  </button>
+                </NavLink>
+              )}
+            </div>
+          </div>
+        </nav>
 
         {/* ── HERO ── */}
         <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">

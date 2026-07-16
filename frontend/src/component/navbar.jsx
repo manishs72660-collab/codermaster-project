@@ -67,7 +67,7 @@ function Navbar() {
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex flex-col items-end">
                 <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">
-                  {user?.role === 'admin' ? 'Grandmaster' : 'Master'}
+                  {user?.role === 'Admin' ? 'Grandmaster' : 'Master'}
                 </span>
                 <span className="text-sm font-semibold text-white leading-tight">
                   {user?.firstName || 'User'}
@@ -86,11 +86,11 @@ function Navbar() {
                     <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Logged in as</p>
                     <p className="text-sm font-semibold text-white">{user?.firstName || 'User'}</p>
                     <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mt-0.5">
-                      {user?.role === 'admin' ? 'Administrator' : 'User'}
+                      {user?.role === 'Admin' ? 'Administrator' : 'User'}
                     </p>
                   </div>
                   <div className="p-2">
-                    {user?.role === 'admin' && (
+                    {user?.role === 'Admin' && (
                       <NavLink to="/admin" className="flex items-center gap-2.5 px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10 rounded-xl transition-colors">
                         <Code2 className="w-3.5 h-3.5" /> Admin Panel
                       </NavLink>

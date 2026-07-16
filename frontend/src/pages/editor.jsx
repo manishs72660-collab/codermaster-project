@@ -8,6 +8,31 @@ import CodeBoard from '../component/whiteboard';
 import ChatAi from '../component/chatai';
 import ShareOnLinkedIn from '../component/Sharelinkdin';
 
+// ── Count-up hook: animates a numeric value from 0 to `target` whenever `trigger` changes ──
+const useCountUp = (target, trigger, duration = 900) => {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    const numTarget = parseFloat(target);
+    if (target === undefined || target === null || Number.isNaN(numTarget)) {
+      setValue(0);
+      return;
+    }
+    let raf;
+    let start = null;
+    const step = (ts) => {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out-cubic
+      setValue(numTarget * eased);
+      if (progress < 1) raf = requestAnimationFrame(step);
+    };
+    setValue(0);
+    raf = requestAnimationFrame(step);
+    return () => raf && cancelAnimationFrame(raf);
+  }, [target, trigger, duration]);
+  return value;
+};
+
 const ProblemPage = () => {
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
@@ -31,6 +56,12 @@ const ProblemPage = () => {
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [editorTheme, setEditorTheme] = useState('vs-dark'); // 'vs-dark' | 'hc-black'
   const startTimeRef = useRef(Date.now());
+
+  // ── SUBMISSION RESULT ANIMATION STATE ──
+  // Bumped on every submit so the result hero replays its entrance animation each time.
+  const [submitCount, setSubmitCount] = useState(0);
+  const animatedRuntime = useCountUp(submitResult?.runtime, submitCount);
+  const animatedMemory = useCountUp(submitResult?.memory, submitCount);
 
   // ── POST SOLUTION STATE ──
   const [showPostModal, setShowPostModal] = useState(false);
@@ -220,6 +251,7 @@ const ProblemPage = () => {
     try {
       const response = await axiosClient.post(`/code/submit/${problemId}`, { code, language: selectedLanguage });
       setSubmitResult(response.data);
+      setSubmitCount(c => c + 1);
       setLoading(false);
       setActiveRightTab('result');
     } catch (error) {
@@ -682,7 +714,7 @@ const ProblemPage = () => {
 
         .cm-section-title { font-size: 9.5px; font-weight: 700; color: var(--di); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 16px; font-family: 'JetBrains Mono', monospace; }
 
-        /* Status banner */
+        /* Status banner (test-run results) */
         .cm-status-banner { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-radius: var(--r2); margin-bottom: 16px; border: 1px solid; }
         .cm-status-banner.ok  { background: rgba(45,186,110,0.07); border-color: rgba(45,186,110,0.2); }
         .cm-status-banner.err { background: rgba(240,79,79,0.07);  border-color: rgba(240,79,79,0.2); }
@@ -691,11 +723,62 @@ const ProblemPage = () => {
         .cm-status-banner.ok  .cm-status-text { color: var(--gr); }
         .cm-status-banner.err .cm-status-text { color: var(--rd); }
 
+        /* ── ANIMATED SUBMISSION RESULT HERO (LeetCode-style) ── */
+        @keyframes cm-fade-up-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes cm-ring-draw { to { stroke-dashoffset: 0; } }
+        @keyframes cm-mark-draw { to { stroke-dashoffset: 0; } }
+        @keyframes cm-shake {
+          10%, 90% { transform: translateX(-1px); }
+          20%, 80% { transform: translateX(2px); }
+          30%, 50%, 70% { transform: translateX(-4px); }
+          40%, 60% { transform: translateX(4px); }
+        }
+
+        .cm-result-hero {
+          padding: 26px 0 10px;
+          display: flex; flex-direction: column; align-items: center;
+        }
+        .cm-result-hero.err-shake { animation: cm-shake 0.4s ease 0.15s; }
+
+        .cm-result-ring { width: 84px; height: 84px; margin-bottom: 16px; overflow: visible; }
+        .cm-ring-bg { fill: none; stroke: var(--b1); stroke-width: 5; }
+        .cm-ring-fg {
+          fill: none; stroke-width: 5; stroke-linecap: round;
+          transform: rotate(-90deg); transform-origin: 50% 50%;
+          stroke-dasharray: 1; stroke-dashoffset: 1;
+          animation: cm-ring-draw 0.55s cubic-bezier(0.65,0,0.35,1) forwards;
+        }
+        .cm-ring-fg.ok { stroke: var(--gr); }
+        .cm-ring-fg.no { stroke: var(--rd); }
+        .cm-mark {
+          fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round;
+          stroke-dasharray: 1; stroke-dashoffset: 1;
+          animation: cm-mark-draw 0.3s ease-out 0.5s forwards;
+        }
+        .cm-mark.ok { stroke: var(--gr); }
+        .cm-mark.no { stroke: var(--rd); }
+
+        .cm-result-title {
+          font-size: 24px; font-weight: 800; letter-spacing: -0.5px; text-align: center;
+          opacity: 0; animation: cm-fade-up-in 0.4s ease 0.55s forwards;
+        }
+        .cm-result-title.ok { color: var(--gr); }
+        .cm-result-title.no { color: var(--rd); }
+        .cm-result-sub {
+          font-size: 11px; color: var(--mu); font-family: 'JetBrains Mono', monospace;
+          margin-top: 6px; text-align: center;
+          opacity: 0; animation: cm-fade-up-in 0.4s ease 0.65s forwards;
+        }
+        .cm-stats.cm-fade-up-in { opacity: 0; animation: cm-fade-up-in 0.4s ease 0.75s forwards; }
+
         /* Stats */
         .cm-stats { display: flex; gap: 8px; margin-bottom: 16px; }
         .cm-stat-card { flex: 1; background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r2); padding: 12px 14px; }
         .cm-stat-label { font-size: 9px; color: var(--di); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 5px; }
-        .cm-stat-val { font-size: 22px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+        .cm-stat-val { font-size: 22px; font-weight: 800; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
         .cm-stat-unit { font-size: 10px; font-weight: 400; color: var(--mu); margin-left: 3px; }
 
         .cm-pass-sum { background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r); padding: 10px 14px; margin-bottom: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--mu); display: flex; align-items: center; gap: 6px; }
@@ -1261,31 +1344,53 @@ const ProblemPage = () => {
                 <div className="cm-section-title">Submission Result</div>
                 {submitResult ? (
                   <>
-                    <div className={`cm-status-banner ${submitResult.accepted ? 'ok' : 'err'}`}>
-                      <div className="cm-status-dot" style={{
-                        background: submitResult.accepted ? 'var(--gr)' : 'var(--rd)',
-                        boxShadow: `0 0 10px ${submitResult.accepted ? 'rgba(45,186,110,0.5)' : 'rgba(240,79,79,0.5)'}`,
-                      }} />
-                      <span className="cm-status-text">
-                        {submitResult.accepted ? '✓ Accepted' : `✗ ${submitResult.error || 'Wrong Answer'}`}
-                      </span>
+                    {/* Animated LeetCode-style result hero: replays its entrance every time submitCount changes */}
+                    <div
+                      key={`result-hero-${submitCount}`}
+                      className={`cm-result-hero${submitResult.accepted ? '' : ' err-shake'}`}
+                    >
+                      {submitResult.accepted ? (
+                        <svg className="cm-result-ring" viewBox="0 0 90 90">
+                          <circle className="cm-ring-bg" cx="45" cy="45" r="38" pathLength="1" />
+                          <circle className="cm-ring-fg ok" cx="45" cy="45" r="38" pathLength="1" />
+                          <path className="cm-mark ok" d="M27 46 L40 59 L64 31" pathLength="1" />
+                        </svg>
+                      ) : (
+                        <svg className="cm-result-ring" viewBox="0 0 90 90">
+                          <circle className="cm-ring-bg" cx="45" cy="45" r="38" pathLength="1" />
+                          <circle className="cm-ring-fg no" cx="45" cy="45" r="38" pathLength="1" />
+                          <path className="cm-mark no" d="M32 32 L58 58 M58 32 L32 58" pathLength="1" />
+                        </svg>
+                      )}
+                      <div className={`cm-result-title ${submitResult.accepted ? 'ok' : 'no'}`}>
+                        {submitResult.accepted ? 'Accepted' : (submitResult.error || 'Wrong Answer')}
+                      </div>
+                      <div className="cm-result-sub">
+                        {submitResult.accepted
+                          ? `All ${submitResult.totalTestCases} test cases passed`
+                          : `${submitResult.passedTestCases} / ${submitResult.totalTestCases} test cases passed`}
+                      </div>
                     </div>
+
                     {submitResult.accepted && (
-                      <div className="cm-stats">
+                      <div className="cm-stats cm-fade-up-in">
                         <div className="cm-stat-card">
                           <div className="cm-stat-label">Runtime</div>
                           <div className="cm-stat-val" style={{ color: 'var(--gr)' }}>
-                            {submitResult.runtime}<span className="cm-stat-unit">sec</span>
+                            {Number.isFinite(animatedRuntime) ? animatedRuntime.toFixed(2) : submitResult.runtime}
+                            <span className="cm-stat-unit">sec</span>
                           </div>
                         </div>
                         <div className="cm-stat-card">
                           <div className="cm-stat-label">Memory</div>
                           <div className="cm-stat-val" style={{ color: 'var(--bl)' }}>
-                            {submitResult.memory}<span className="cm-stat-unit">KB</span>
+                            {Number.isFinite(animatedMemory) ? Math.round(animatedMemory) : submitResult.memory}
+                            <span className="cm-stat-unit">KB</span>
                           </div>
                         </div>
                       </div>
                     )}
+
                     <div className="cm-pass-sum">
                       <span>Tests passed:</span>
                       <span className="cm-pass-num" style={{ color: submitResult.accepted ? 'var(--gr)' : 'var(--rd)' }}>
