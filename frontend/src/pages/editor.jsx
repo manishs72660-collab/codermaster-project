@@ -56,6 +56,7 @@ const ProblemPage = () => {
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [editorTheme, setEditorTheme] = useState('vs-dark'); // 'vs-dark' | 'hc-black'
   const startTimeRef = useRef(Date.now());
+  const [timerRunning, setTimerRunning] = useState(true);
 
   // ── SUBMISSION RESULT ANIMATION STATE ──
   // Bumped on every submit so the result hero replays its entrance animation each time.
@@ -79,13 +80,14 @@ const ProblemPage = () => {
   const [loadingSinglePost, setLoadingSinglePost] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
 
-  // ── TIMER ──
+  // ── TIMER ── stops once the user submits their solution
   useEffect(() => {
+    if (!timerRunning) return;
     const interval = setInterval(() => {
       setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timerRunning]);
 
   const formatTime = (s) => {
     const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -248,6 +250,8 @@ const ProblemPage = () => {
     setLoading(true);
     setSubmitResult(null);
     setHasPosted(false);
+    // Stop the stopwatch the moment the user submits their solution.
+    setTimerRunning(false);
     try {
       const response = await axiosClient.post(`/code/submit/${problemId}`, { code, language: selectedLanguage });
       setSubmitResult(response.data);
@@ -375,6 +379,13 @@ const ProblemPage = () => {
   const diff = problem?.difficulty?.toLowerCase();
   const dc = diffMap[diff] || diffMap.medium;
 
+  // Pass-rate percentage used to drive the verdict signal meter + segmented bar
+  const submitPct = submitResult?.totalTestCases
+    ? Math.round((submitResult.passedTestCases / submitResult.totalTestCases) * 100)
+    : 0;
+  const meterSegs = 20;
+  const meterFilled = Math.round((submitPct / 100) * meterSegs);
+
   if (loading && !problem) {
     return (
       <div style={{
@@ -486,11 +497,13 @@ const ProblemPage = () => {
           font-family: 'JetBrains Mono', monospace;
           font-size: 11px; color: var(--mu);
         }
+        .cm-timer.stopped { color: var(--di); border-color: var(--b1); }
         .cm-timer-dot {
           width: 5px; height: 5px; border-radius: 50%;
           background: var(--gr);
           animation: pulse 2s ease-in-out infinite;
         }
+        .cm-timer-dot.stopped { background: var(--di); animation: none; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
         .cm-top-right { display: flex; align-items: center; gap: 6px; }
@@ -723,79 +736,6 @@ const ProblemPage = () => {
         .cm-status-banner.ok  .cm-status-text { color: var(--gr); }
         .cm-status-banner.err .cm-status-text { color: var(--rd); }
 
-        /* ── ANIMATED SUBMISSION RESULT HERO (LeetCode-style) ── */
-        @keyframes cm-fade-up-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: none; }
-        }
-        @keyframes cm-ring-draw { to { stroke-dashoffset: 0; } }
-        @keyframes cm-mark-draw { to { stroke-dashoffset: 0; } }
-        @keyframes cm-shake {
-          10%, 90% { transform: translateX(-1px); }
-          20%, 80% { transform: translateX(2px); }
-          30%, 50%, 70% { transform: translateX(-4px); }
-          40%, 60% { transform: translateX(4px); }
-        }
-
-        .cm-result-hero {
-          padding: 26px 0 10px;
-          display: flex; flex-direction: column; align-items: center;
-        }
-        .cm-result-hero.err-shake { animation: cm-shake 0.4s ease 0.15s; }
-
-        .cm-result-ring { width: 84px; height: 84px; margin-bottom: 16px; overflow: visible; }
-        .cm-ring-bg { fill: none; stroke: var(--b1); stroke-width: 5; }
-        .cm-ring-fg {
-          fill: none; stroke-width: 5; stroke-linecap: round;
-          transform: rotate(-90deg); transform-origin: 50% 50%;
-          stroke-dasharray: 1; stroke-dashoffset: 1;
-          animation: cm-ring-draw 0.55s cubic-bezier(0.65,0,0.35,1) forwards;
-        }
-        .cm-ring-fg.ok { stroke: var(--gr); }
-        .cm-ring-fg.no { stroke: var(--rd); }
-        .cm-mark {
-          fill: none; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round;
-          stroke-dasharray: 1; stroke-dashoffset: 1;
-          animation: cm-mark-draw 0.3s ease-out 0.5s forwards;
-        }
-        .cm-mark.ok { stroke: var(--gr); }
-        .cm-mark.no { stroke: var(--rd); }
-
-        .cm-result-title {
-          font-size: 24px; font-weight: 800; letter-spacing: -0.5px; text-align: center;
-          opacity: 0; animation: cm-fade-up-in 0.4s ease 0.55s forwards;
-        }
-        .cm-result-title.ok { color: var(--gr); }
-        .cm-result-title.no { color: var(--rd); }
-        .cm-result-sub {
-          font-size: 11px; color: var(--mu); font-family: 'JetBrains Mono', monospace;
-          margin-top: 6px; text-align: center;
-          opacity: 0; animation: cm-fade-up-in 0.4s ease 0.65s forwards;
-        }
-        .cm-stats.cm-fade-up-in { opacity: 0; animation: cm-fade-up-in 0.4s ease 0.75s forwards; }
-
-        /* Stats */
-        .cm-stats { display: flex; gap: 8px; margin-bottom: 16px; }
-        .cm-stat-card { flex: 1; background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r2); padding: 12px 14px; }
-        .cm-stat-label { font-size: 9px; color: var(--di); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 5px; }
-        .cm-stat-val { font-size: 22px; font-weight: 800; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
-        .cm-stat-unit { font-size: 10px; font-weight: 400; color: var(--mu); margin-left: 3px; }
-
-        .cm-pass-sum { background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r); padding: 10px 14px; margin-bottom: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--mu); display: flex; align-items: center; gap: 6px; }
-        .cm-pass-num { font-size: 15px; font-weight: 800; }
-
-        .cm-tc-list { display: flex; flex-direction: column; gap: 7px; }
-        .cm-tc-card { background: var(--s1); border: 1px solid var(--b1); border-left: 2px solid var(--b2); border-radius: var(--r); padding: 11px 13px; font-family: 'JetBrains Mono', monospace; font-size: 11px; transition: border-left-color 0.14s; }
-        .cm-tc-card.pass { border-left-color: var(--gr); }
-        .cm-tc-card.fail { border-left-color: var(--rd); }
-        .cm-tc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .cm-tc-num { color: var(--di); font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; }
-        .cm-tc-verdict { font-size: 10px; font-weight: 700; }
-        .cm-tc-verdict.p { color: var(--gr); }
-        .cm-tc-verdict.f { color: var(--rd); }
-        .cm-tc-row { color: var(--mu); margin-bottom: 3px; line-height: 1.6; font-size: 11px; }
-        .cm-tc-row span { color: var(--tx); }
-
         /* Empty state */
         .cm-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; text-align: center; padding: 40px; }
         .cm-empty-icon { width: 48px; height: 48px; background: var(--s2); border: 1px solid var(--b2); border-radius: var(--r2); display: flex; align-items: center; justify-content: center; font-size: 20px; }
@@ -944,6 +884,211 @@ const ProblemPage = () => {
 
         @keyframes cm-anim { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
         .cm-anim { animation: cm-anim 0.2s ease both; }
+
+        /* ══════════════════════════════════════════════
+           RUN RESULTS — redesigned test-run banner + cards
+           ══════════════════════════════════════════════ */
+        @keyframes cm-sweep-in {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes cm-bar-fill {
+          from { transform: scaleX(0); }
+          to   { transform: scaleX(1); }
+        }
+        @keyframes cm-card-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: none; }
+        }
+
+        .cm-run-banner {
+          position: relative;
+          overflow: hidden;
+          display: flex; align-items: center; gap: 14px;
+          padding: 16px 18px; border-radius: 14px; margin-bottom: 18px;
+          border: 1px solid; animation: cm-sweep-in 0.35s ease both;
+        }
+        .cm-run-banner.pass {
+          background: linear-gradient(135deg, rgba(45,186,110,0.16), rgba(45,186,110,0.03));
+          border-color: rgba(45,186,110,0.35);
+        }
+        .cm-run-banner.fail {
+          background: linear-gradient(135deg, rgba(240,79,79,0.16), rgba(240,79,79,0.03));
+          border-color: rgba(240,79,79,0.35);
+        }
+        .cm-run-banner::before {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+          transform: translateX(-100%);
+          animation: cm-shine 1.4s ease 0.2s;
+        }
+        @keyframes cm-shine { to { transform: translateX(100%); } }
+
+        /* Eyebrow: small terminal-style label with a blinking cursor */
+        .cm-eyebrow {
+          display: flex; align-items: center; gap: 6px;
+          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
+          letter-spacing: 2px; text-transform: uppercase; margin-bottom: 7px;
+        }
+        .cm-eyebrow.pass, .cm-eyebrow.ok { color: rgba(45,186,110,0.75); }
+        .cm-eyebrow.fail, .cm-eyebrow.no { color: rgba(240,79,79,0.75); }
+        .cm-eyebrow-cursor { width: 5px; height: 11px; background: currentColor; animation: cm-blink 1.1s steps(1) infinite; }
+        @keyframes cm-blink { 50% { opacity: 0; } }
+
+        /* Signal-bar meter — replaces the checkmark badge everywhere */
+        .cm-signal { display: flex; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+        .cm-signal-bar {
+          width: 5px; border-radius: 3px 3px 1px 1px; background: var(--b2);
+          transform-origin: bottom; animation: cm-bar-grow 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        @keyframes cm-bar-grow { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+        .cm-signal-bar:nth-child(1) { animation-delay: 0.02s; }
+        .cm-signal-bar:nth-child(2) { animation-delay: 0.08s; }
+        .cm-signal-bar:nth-child(3) { animation-delay: 0.14s; }
+        .cm-signal-bar:nth-child(4) { animation-delay: 0.2s; }
+        .cm-signal-bar:nth-child(5) { animation-delay: 0.26s; }
+        .cm-signal-bar.lit.pass { background: linear-gradient(180deg, #7cf0ac, var(--gr)); box-shadow: 0 0 10px rgba(45,186,110,0.55); }
+        .cm-signal-bar.lit.fail { background: linear-gradient(180deg, #ff9d9d, var(--rd)); box-shadow: 0 0 10px rgba(240,79,79,0.55); }
+        .cm-signal-bar.dim { background: var(--b2); }
+
+        .cm-run-banner-text { flex: 1; min-width: 0; }
+        .cm-run-banner-title { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+        .cm-run-banner.pass .cm-run-banner-title { color: var(--gr); }
+        .cm-run-banner.fail .cm-run-banner-title { color: var(--rd); }
+        .cm-run-banner-sub { font-size: 11px; color: var(--mu); font-family: 'JetBrains Mono', monospace; margin-top: 3px; }
+
+        .cm-metric-row { display: flex; gap: 10px; margin-bottom: 18px; }
+        .cm-metric-card {
+          flex: 1; position: relative; overflow: hidden;
+          background: var(--s1); border: 1px solid var(--b1); border-radius: 12px;
+          padding: 14px 16px; animation: cm-card-in 0.3s ease both;
+        }
+        .cm-metric-card:nth-child(1) { animation-delay: 0.05s; }
+        .cm-metric-card:nth-child(2) { animation-delay: 0.12s; }
+        .cm-metric-icon-row { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+        .cm-metric-chip {
+          width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; font-size: 11px;
+        }
+        .cm-metric-chip.time { background: rgba(255,161,22,0.15); color: var(--ac); }
+        .cm-metric-chip.mem  { background: rgba(75,142,240,0.15); color: var(--bl); }
+        .cm-metric-label { font-size: 9.5px; font-weight: 700; color: var(--di); letter-spacing: 1px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+        .cm-metric-value { font-size: 24px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+        .cm-metric-value .unit { font-size: 11px; font-weight: 500; color: var(--mu); margin-left: 4px; letter-spacing: 0; }
+        .cm-metric-bar-track { height: 4px; border-radius: 3px; background: var(--b1); margin-top: 12px; overflow: hidden; }
+        .cm-metric-bar-fill { height: 100%; border-radius: 3px; transform-origin: left; animation: cm-bar-fill 0.7s cubic-bezier(0.4,0,0.2,1) 0.15s both; }
+        .cm-metric-bar-fill.time { background: linear-gradient(90deg, var(--ac), #ffb347); }
+        .cm-metric-bar-fill.mem  { background: linear-gradient(90deg, var(--bl), #7fb0ff); }
+
+        .cm-tc-summary-strip {
+          display: flex; align-items: center; gap: 8px;
+          background: var(--s1); border: 1px solid var(--b1); border-radius: 10px;
+          padding: 10px 14px; margin-bottom: 14px;
+        }
+        .cm-tc-summary-strip .count { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 800; }
+        .cm-tc-summary-strip .count.pass { color: var(--gr); }
+        .cm-tc-summary-strip .count.fail { color: var(--rd); }
+        .cm-tc-summary-strip .lbl { font-size: 11px; color: var(--mu); }
+        .cm-tc-dots { display: flex; gap: 4px; margin-left: auto; }
+        .cm-tc-dot { width: 7px; height: 7px; border-radius: 2px; }
+        .cm-tc-dot.p { background: var(--gr); }
+        .cm-tc-dot.f { background: var(--rd); }
+
+        /* ══════════════════════════════════════════════
+           SUBMISSION RESULT — redesigned hero (no ring/tick)
+           ══════════════════════════════════════════════ */
+        @keyframes cm-hero-in {
+          from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes cm-glow-pulse {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 0.9; }
+        }
+        @keyframes cm-stat-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: none; }
+        }
+        @keyframes cm-fade-up-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: none; }
+        }
+
+        .cm-verdict-hero {
+          position: relative; overflow: hidden;
+          border-radius: 16px; border: 1px solid;
+          padding: 22px 22px 20px; margin-bottom: 18px;
+          animation: cm-hero-in 0.4s cubic-bezier(0.16,1,0.3,1) both;
+        }
+        .cm-verdict-hero.ok {
+          background: linear-gradient(150deg, rgba(45,186,110,0.18) 0%, rgba(45,186,110,0.02) 55%, transparent 100%);
+          border-color: rgba(45,186,110,0.3);
+        }
+        .cm-verdict-hero.no {
+          background: linear-gradient(150deg, rgba(240,79,79,0.18) 0%, rgba(240,79,79,0.02) 55%, transparent 100%);
+          border-color: rgba(240,79,79,0.3);
+        }
+        .cm-verdict-hero::after {
+          content: ''; position: absolute; top: -60%; right: -10%; width: 220px; height: 220px;
+          border-radius: 50%; filter: blur(50px); pointer-events: none;
+          animation: cm-glow-pulse 3s ease-in-out infinite;
+        }
+        .cm-verdict-hero.ok::after  { background: rgba(45,186,110,0.35); }
+        .cm-verdict-hero.no::after  { background: rgba(240,79,79,0.35); }
+
+        .cm-verdict-top { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
+        .cm-signal.lg .cm-signal-bar { width: 7px; border-radius: 4px 4px 1px 1px; }
+
+        .cm-verdict-heading {
+          font-size: 28px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.1;
+          display: inline-block;
+        }
+        .cm-verdict-heading.ok {
+          background: linear-gradient(90deg, #7cf0ac 0%, #2dba6e 55%, #17a35c 100%);
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .cm-verdict-heading.no {
+          background: linear-gradient(90deg, #ffb0b0 0%, #f04f4f 55%, #c73f3f 100%);
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .cm-verdict-caption { font-size: 11.5px; color: var(--mu); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+
+        /* Segmented meter — replaces the smooth progress bar */
+        .cm-meter { position: relative; z-index: 1; display: flex; gap: 3px; margin-top: 20px; }
+        .cm-meter-seg { flex: 1; height: 9px; border-radius: 3px; background: var(--b1); overflow: hidden; }
+        .cm-meter-seg .fill {
+          display: block; width: 100%; height: 100%; border-radius: 3px;
+          transform: scaleY(0); transform-origin: center;
+          animation: cm-seg-pop 0.3s ease both;
+        }
+        @keyframes cm-seg-pop { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+        .cm-meter-seg.on.ok .fill { background: linear-gradient(180deg, #5eeba0, var(--gr)); box-shadow: 0 0 8px rgba(45,186,110,0.55); }
+        .cm-meter-seg.on.no .fill { background: linear-gradient(180deg, #ff8080, var(--rd)); box-shadow: 0 0 8px rgba(240,79,79,0.55); }
+        .cm-verdict-progress-label {
+          position: relative; z-index: 1;
+          display: flex; justify-content: space-between;
+          font-size: 10px; color: var(--di); font-family: 'JetBrains Mono', monospace;
+          margin-top: 7px;
+        }
+
+        .cm-result-stats { display: flex; gap: 10px; margin-bottom: 16px; }
+        .cm-result-stat-card {
+          flex: 1; background: var(--s1); border: 1px solid var(--b1); border-radius: 12px;
+          padding: 14px 16px; animation: cm-stat-in 0.35s ease both;
+        }
+        .cm-result-stat-card:nth-child(1) { animation-delay: 0.28s; }
+        .cm-result-stat-card:nth-child(2) { animation-delay: 0.34s; }
+        .cm-result-stat-top { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+        .cm-result-stat-label { font-size: 9.5px; font-weight: 700; color: var(--di); letter-spacing: 1px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+        .cm-result-stat-value { font-size: 25px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+        .cm-result-stat-value .unit { font-size: 11px; font-weight: 500; color: var(--mu); margin-left: 4px; }
+
+        .cm-pass-sum {
+          background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r);
+          padding: 10px 14px; margin-bottom: 14px; font-family: 'JetBrains Mono', monospace;
+          font-size: 12px; color: var(--mu); display: flex; align-items: center; gap: 6px;
+        }
+        .cm-pass-num { font-size: 15px; font-weight: 800; }
       `}</style>
 
       <div className="cm-root">
@@ -965,9 +1110,9 @@ const ProblemPage = () => {
                   {problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1)}
                 </span>
               )}
-              {/* Live timer */}
-              <div className="cm-timer">
-                <div className="cm-timer-dot" />
+              {/* Live timer — stops once the solution has been submitted */}
+              <div className={`cm-timer${timerRunning ? '' : ' stopped'}`} title={timerRunning ? 'Timer running' : 'Timer stopped at submission'}>
+                <div className={`cm-timer-dot${timerRunning ? '' : ' stopped'}`} />
                 {formatTime(elapsedTime)}
               </div>
             </div>
@@ -1278,37 +1423,84 @@ const ProblemPage = () => {
               </>
             )}
 
-            {/* ── TESTCASE TAB ── */}
+            {/* ── TESTCASE TAB — redesigned ── */}
             {activeRightTab === 'testcase' && (
               <div className="cm-panel cm-anim">
                 <div className="cm-section-title">Test Results</div>
                 {runResult ? (
                   <>
-                    <div className={`cm-status-banner ${runResult.success ? 'ok' : 'err'}`}>
-                      <div className="cm-status-dot" style={{
-                        background: runResult.success ? 'var(--gr)' : 'var(--rd)',
-                        boxShadow: `0 0 8px ${runResult.success ? 'rgba(45,186,110,0.5)' : 'rgba(240,79,79,0.5)'}`,
-                      }} />
-                      <span className="cm-status-text">
-                        {runResult.success ? '✓ All Tests Passed' : '✗ Some Tests Failed'}
-                      </span>
-                    </div>
-                    {runResult.success && (
-                      <div className="cm-stats">
-                        <div className="cm-stat-card">
-                          <div className="cm-stat-label">Runtime</div>
-                          <div className="cm-stat-val" style={{ color: 'var(--gr)' }}>
-                            {runResult.runtime}<span className="cm-stat-unit">sec</span>
-                          </div>
+                    {/* Sweep-in banner — signal-bar meter instead of a checkmark */}
+                    <div className={`cm-run-banner ${runResult.success ? 'pass' : 'fail'}`}>
+                      <div className="cm-signal">
+                        {[10, 15, 20, 25].map((h, i) => (
+                          <div
+                            key={i}
+                            className={`cm-signal-bar ${runResult.success || i === 0 ? `lit ${runResult.success ? 'pass' : 'fail'}` : 'dim'}`}
+                            style={{ height: h }}
+                          />
+                        ))}
+                      </div>
+                      <div className="cm-run-banner-text">
+                        <div className={`cm-eyebrow ${runResult.success ? 'pass' : 'fail'}`}>
+                          {runResult.success ? 'exec :: pass' : 'exec :: fail'}
+                          <span className="cm-eyebrow-cursor" />
                         </div>
-                        <div className="cm-stat-card">
-                          <div className="cm-stat-label">Memory</div>
-                          <div className="cm-stat-val" style={{ color: 'var(--bl)' }}>
-                            {runResult.memory}<span className="cm-stat-unit">KB</span>
+                        <div className="cm-run-banner-title">
+                          {runResult.success ? 'All test cases passed' : (runResult.error || 'Some test cases failed')}
+                        </div>
+                        <div className="cm-run-banner-sub">
+                          {runResult.testCases?.length
+                            ? `${runResult.testCases.length} case${runResult.testCases.length === 1 ? '' : 's'} evaluated`
+                            : 'Ran against the visible test cases'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {runResult.success && (
+                      <div className="cm-metric-row">
+                        <div className="cm-metric-card">
+                          <div className="cm-metric-icon-row">
+                            <div className="cm-metric-chip time">⏱</div>
+                            <span className="cm-metric-label">Runtime</span>
                           </div>
+                          <div className="cm-metric-value" style={{ color: 'var(--ac)' }}>
+                            {runResult.runtime}<span className="unit">sec</span>
+                          </div>
+                          <div className="cm-metric-bar-track"><div className="cm-metric-bar-fill time" /></div>
+                        </div>
+                        <div className="cm-metric-card">
+                          <div className="cm-metric-icon-row">
+                            <div className="cm-metric-chip mem">▤</div>
+                            <span className="cm-metric-label">Memory</span>
+                          </div>
+                          <div className="cm-metric-value" style={{ color: 'var(--bl)' }}>
+                            {runResult.memory}<span className="unit">KB</span>
+                          </div>
+                          <div className="cm-metric-bar-track"><div className="cm-metric-bar-fill mem" /></div>
                         </div>
                       </div>
                     )}
+
+                    {runResult.testCases?.length > 0 && (
+                      <div className="cm-tc-summary-strip">
+                        <span className="count pass">
+                          {runResult.success ? runResult.testCases.length : runResult.testCases.filter(tc => tc.status_id === 3).length}
+                        </span>
+                        <span className="lbl">passed</span>
+                        <span style={{ color: 'var(--di)' }}>·</span>
+                        <span className="count fail">
+                          {runResult.success ? 0 : runResult.testCases.filter(tc => tc.status_id !== 3).length}
+                        </span>
+                        <span className="lbl">failed</span>
+                        <div className="cm-tc-dots">
+                          {runResult.testCases.map((tc, i) => {
+                            const passed = runResult.success ? true : tc.status_id === 3;
+                            return <div key={i} className={`cm-tc-dot ${passed ? 'p' : 'f'}`} title={`Case ${i + 1}: ${passed ? 'Passed' : 'Failed'}`} />;
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="cm-tc-list">
                       {runResult.testCases?.map((tc, i) => {
                         const passed = runResult.success ? true : tc.status_id === 3;
@@ -1338,66 +1530,83 @@ const ProblemPage = () => {
               </div>
             )}
 
-            {/* ── RESULT TAB ── */}
+            {/* ── RESULT TAB — redesigned ── */}
             {activeRightTab === 'result' && (
               <div className="cm-panel cm-anim">
                 <div className="cm-section-title">Submission Result</div>
                 {submitResult ? (
                   <>
-                    {/* Animated LeetCode-style result hero: replays its entrance every time submitCount changes */}
-                    <div
-                      key={`result-hero-${submitCount}`}
-                      className={`cm-result-hero${submitResult.accepted ? '' : ' err-shake'}`}
-                    >
-                      {submitResult.accepted ? (
-                        <svg className="cm-result-ring" viewBox="0 0 90 90">
-                          <circle className="cm-ring-bg" cx="45" cy="45" r="38" pathLength="1" />
-                          <circle className="cm-ring-fg ok" cx="45" cy="45" r="38" pathLength="1" />
-                          <path className="cm-mark ok" d="M27 46 L40 59 L64 31" pathLength="1" />
-                        </svg>
-                      ) : (
-                        <svg className="cm-result-ring" viewBox="0 0 90 90">
-                          <circle className="cm-ring-bg" cx="45" cy="45" r="38" pathLength="1" />
-                          <circle className="cm-ring-fg no" cx="45" cy="45" r="38" pathLength="1" />
-                          <path className="cm-mark no" d="M32 32 L58 58 M58 32 L32 58" pathLength="1" />
-                        </svg>
-                      )}
-                      <div className={`cm-result-title ${submitResult.accepted ? 'ok' : 'no'}`}>
-                        {submitResult.accepted ? 'Accepted' : (submitResult.error || 'Wrong Answer')}
+                    {/* Verdict hero: glow card with a signal-bar meter and gradient headline — no tick, no ring */}
+                    <div key={`verdict-${submitCount}`} className={`cm-verdict-hero ${submitResult.accepted ? 'ok' : 'no'}`}>
+                      <div className="cm-verdict-top">
+                        <div className={`cm-signal lg ${submitResult.accepted ? 'pass' : 'fail'}`}>
+                          {[16, 26, 36, 46, 58].map((h, i) => {
+                            const litCount = submitResult.accepted ? 5 : Math.max(1, Math.round((submitPct / 100) * 5));
+                            const isLit = i < litCount;
+                            return (
+                              <div
+                                key={i}
+                                className={`cm-signal-bar ${isLit ? `lit ${submitResult.accepted ? 'pass' : 'fail'}` : 'dim'}`}
+                                style={{ height: h }}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div>
+                          <div className={`cm-eyebrow ${submitResult.accepted ? 'ok' : 'no'}`}>
+                            submission verdict
+                            <span className="cm-eyebrow-cursor" />
+                          </div>
+                          <div className={`cm-verdict-heading ${submitResult.accepted ? 'ok' : 'no'}`}>
+                            {submitResult.accepted ? 'Accepted' : (submitResult.error || 'Wrong Answer')}
+                          </div>
+                          <div className="cm-verdict-caption">
+                            {submitResult.accepted
+                              ? `All ${submitResult.totalTestCases} test cases passed`
+                              : `${submitResult.passedTestCases} / ${submitResult.totalTestCases} test cases passed`}
+                          </div>
+                        </div>
                       </div>
-                      <div className="cm-result-sub">
-                        {submitResult.accepted
-                          ? `All ${submitResult.totalTestCases} test cases passed`
-                          : `${submitResult.passedTestCases} / ${submitResult.totalTestCases} test cases passed`}
+
+                      <div className="cm-meter">
+                        {Array.from({ length: meterSegs }).map((_, i) => (
+                          <div key={i} className={`cm-meter-seg ${i < meterFilled ? `on ${submitResult.accepted ? 'ok' : 'no'}` : ''}`}>
+                            {i < meterFilled && (
+                              <span className="fill" style={{ animationDelay: `${0.2 + i * 0.02}s` }} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="cm-verdict-progress-label">
+                        <span>{submitResult.passedTestCases} / {submitResult.totalTestCases} passed</span>
+                        <span>{submitPct}%</span>
                       </div>
                     </div>
 
                     {submitResult.accepted && (
-                      <div className="cm-stats cm-fade-up-in">
-                        <div className="cm-stat-card">
-                          <div className="cm-stat-label">Runtime</div>
-                          <div className="cm-stat-val" style={{ color: 'var(--gr)' }}>
+                      <div className="cm-result-stats">
+                        <div className="cm-result-stat-card">
+                          <div className="cm-result-stat-top">
+                            <div className="cm-metric-chip time">⏱</div>
+                            <span className="cm-result-stat-label">Runtime</span>
+                          </div>
+                          <div className="cm-result-stat-value" style={{ color: 'var(--ac)' }}>
                             {Number.isFinite(animatedRuntime) ? animatedRuntime.toFixed(2) : submitResult.runtime}
-                            <span className="cm-stat-unit">sec</span>
+                            <span className="unit">sec</span>
                           </div>
                         </div>
-                        <div className="cm-stat-card">
-                          <div className="cm-stat-label">Memory</div>
-                          <div className="cm-stat-val" style={{ color: 'var(--bl)' }}>
+                        <div className="cm-result-stat-card">
+                          <div className="cm-result-stat-top">
+                            <div className="cm-metric-chip mem">▤</div>
+                            <span className="cm-result-stat-label">Memory</span>
+                          </div>
+                          <div className="cm-result-stat-value" style={{ color: 'var(--bl)' }}>
                             {Number.isFinite(animatedMemory) ? Math.round(animatedMemory) : submitResult.memory}
-                            <span className="cm-stat-unit">KB</span>
+                            <span className="unit">KB</span>
                           </div>
                         </div>
                       </div>
                     )}
-
-                    <div className="cm-pass-sum">
-                      <span>Tests passed:</span>
-                      <span className="cm-pass-num" style={{ color: submitResult.accepted ? 'var(--gr)' : 'var(--rd)' }}>
-                        {submitResult.passedTestCases}
-                      </span>
-                      <span>/ {submitResult.totalTestCases}</span>
-                    </div>
 
                     {/* ── POST SOLUTION CTA ── */}
                     {submitResult.accepted && (

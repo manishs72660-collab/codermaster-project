@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router';
-import { Trash2, Edit, Trophy, Clock, Users, X, Check, Plus, Search } from 'lucide-react';
+import { Trash2, Edit, Trophy, Clock, Users, X, Check, Plus, Search, Lock } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 
 const formatDate = (d) => {
@@ -47,6 +47,10 @@ export default function AdminManageContests() {
       .catch(() => {});
   }, []);
 
+  // NOTE: this requires the backend fix to getAllContests — it must return
+  // BOTH public and private contests (previously it filtered to
+  // isPublic: true only, which silently hid every private contest from
+  // this page, making them impossible to edit or delete).
   const fetchContests = () => {
     setLoading(true);
     axiosClient.get('/contest/all')
@@ -181,7 +185,7 @@ export default function AdminManageContests() {
               <Plus size={14} /> Create New
             </button>
           </div>
-          <p className="adm-sub">Edit, update, or delete existing contests.</p>
+          <p className="adm-sub">Edit, update, or delete existing contests — public and private.</p>
 
           <div className="adm-divider" />
 
@@ -202,6 +206,7 @@ export default function AdminManageContests() {
               {contests.map((contest) => {
                 const st = statusLabel(contest);
                 const isEditing = editingId === contest._id;
+                const isPrivate = contest.isPublic === false;
 
                 return (
                   <div key={contest._id} style={{ background: '#161b22', border: `1px solid ${isEditing ? '#2e1a4a' : '#21262d'}`, borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s' }}>
@@ -217,6 +222,18 @@ export default function AdminManageContests() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                             <span style={{ fontSize: 14, fontWeight: 600, color: '#e6edf3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contest.title}</span>
                             <span style={{ fontSize: 9, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: st.color, background: st.bg, border: `1px solid ${st.border}`, borderRadius: 4, padding: '2px 7px', flexShrink: 0 }}>{st.text}</span>
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              fontSize: 9, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700,
+                              textTransform: 'uppercase', letterSpacing: '0.1em',
+                              color: isPrivate ? '#c084fc' : '#495366',
+                              background: isPrivate ? '#1a0d2e' : '#0d1117',
+                              border: `1px solid ${isPrivate ? '#2e1a4a' : '#21262d'}`,
+                              borderRadius: 4, padding: '2px 7px', flexShrink: 0,
+                            }}>
+                              {isPrivate && <Lock size={9} />}
+                              {isPrivate ? 'Private' : 'Public'}
+                            </span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 11, color: '#8b949e', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -295,6 +312,29 @@ export default function AdminManageContests() {
                                 <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#495366', marginBottom: 6 }}>End Time</div>
                                 <input type="datetime-local" value={editForm.endTime} onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
                                   style={{ ...inputStyle('edit-end'), colorScheme: 'dark' }} onFocus={() => setFocused('edit-end')} onBlur={() => setFocused('')} />
+                              </div>
+                            </div>
+
+                            {/* Visibility toggle in edit mode too */}
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#495366', marginBottom: 6 }}>Visibility</div>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                {[{ val: true, label: 'Public' }, { val: false, label: 'Private' }].map(({ val, label }) => (
+                                  <button
+                                    key={label}
+                                    onClick={() => setEditForm((f) => ({ ...f, isPublic: val }))}
+                                    style={{
+                                      flex: 1, padding: '7px 0', borderRadius: 7, cursor: 'pointer',
+                                      fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 700,
+                                      transition: 'all 0.15s',
+                                      background: editForm.isPublic === val ? '#1a0d2e' : 'transparent',
+                                      color: editForm.isPublic === val ? '#c084fc' : '#495366',
+                                      border: `1px solid ${editForm.isPublic === val ? '#2e1a4a' : '#21262d'}`,
+                                    }}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
                               </div>
                             </div>
                           </div>

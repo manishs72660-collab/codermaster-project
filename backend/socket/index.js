@@ -17,7 +17,7 @@ function initializeSocket(io) {
 
         await client.hSet("online_users", userId, socket.id);
 
-        if (role === "admin") {
+        if (role === "Admin") {
           await client.sAdd("online_admins", userId);
           io.emit("admin:status_update", { userId, status: "online" });
         }

@@ -39,11 +39,11 @@ const contestSubmissionSchema = new Schema({
         default: 0,
     },
     runtime: {
-        type: Number,  // ms
+        type: Number,
         default: 0,
     },
     memory: {
-        type: Number,  // KB
+        type: Number,
         default: 0,
     },
     errorMessage: {

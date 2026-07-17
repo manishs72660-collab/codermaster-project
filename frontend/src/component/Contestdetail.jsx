@@ -5,7 +5,7 @@ import { motion } from 'motion/react';
 import {
   Trophy, Clock, Users, ChevronRight, Code2,
   LogOut, User as UserIcon, CalendarDays, Zap,
-  Lock, Timer, CheckCircle2, Crown, Medal
+  Lock, Timer, CheckCircle2, Crown, Medal, KeyRound, Copy, Check
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
@@ -72,6 +72,7 @@ export default function ContestDetail() {
   const [registering, setRegistering]     = useState(false);
   const [tab, setTab]                     = useState('problems');
   const [scrolled, setScrolled]           = useState(false);
+  const [codeCopied, setCodeCopied]       = useState(false);
 
   // ── compute status from state (safe when contest is null) ──
   const now        = new Date();
@@ -148,6 +149,10 @@ export default function ContestDetail() {
     );
   }
 
+  const isPrivate = contest.isPublic === false;
+  const isCreator = user && contest.createdBy &&
+    (contest.createdBy._id || contest.createdBy) === user._id;
+
   const handleRegister = async () => {
     setRegistering(true);
     try {
@@ -158,6 +163,14 @@ export default function ContestDetail() {
     } finally {
       setRegistering(false);
     }
+  };
+
+  const handleCopyCode = () => {
+    if (!contest.joinCode) return;
+    navigator.clipboard.writeText(contest.joinCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
   };
 
   const solvedIds = new Set(
@@ -262,6 +275,11 @@ export default function ContestDetail() {
                       Ended
                     </span>
                   )}
+                  {isPrivate && (
+                    <span className="flex items-center gap-1.5 text-[10px] font-black text-purple-400 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full uppercase tracking-widest">
+                      <Lock className="w-3 h-3" /> Private
+                    </span>
+                  )}
                   {contest.isRegistered && (
                     <span className="flex items-center gap-1.5 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full uppercase tracking-widest">
                       <CheckCircle2 className="w-3 h-3" /> Registered
@@ -289,7 +307,8 @@ export default function ContestDetail() {
                     </div>
                   )}
 
-                  {!contest.isRegistered && !isEnded && (
+                  {/* Register button — only for PUBLIC contests. Private contests are joined via code on the Contests list page. */}
+                  {!contest.isRegistered && !isEnded && !isPrivate && (
                     <button onClick={handleRegister} disabled={registering}
                       className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-5 py-2.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-50">
                       {registering
@@ -303,6 +322,34 @@ export default function ContestDetail() {
 
               <h1 className="font-display text-3xl md:text-4xl font-700 text-white tracking-tight mb-3">{contest.title}</h1>
               <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-2xl">{contest.description}</p>
+
+              {/* Join-code panel — visible only to the creator, so they can share it */}
+              {isPrivate && isCreator && contest.joinCode && (
+                <div className="flex items-center justify-between gap-4 bg-purple-500/[0.06] border border-purple-500/20 rounded-xl px-4 py-3 mb-6 max-w-md">
+                  <div className="flex items-center gap-3">
+                    <KeyRound className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Invite code</p>
+                      <p className="font-mono text-lg font-700 text-purple-300 tracking-[0.25em]">{contest.joinCode}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCopyCode}
+                    className="flex items-center gap-1.5 text-xs font-bold text-purple-300 bg-purple-500/10 border border-purple-500/20 px-3 py-1.5 rounded-lg hover:bg-purple-500/20 transition-all"
+                  >
+                    {codeCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {codeCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              )}
+
+              {/* Not registered + private + not creator → tell them how to join */}
+              {isPrivate && !contest.isRegistered && !isCreator && (
+                <div className="flex items-center gap-2 text-xs text-white/30 mb-6">
+                  <Lock className="w-3.5 h-3.5" />
+                  This is a private contest — join it from the Contests page using your invite code.
+                </div>
+              )}
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
@@ -352,11 +399,21 @@ export default function ContestDetail() {
                     <Lock className="w-7 h-7 text-white/15" />
                   </div>
                   <h3 className="font-display text-lg font-700 text-white/30 mb-2">Register to see problems</h3>
-                  <p className="text-sm text-white/20 mb-6">Problems are revealed only to registered participants.</p>
-                  {!isEnded && (
+                  <p className="text-sm text-white/20 mb-6">
+                    {isPrivate
+                      ? 'Join this private contest with your invite code to unlock problems.'
+                      : 'Problems are revealed only to registered participants.'}
+                  </p>
+                  {!isEnded && !isPrivate && (
                     <button onClick={handleRegister} disabled={registering}
                       className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-6 py-2.5 rounded-xl transition-all">
                       {registering ? 'Joining…' : 'Register Now'}
+                    </button>
+                  )}
+                  {!isEnded && isPrivate && (
+                    <button onClick={() => navigate('/contest')}
+                      className="flex items-center gap-2 bg-purple-500 hover:bg-purple-400 text-black font-bold text-sm px-6 py-2.5 rounded-xl transition-all">
+                      Enter Invite Code
                     </button>
                   )}
                 </div>

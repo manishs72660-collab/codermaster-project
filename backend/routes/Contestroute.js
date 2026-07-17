@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-const  userAuth = require('../middleware/userauth');
+const userAuth = require('../middleware/userauth');
 const {
     isAdmin,
     contestExists,
@@ -17,6 +17,7 @@ const {
     getAllContests,
     getContestById,
     registerForContest,
+    joinContestByCode,
     getContestProblems,
     getContestProblem,
     contestSubmit,
@@ -32,8 +33,11 @@ const {
 // List all public contests
 router.get('/all', userAuth, getAllContests);
 
-// Create a new contest (Admin only)
+// Create a new contest (Admin only) — pass isPublic: false to make it private
 router.post('/create', userAuth, isAdmin, createContest);
+
+// Join a PRIVATE contest using its invite code
+router.post('/join', userAuth, joinContestByCode);
 
 
 // ════════════════════════════════════════════════════
@@ -43,7 +47,7 @@ router.post('/create', userAuth, isAdmin, createContest);
 // Get single contest info
 router.get('/:id', userAuth, contestExists, getContestById);
 
-// Register for a contest
+// Register for a PUBLIC contest (private contests are rejected — use /contest/join)
 router.post('/:id/register', userAuth, contestExists, registerForContest);
 
 // Update a contest (Admin only)

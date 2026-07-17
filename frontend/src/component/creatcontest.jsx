@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router';
-import { Trophy, Plus, X, Search } from 'lucide-react';
+import { Trophy, Plus, X, Search, KeyRound, Copy, Check, MessageCircle } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 
 export default function AdminCreateContest() {
@@ -21,6 +21,13 @@ export default function AdminCreateContest() {
   const [success, setSuccess]               = useState(false);
   const [focused, setFocused]               = useState('');
 
+  // Holds the full contest object returned by POST /contest/create,
+  // including joinCode for private contests. Without capturing this,
+  // the join code is generated on the server but never shown to the
+  // admin anywhere.
+  const [createdContest, setCreatedContest] = useState(null);
+  const [codeCopied, setCodeCopied]         = useState(false);
+
   /* fetch all problems for picker */
   useEffect(() => {
     axiosClient.get('/problem/')
@@ -35,6 +42,14 @@ export default function AdminCreateContest() {
 
   const addProblem = (p) => setSelectedProblems((prev) => [...prev, p]);
   const removeProblem = (id) => setSelectedProblems((prev) => prev.filter((p) => p._id !== id));
+
+  const resetForm = () => {
+    setSuccess(false);
+    setCreatedContest(null);
+    setCodeCopied(false);
+    setForm({ title: '', description: '', startTime: '', endTime: '', isPublic: true });
+    setSelectedProblems([]);
+  };
 
   const handleSubmit = async () => {
     setError('');
@@ -51,16 +66,38 @@ export default function AdminCreateContest() {
 
     setSubmitting(true);
     try {
-      await axiosClient.post('/contest/create', {
+      const { data } = await axiosClient.post('/contest/create', {
         ...form,
         problems: selectedProblems.map((p) => p._id),
       });
+      setCreatedContest(data.contest);
       setSuccess(true);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to create contest.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCopyCode = () => {
+    if (!createdContest?.joinCode) return;
+    navigator.clipboard.writeText(createdContest.joinCode).then(() => {
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    });
+  };
+
+  // Opens WhatsApp (app or web) with a pre-filled message containing
+  // the contest name and join code. No API key or backend call needed —
+  // wa.me/?text= just deep-links into WhatsApp's own share flow and lets
+  // the admin pick who to send it to.
+  const handleShareWhatsApp = () => {
+    if (!createdContest?.joinCode) return;
+    const message =
+      `Join my contest "${createdContest.title}" on CodeMaster!\n` +
+      `Invite code: ${createdContest.joinCode}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const diffColor = (d) => {
@@ -85,14 +122,71 @@ export default function AdminCreateContest() {
   });
 
   if (success) {
+    const isPrivate = createdContest?.isPublic === false;
+
     return (
       <div style={{ minHeight: '100vh', background: '#0d1117', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ background: '#0f2a1a', border: '1px solid #1a3a2a', borderRadius: 16, padding: '40px 32px', textAlign: 'center', maxWidth: 400 }}>
+        <div style={{ background: '#0f2a1a', border: '1px solid #1a3a2a', borderRadius: 16, padding: '40px 32px', textAlign: 'center', maxWidth: 420 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🏆</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: '#00b86b', marginBottom: 8 }}>Contest Created!</div>
-          <p style={{ fontSize: 13, color: '#8b949e', marginBottom: 24 }}>Your contest has been scheduled successfully.</p>
+          <p style={{ fontSize: 13, color: '#8b949e', marginBottom: isPrivate ? 20 : 24 }}>
+            {isPrivate
+              ? 'Your private contest is live. Share the invite code below with participants.'
+              : 'Your contest has been scheduled successfully.'}
+          </p>
+
+          {isPrivate && createdContest?.joinCode && (
+            <div style={{
+              background: '#1a0d2e', border: '1px solid #2e1a4a', borderRadius: 12,
+              padding: '16px 18px', marginBottom: 24, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#c084fc' }}>
+                <KeyRound size={14} />
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.2px' }}>
+                  Invite Code
+                </span>
+              </div>
+              <p style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 700,
+                color: '#e9d5ff', letterSpacing: '0.35em', margin: 0,
+              }}>
+                {createdContest.joinCode}
+              </p>
+
+              {/* Copy + WhatsApp share actions */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  onClick={handleCopyCode}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'none', border: '1px solid #2e1a4a', borderRadius: 7,
+                    color: '#c084fc', fontFamily: "'JetBrains Mono',monospace", fontSize: 11,
+                    fontWeight: 700, padding: '6px 14px', cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                >
+                  {codeCopied ? <Check size={12} /> : <Copy size={12} />}
+                  {codeCopied ? 'Copied' : 'Copy Code'}
+                </button>
+
+                <button
+                  onClick={handleShareWhatsApp}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: '#25D366', border: '1px solid #25D366', borderRadius: 7,
+                    color: '#0d1117', fontFamily: "'JetBrains Mono',monospace", fontSize: 11,
+                    fontWeight: 700, padding: '6px 14px', cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                >
+                  <MessageCircle size={12} />
+                  Share on WhatsApp
+                </button>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <button onClick={() => { setSuccess(false); setForm({ title:'', description:'', startTime:'', endTime:'', isPublic: true }); setSelectedProblems([]); }}
+            <button onClick={resetForm}
               style={{ background: '#1a3a2a', border: '1px solid #1a3a2a', borderRadius: 8, color: '#00b86b', fontFamily: "'JetBrains Mono',monospace", fontSize: 12, fontWeight: 700, padding: '8px 18px', cursor: 'pointer' }}>
               Create Another
             </button>
@@ -241,6 +335,12 @@ export default function AdminCreateContest() {
                       </button>
                     ))}
                   </div>
+                  {form.isPublic === false && (
+                    <p style={{ marginTop: 6, fontSize: 10.5, color: '#8b949e', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <KeyRound size={11} />
+                      A one-time invite code will be generated after you create this contest.
+                    </p>
+                  )}
                 </div>
 
                 {/* Selected problems count */}

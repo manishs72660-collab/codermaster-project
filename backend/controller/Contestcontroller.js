@@ -1,12 +1,29 @@
+const crypto = require('crypto');
 const Contest = require('../models/Contest');
 const ContestSubmission = require('../models/ContestSubmission');
 const ContestRank = require('../models/ContestRank');
 const Problem = require('../models/problemschema');
 
 // ─── Reuse your existing Judge0 helpers from submit.js ───────────────────────
-// These are imported from your existing submit utility — adjust path if needed
-const { submitBatch, submitToken, getLanguageById} = require('../utils/probelmutlity');
-const {buildFullCode}=require("./userproblem");
+const { submitBatch, submitToken, getLanguageById } = require('../utils/probelmutlity');
+const { buildFullCode } = require('./userproblem');
+
+// ─── Join-code generator for private contests ───────────────────────────────
+// Produces a short, human-typeable code e.g. "K4F9XQ"
+const generateJoinCode = () => {
+    return crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 6);
+};
+
+const generateUniqueJoinCode = async () => {
+    let code = generateJoinCode();
+    let existing = await Contest.findOne({ joinCode: code });
+    while (existing) {
+        code = generateJoinCode();
+        existing = await Contest.findOne({ joinCode: code });
+    }
+    return code;
+};
+
 // ════════════════════════════════════════════════════════════════════
 //  ADMIN CONTROLLERS
 // ════════════════════════════════════════════════════════════════════
@@ -32,16 +49,28 @@ const createContest = async (req, res) => {
             }
         }
 
+        // Private contests get a join code; public ones don't need one.
+        const resolvedIsPublic = isPublic ?? true;
+        let joinCode = null;
+        if (resolvedIsPublic === false) {
+            joinCode = await generateUniqueJoinCode();
+        }
+
         const contest = await Contest.create({
             title,
             description,
             startTime,
             endTime,
             problems: problems || [],
-            isPublic: isPublic ?? true,
+            isPublic: resolvedIsPublic,
+            joinCode,
             createdBy: req.result._id,
         });
 
+        // NOTE: `contest` here includes joinCode — this is returned to the
+        // creator (Admin) only, directly from the create response. The
+        // frontend must capture this from the response body, since it is
+        // never exposed again through the public /contest/all list.
         res.status(201).json({ message: 'Contest created successfully', contest });
     } catch (err) {
         res.status(500).json({ message: 'Internal Server Error', error: err.message });
@@ -57,9 +86,24 @@ const updateContest = async (req, res) => {
             return res.status(400).json({ message: 'startTime must be before endTime' });
         }
 
+        const existing = await Contest.findById(req.params.id);
+        if (!existing) {
+            return res.status(404).json({ message: 'Contest not found' });
+        }
+
+        const update = { title, description, startTime, endTime, problems, isPublic };
+
+        // If switching from public -> private, mint a join code.
+        // If switching from private -> public, clear it.
+        if (isPublic === false && !existing.joinCode) {
+            update.joinCode = await generateUniqueJoinCode();
+        } else if (isPublic === true) {
+            update.joinCode = null;
+        }
+
         const updated = await Contest.findByIdAndUpdate(
             req.params.id,
-            { title, description, startTime, endTime, problems, isPublic },
+            update,
             { new: true, runValidators: true }
         );
 
@@ -84,16 +128,26 @@ const deleteContest = async (req, res) => {
 //  PUBLIC CONTROLLERS
 // ════════════════════════════════════════════════════════════════════
 
-// GET /contest/all  — list all contests grouped by status
+// GET /contest/all  — list ALL contests (public + private), grouped by status.
+//
+// FIX: previously filtered to { isPublic: true }, which meant:
+//   1. Private contests never showed up on the public /contest listing page
+//      (so users had no way to even know a private contest existed, beyond
+//      an invite link nobody sends).
+//   2. Private contests also vanished from the Admin "Manage Contests" page,
+//      since it reuses this same endpoint — admins couldn't edit/delete
+//      their own private contests.
+//
+// This is safe to open up because joinCode is intentionally excluded from
+// .select() below — it is NEVER present in this response, public or private.
 const getAllContests = async (req, res) => {
     try {
         const now = new Date();
 
-        const contests = await Contest.find({ isPublic: true })
-            .select('title description startTime endTime problems participants status')
+        const contests = await Contest.find({})
+            .select('title description startTime endTime problems participants status isPublic createdBy')
             .sort({ startTime: 1 });
 
-        // Attach computed status to each
         const result = contests.map((c) => ({
             ...c.toObject(),
             computedStatus:
@@ -129,8 +183,15 @@ const getContestById = async (req, res) => {
             (p) => p.toString() === req.result?._id?.toString()
         );
 
+        // Never leak the join code to non-participants of a private contest.
+        const contestObj = contest.toObject();
+        const isCreator = contest.createdBy?._id?.toString() === req.result?._id?.toString();
+        if (contestObj.isPublic === false && !isRegistered && !isCreator) {
+            delete contestObj.joinCode;
+        }
+
         res.status(200).json({
-            ...contest.toObject(),
+            ...contestObj,
             computedStatus,
             isRegistered,
             totalParticipants: contest.participants.length,
@@ -140,12 +201,18 @@ const getContestById = async (req, res) => {
     }
 };
 
-// POST /contest/:id/register
+// POST /contest/:id/register  — PUBLIC contests only
 const registerForContest = async (req, res) => {
     try {
         const contest = req.contest;
         const userId = req.result._id;
         const now = new Date();
+
+        if (contest.isPublic === false) {
+            return res.status(403).json({
+                message: 'This is a private contest. Please join using the invite code instead.',
+            });
+        }
 
         if (now > contest.endTime) {
             return res.status(400).json({ message: 'Contest has already ended. Cannot register.' });
@@ -162,7 +229,6 @@ const registerForContest = async (req, res) => {
         contest.participants.push(userId);
         await contest.save();
 
-        // Create an empty rank entry for this user
         await ContestRank.findOneAndUpdate(
             { contestId: contest._id, userId },
             { contestId: contest._id, userId },
@@ -170,6 +236,49 @@ const registerForContest = async (req, res) => {
         );
 
         res.status(200).json({ message: 'Successfully registered for the contest!' });
+    } catch (err) {
+        res.status(500).json({ message: 'Internal Server Error', error: err.message });
+    }
+};
+
+// POST /contest/join  — join a PRIVATE contest using its invite code
+const joinContestByCode = async (req, res) => {
+    try {
+        const { code } = req.body;
+        const userId = req.result._id;
+
+        if (!code || !code.trim()) {
+            return res.status(400).json({ message: 'Join code is required' });
+        }
+
+        const contest = await Contest.findOne({ joinCode: code.trim().toUpperCase() });
+        if (!contest) {
+            return res.status(404).json({ message: 'Invalid join code' });
+        }
+
+        const now = new Date();
+        if (now > contest.endTime) {
+            return res.status(400).json({ message: 'Contest has already ended. Cannot join.' });
+        }
+
+        const alreadyRegistered = contest.participants.some(
+            (p) => p.toString() === userId.toString()
+        );
+
+        if (alreadyRegistered) {
+            return res.status(200).json({ message: 'Already joined', contestId: contest._id });
+        }
+
+        contest.participants.push(userId);
+        await contest.save();
+
+        await ContestRank.findOneAndUpdate(
+            { contestId: contest._id, userId },
+            { contestId: contest._id, userId },
+            { upsert: true, new: true }
+        );
+
+        res.status(200).json({ message: 'Joined private contest successfully!', contestId: contest._id });
     } catch (err) {
         res.status(500).json({ message: 'Internal Server Error', error: err.message });
     }
@@ -422,6 +531,7 @@ module.exports = {
     getAllContests,
     getContestById,
     registerForContest,
+    joinContestByCode,
     getContestProblems,
     getContestProblem,
     contestSubmit,

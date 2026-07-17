@@ -16,7 +16,6 @@ const contestRankSchema = new Schema({
         type: Number,
         default: 0,
     },
-    // Finish time of LAST accepted problem (used as tiebreaker)
     lastSolvedAt: {
         type: Date,
         default: null,
@@ -31,8 +30,8 @@ const contestRankSchema = new Schema({
                 type: Schema.Types.ObjectId,
                 ref: 'problem',
             },
-            solvedAt: Date,          // when they first got AC
-            attempts: {              // how many wrong attempts before AC
+            solvedAt: Date,
+            attempts: {
                 type: Number,
                 default: 0,
             },
@@ -40,7 +39,6 @@ const contestRankSchema = new Schema({
     ],
 }, { timestamps: true });
 
-// One rank entry per user per contest
 contestRankSchema.index({ contestId: 1, userId: 1 }, { unique: true });
 
 const ContestRank = mongoose.model('ContestRank', contestRankSchema);

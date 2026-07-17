@@ -40,6 +40,13 @@ const contestSchema = new Schema({
         type: Boolean,
         default: true,
     },
+    // Only set when isPublic === false. Used to join a private contest
+    // via POST /contest/join instead of the open /contest/:id/register route.
+    joinCode: {
+        type: String,
+        default: null,
+        index: true,
+    },
     status: {
         type: String,
         enum: ['upcoming', 'ongoing', 'ended'],

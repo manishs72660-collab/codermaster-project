@@ -15,6 +15,8 @@ import {
   LogOut,
   User as UserIcon,
   Timer,
+  KeyRound,
+  X,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { logoutUser } from '../authSlice';
@@ -74,6 +76,12 @@ export default function Contest() {
   const [tab, setTab]             = useState('all'); // all | ongoing | upcoming | ended
   const [scrolled, setScrolled]   = useState(false);
 
+  // ── join-by-code modal state ──
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode]           = useState('');
+  const [joining, setJoining]             = useState(false);
+  const [joinError, setJoinError]         = useState('');
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     window.addEventListener('scroll', onScroll);
@@ -81,6 +89,10 @@ export default function Contest() {
   }, []);
 
   useEffect(() => {
+    // Requires the backend fix to getAllContests — it must return BOTH
+    // public and private contests. Private ones are shown here with a
+    // lock badge; clicking one the user hasn't joined opens the
+    // join-code modal instead of navigating.
     axiosClient.get('/contest/all')
       .then(({ data }) => setContests(Array.isArray(data) ? data : []))
       .catch(() => setContests([]))
@@ -88,6 +100,28 @@ export default function Contest() {
   }, []);
 
   const handleLogout = () => dispatch(logoutUser());
+
+  const handleJoinByCode = async (e) => {
+    e.preventDefault();
+    if (!joinCode.trim()) return;
+    setJoining(true);
+    setJoinError('');
+    try {
+      const { data } = await axiosClient.post('/contest/join', { code: joinCode.trim() });
+      setShowJoinModal(false);
+      setJoinCode('');
+      navigate(`/contest/${data.contestId}`);
+    } catch (err) {
+      setJoinError(err?.response?.data?.message || 'Invalid or expired code');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const openJoinModal = () => {
+    setJoinError('');
+    setShowJoinModal(true);
+  };
 
   const filtered = contests.filter((c) => tab === 'all' || c.computedStatus === tab);
 
@@ -142,7 +176,7 @@ export default function Contest() {
           <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-purple-500/[0.04] blur-[130px] rounded-full" />
         </div>
 
-        {/* ── NAV (exact same as Homepage) ── */}
+        {/* ── NAV ── */}
         <nav className={cn(
           "sticky top-0 z-50 transition-all duration-300",
           scrolled
@@ -179,6 +213,15 @@ export default function Contest() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Join private contest button */}
+              <button
+                onClick={openJoinModal}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white/50 border border-white/[0.08] hover:text-white hover:border-white/20 hover:bg-white/[0.04] transition-all"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Join with code
+              </button>
+
               {user ? (
                 <div className="flex items-center gap-3">
                   <div className="hidden sm:flex flex-col items-end">
@@ -240,6 +283,15 @@ export default function Contest() {
               <p className="text-white/40 text-base max-w-md leading-relaxed">
                 Join timed contests, climb the leaderboard, and prove your skills against the best.
               </p>
+
+              {/* mobile join-with-code link (button above is hidden on small screens) */}
+              <button
+                onClick={openJoinModal}
+                className="sm:hidden mt-4 flex items-center gap-1.5 text-xs font-bold text-white/50 hover:text-white transition-colors"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Have a private invite code? Join here
+              </button>
             </motion.div>
           </div>
           <div className="absolute top-4 right-4 w-24 h-24 border-r-2 border-t-2 border-white/[0.04] rounded-tr-2xl pointer-events-none" />
@@ -384,7 +436,12 @@ export default function Contest() {
               <div className="space-y-3">
                 <AnimatePresence mode="popLayout">
                   {filtered.map((contest, index) => (
-                    <ContestCard key={contest._id} contest={contest} index={index} />
+                    <ContestCard
+                      key={contest._id}
+                      contest={contest}
+                      index={index}
+                      onPrivateClick={openJoinModal}
+                    />
                   ))}
                 </AnimatePresence>
               </div>
@@ -392,6 +449,66 @@ export default function Contest() {
           </div>
         </div>
       </div>
+
+      {/* ── JOIN WITH CODE MODAL ── */}
+      <AnimatePresence>
+        {showJoinModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setShowJoinModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-[#0e0e0e] border border-white/[0.08] rounded-2xl p-6 relative"
+            >
+              <button
+                onClick={() => setShowJoinModal(false)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center mb-4">
+                <KeyRound className="w-6 h-6 text-orange-400" />
+              </div>
+
+              <h3 className="font-display text-xl font-700 text-white mb-1">Join Private Contest</h3>
+              <p className="text-white/40 text-sm mb-5">Enter the invite code shared by the contest organizer.</p>
+
+              <form onSubmit={handleJoinByCode}>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
+                  placeholder="e.g. K4F9XQ"
+                  autoFocus
+                  maxLength={6}
+                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white font-mono text-center text-lg tracking-[0.3em] uppercase placeholder:text-white/15 placeholder:tracking-normal focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all mb-3"
+                />
+
+                {joinError && (
+                  <p className="text-rose-400 text-xs mb-3 text-center">{joinError}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={joining || !joinCode.trim()}
+                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {joining
+                    ? <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                    : <KeyRound className="w-4 h-4" />}
+                  {joining ? 'Joining…' : 'Join Contest'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -399,16 +516,26 @@ export default function Contest() {
 /* ══════════════════════════════════════════
    CONTEST CARD
 ══════════════════════════════════════════ */
-function ContestCard({ contest, index }) {
+function ContestCard({ contest, index, onPrivateClick }) {
   const navigate  = useNavigate();
   const status    = getStatusStyle(contest.computedStatus);
   const isOngoing = contest.computedStatus === 'ongoing';
   const isUpcoming = contest.computedStatus === 'upcoming';
+  const isPrivate = contest.isPublic === false;
 
   // countdown for upcoming contests
   const countdown = useCountdown(isUpcoming ? contest.startTime : null);
 
-  const handleClick = () => navigate(`/contest/${contest._id}`);
+  // Already registered/joined → go straight in, regardless of visibility.
+  // Private and not yet joined → open the join-code modal instead of
+  // navigating (the detail page can't reveal anything useful to a
+  // non-participant anyway, and this avoids a dead-end click).
+  // Public and not joined → navigate to detail, where they can register.
+  const handleClick = () => {
+    if (contest.isRegistered) return navigate(`/contest/${contest._id}`);
+    if (isPrivate) return onPrivateClick();
+    navigate(`/contest/${contest._id}`);
+  };
 
   return (
     <motion.div
@@ -423,7 +550,8 @@ function ContestCard({ contest, index }) {
         className={cn(
           "card-shimmer group relative flex items-center justify-between px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl hover:bg-white/[0.035] transition-all duration-250 overflow-hidden cursor-pointer",
           isOngoing && "border-emerald-500/15 hover:border-emerald-500/25",
-          isUpcoming && "hover:border-orange-500/20"
+          isUpcoming && "hover:border-orange-500/20",
+          isPrivate && "hover:border-purple-500/25"
         )}
       >
         {/* live accent line */}
@@ -439,11 +567,13 @@ function ContestCard({ contest, index }) {
           {/* icon */}
           <div className={cn(
             "hidden sm:flex w-10 h-10 rounded-xl items-center justify-center flex-shrink-0 border transition-all",
+            isPrivate  ? "bg-purple-500/10  border-purple-500/20  group-hover:border-purple-500/40" :
             isOngoing  ? "bg-emerald-500/10 border-emerald-500/20 group-hover:border-emerald-500/40" :
             isUpcoming ? "bg-orange-500/10  border-orange-500/20  group-hover:border-orange-500/40"  :
                          "bg-white/[0.03]   border-white/[0.07]"
           )}>
-            {isOngoing  ? <Zap       className="w-4 h-4 text-emerald-400" /> :
+            {isPrivate  ? <Lock      className="w-4 h-4 text-purple-400"  /> :
+             isOngoing  ? <Zap       className="w-4 h-4 text-emerald-400" /> :
              isUpcoming ? <Timer     className="w-4 h-4 text-orange-400"  /> :
                           <Lock      className="w-4 h-4 text-white/20"    />}
           </div>
@@ -464,6 +594,13 @@ function ContestCard({ contest, index }) {
                 <span className={cn("w-1.5 h-1.5 rounded-full", status.dot, isOngoing && "live-dot")} />
                 {status.label}
               </span>
+
+              {/* private badge */}
+              {isPrivate && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border border-purple-500/20 bg-purple-500/10 text-purple-400">
+                  <Lock className="w-2.5 h-2.5" /> Private
+                </span>
+              )}
 
               {/* duration */}
               <span className="flex items-center gap-1 text-[11px] text-white/25">
@@ -523,9 +660,16 @@ function ContestCard({ contest, index }) {
             </span>
           )}
 
-          {/* arrow */}
-          <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] transition-all duration-300">
-            <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
+          {/* arrow / lock icon */}
+          <div className={cn(
+            "w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center transition-all duration-300",
+            isPrivate && !contest.isRegistered
+              ? "group-hover:bg-purple-500 group-hover:border-purple-500 group-hover:shadow-[0_0_18px_rgba(168,85,247,0.4)]"
+              : "group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)]"
+          )}>
+            {isPrivate && !contest.isRegistered
+              ? <KeyRound className="w-4 h-4 text-white/40 group-hover:text-black transition-all" />
+              : <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black group-hover:translate-x-0.5 transition-all" />}
           </div>
         </div>
       </div>

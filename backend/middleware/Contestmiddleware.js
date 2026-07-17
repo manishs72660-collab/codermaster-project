@@ -2,7 +2,7 @@ const Contest = require('../models/Contest');
 
 // Only Admin role can create/update/delete contests
 const isAdmin = (req, res, next) => {
-    if (!req.result || req.result.role !== 'admin') {
+    if (!req.result || req.result.role !== 'Admin') {
         return res.status(403).json({ message: 'Access denied. Admins only.' });
     }
     next();
