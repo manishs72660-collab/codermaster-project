@@ -33,6 +33,9 @@ const useCountUp = (target, trigger, duration = 900) => {
   return value;
 };
 
+// ── Language display labels ──
+const langLabels = { javascript: 'JavaScript', cpp: 'C++', java: 'Java', python: 'Python' };
+
 const ProblemPage = () => {
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
@@ -282,6 +285,7 @@ const ProblemPage = () => {
       case 'javascript': return 'javascript';
       case 'java': return 'java';
       case 'cpp': return 'cpp';
+      case 'python': return 'python';
       default: return 'javascript';
     }
   };
@@ -1319,13 +1323,13 @@ const ProblemPage = () => {
                 {/* Language bar + editor tools in one row */}
                 <div className="cm-lang-bar">
                   <div className="cm-lang-pills">
-                    {['javascript', 'cpp'].map(lang => (
+                    {['javascript', 'cpp', 'java', 'python'].map(lang => (
                       <button
                         key={lang}
                         className={`cm-lang-pill${selectedLanguage === lang ? ' active' : ''}`}
                         onClick={() => handleLanguageChange(lang)}
                       >
-                        {lang === 'cpp' ? 'C++' : 'JavaScript'}
+                        {langLabels[lang]}
                       </button>
                     ))}
                   </div>

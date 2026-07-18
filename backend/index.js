@@ -20,6 +20,7 @@ const chatrouter = require("./routes/chatroute");
 const doubtRouter=require("./routes/doubtroute");
 const answerRouter=require("./routes/answerrote");
 const postrouter=require("./routes/solutionpost");
+const collagerouter=require("./routes/Collegeroutes")
 require('dotenv').config();
 const cors = require('cors');
 
@@ -45,7 +46,6 @@ app.use(express.json());
 app.use(cookieparser());
 app.use(rateLimiter);
 app.set("io", io);
-
 app.use("/auth", authRouter);
 app.use("/problem", problemRouter);
 app.use("/code", submitroute);
@@ -58,6 +58,7 @@ app.use("/api", chatrouter);
 app.use("/doubt",doubtRouter);
 app.use("/answer",answerRouter);
 app.use("/solution",postrouter);
+app.use("/collage",collagerouter)
 
 initializeSocket(io);
 

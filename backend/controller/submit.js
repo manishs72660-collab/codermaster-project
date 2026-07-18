@@ -2,35 +2,34 @@ const Problem = require("../models/problemschema");
 const Submission = require("../models/Submission");
 const { getLanguageById, submitBatch, submitToken } = require("../utils/probelmutlity");
 const userProblem = require("../models/Userdetail");
-const { buildFullCode } = require("./userproblem"); // ✅ NEW
+const { buildFullCode } = require("./userproblem");
 
 const submitCode = async (req, res) => {
   try {
     const userId = req.result._id;
     const problemId = req.params.id;
-    const { code, language: rawLanguage } = req.body; 
+    const { code, language: rawLanguage } = req.body;
 
     if (!userId || !code || !problemId || !rawLanguage)
       return res.status(400).json({ message: "Some fields missing" });
 
-    const language = rawLanguage === "cpp" ? "c++" : rawLanguage; // ✅ fixed
+    const language = rawLanguage === "cpp" ? "c++" : rawLanguage;
 
     const problem = await Problem.findById(problemId);
     if (!problem) return res.status(404).json({ message: "Problem not found" });
 
-    // ✅ Get driver code and wrap
     const driverEntry = problem.driverCode?.find(
       (d) => d.language.toLowerCase() === language.toLowerCase()
     );
     if (!driverEntry)
       return res.status(400).json({ message: `No driver code found for language: ${language}` });
 
-    const fullCode = buildFullCode(code, driverEntry.code, language); // ✅ wrapped
+    const fullCode = buildFullCode(code, driverEntry.code, language);
 
     const submittedResult = await Submission.create({
       userId,
       problemId,
-      code,        // ✅ store only user's clean function
+      code,
       language,
       status: "pending",
       testCasesTotal: problem.hiddenTestCases.length,
@@ -41,7 +40,7 @@ const submitCode = async (req, res) => {
     const languageId = getLanguageById(language);
 
     const submissions = problem.hiddenTestCases.map((testcase) => ({
-      source_code: fullCode, // ✅ send wrapped code to Judge0
+      source_code: fullCode,
       language_id: languageId,
       stdin: testcase.input,
       expected_output: testcase.output,
@@ -64,7 +63,7 @@ const submitCode = async (req, res) => {
         memory = Math.max(memory, test.memory);
       } else {
         status = test.status_id === 4 ? "error" : "wrong";
-        errorMessage = test.stderr || test.compile_output || null; // ✅ catches compile errors too
+        errorMessage = test.stderr || test.compile_output || null;
       }
     }
 
@@ -86,13 +85,13 @@ const submitCode = async (req, res) => {
     }
 
     res.status(201).json({
-  submissionId: submittedResult._id,   // ← add this line
-  accepted: status === "accepted",
-  totalTestCases: submittedResult.testCasesTotal,
-  passedTestCases: testCasesPassed,
-  runtime,
-  memory,
-});
+      submissionId: submittedResult._id,
+      accepted: status === "accepted",
+      totalTestCases: submittedResult.testCasesTotal,
+      passedTestCases: testCasesPassed,
+      runtime,
+      memory,
+    });
 
   } catch (err) {
     res.status(500).json({ message: "Internal Server Error", error: err.message });

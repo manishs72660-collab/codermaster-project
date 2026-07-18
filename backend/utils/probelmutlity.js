@@ -6,7 +6,8 @@ const getLanguageById = (lang) => {
   const language = {
     "c++": 54,
     "java": 62,
-    "javascript": 63
+    "javascript": 63,
+    "python": 71   // Python 3.8.1 (Judge0 CE)
   };
   const id = language[lang.toLowerCase()];
   if (!id) throw new Error(`Unsupported language: ${lang}`);

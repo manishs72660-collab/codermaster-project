@@ -2,6 +2,7 @@ const validator = require("../utils/Validator");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const User = require("../models/Userschema");
+const College = require("../models/collagescheam");
 const jwt = require("jsonwebtoken");
 const client = require("../config/redis");
 const Submission = require("../models/Submission");
@@ -14,19 +15,31 @@ const REFRESH_COOKIE_MS = REFRESH_TTL_SECONDS * 1000;
 
 const normalizeEmail = (email) => email?.trim().toLowerCase();
 
-// ---- token helpers ---------------------------------------------------
+// ---- token helpers -----------------------------------------------------
 
+// collegeId is only included when the user actually has one (platform
+// "Admin" accounts don't), so downstream code should treat it as optional.
 const generateAccessToken = (user) =>
   jwt.sign(
-    { _id: user._id, emailId: user.emailId, role: user.role },
+    {
+      _id: user._id,
+      emailId: user.emailId,
+      role: user.role,
+      ...(user.collegeId ? { collegeId: user.collegeId } : {}),
+    },
     process.env.JWT_KEY,
     { expiresIn: "1h" }
   );
 
 const generateRefreshToken = (user) =>
-  jwt.sign({ _id: user._id }, process.env.JWT_REFRESH_KEY, {
-    expiresIn: "7d",
-  });
+  jwt.sign(
+    {
+      _id: user._id,
+      ...(user.collegeId ? { collegeId: user.collegeId } : {}),
+    },
+    process.env.JWT_REFRESH_KEY,
+    { expiresIn: "7d" }
+  );
 
 const cookieOptions = (maxAge) => ({
   httpOnly: true,
@@ -37,7 +50,9 @@ const cookieOptions = (maxAge) => ({
 
 // Issues a fresh access+refresh pair, stores the refresh token in Redis
 // (keyed by user id) so refresh() can detect reuse/rotation, and sets
-// both as httpOnly cookies.
+// both as httpOnly cookies. Because refresh() re-fetches the user from
+// Mongo before calling this, collegeId in the tokens always reflects the
+// current DB state - it's recomputed on every refresh, not just at login.
 const issueTokens = async (res, user) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
@@ -55,32 +70,86 @@ const publicUser = (user) => ({
   emailId: user.emailId,
   _id: user._id,
   role: user.role,
+  collegeId: user.collegeId,
 });
+
+// ---- shared account-creation logic --------------------------------------
+//
+// Core "create a User document" logic, pulled out of the old register()
+// so it can be reused by:
+//   - register()        -> role "User", collegeId optional
+//   - adminRegister()    -> role "Admin", no collegeId
+//   - college.js's registerCollege() -> role "CollageAdmin", collegeId required
+//
+// This does NOT touch req/res or cookies - callers decide what to do with
+// the returned user (e.g. issueTokens + respond, or just create-and-return).
+const createAccount = async ({
+  firstName,
+  lastName,
+  emailId,
+  password,
+  age,
+  profileImage,
+  role = "User",
+  collegeId,
+}) => {
+  const normalizedEmail = normalizeEmail(emailId);
+
+  const existingUser = await User.findOne({ emailId: normalizedEmail });
+  if (existingUser) {
+    const err = new Error("Email is already registered");
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const userData = {
+    firstName,
+    emailId: normalizedEmail,
+    password: await bcrypt.hash(password, 10),
+    role,
+  };
+  if (lastName) userData.lastName = lastName;
+  if (age !== undefined) userData.age = age;
+  if (profileImage !== undefined) userData.profileImage = profileImage;
+  if (collegeId) userData.collegeId = collegeId;
+
+  return User.create(userData);
+};
 
 // ---- controllers -------------------------------------------------------
 
 const register = async (req, res) => {
   try {
     await validator(req.body);
-    const { password, firstName, lastName, age, profileImage } = req.body;
+    const { password, firstName, lastName, age, profileImage, collegeCode } = req.body;
     const emailId = normalizeEmail(req.body.emailId);
 
-    const existingUser = await User.findOne({ emailId });
-    if (existingUser) {
-      return res.status(409).json({ message: "Email is already registered" });
+    // A student registering directly (not via a college-admin invite flow)
+    // can optionally join a college at signup time using its human-readable
+    // code (e.g. "EXU01") - the one shown to the college admin after
+    // registerCollege(), not the raw Mongo _id. Looking it up here means
+    // the frontend never has to know or handle ObjectId format at all.
+    let collegeId;
+    if (collegeCode) {
+      const college = await College.findOne({
+        collegeCode: String(collegeCode).trim().toUpperCase(),
+      });
+      if (!college || !college.isActive) {
+        return res.status(400).json({ message: "Invalid or inactive college code" });
+      }
+      collegeId = college._id;
     }
 
-    const userData = {
+    const user = await createAccount({
       firstName,
+      lastName,
       emailId,
-      password: await bcrypt.hash(password, 10),
+      password,
+      age,
+      profileImage,
       role: "User",
-    };
-    if (lastName) userData.lastName = lastName;
-    if (age !== undefined) userData.age = age;
-    if (profileImage !== undefined) userData.profileImage = profileImage;
-
-    const user = await User.create(userData);
+      collegeId,
+    });
     await issueTokens(res, user);
 
     res.status(201).json({
@@ -88,7 +157,7 @@ const register = async (req, res) => {
       message: "Registered successfully",
     });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(err.statusCode || 400).json({ message: err.message });
   }
 };
 
@@ -130,7 +199,7 @@ const login = async (req, res) => {
 const googleAuth = async (req, res) => {
   try {
     const emailId = normalizeEmail(req.body.emailId);
-    const { firstName, photoURL } = req.body;
+    const { firstName, photoURL, collegeId } = req.body;
     if (!emailId) {
       return res.status(400).json({ message: "Email is required" });
     }
@@ -141,13 +210,15 @@ const googleAuth = async (req, res) => {
         crypto.randomBytes(32).toString("hex"),
         10
       );
-      user = await User.create({
+      const userData = {
         firstName: firstName || "User",
         emailId,
         password: randomPassword, // schema requires a password; Google users never use it to log in
         role: "User",
         ...(photoURL ? { profileImage: photoURL } : {}),
-      });
+      };
+      if (collegeId) userData.collegeId = collegeId;
+      user = await User.create(userData);
     }
 
     await issueTokens(res, user);
@@ -192,7 +263,9 @@ const refresh = async (req, res) => {
       return res.status(401).json({ message: "User no longer exists" });
     }
 
-    await issueTokens(res, user); // rotation: overwrites Redis entry + sets new cookies
+    // Re-issuing from the fresh `user` doc (not the old payload) means
+    // collegeId in the new tokens always reflects current DB state.
+    await issueTokens(res, user);
 
     res.status(200).json({ message: "Token refreshed" });
   } catch (err) {
@@ -245,29 +318,24 @@ const deleteUser = async (req, res) => {
 };
 
 // Only reachable via /auth/admin/register, which is already gated by
-// adminmiddleware - so only an existing admin can create another admin.
+// adminmiddleware - so only an existing platform Admin can create another
+// platform Admin. (College admins are created through
+// college.js -> registerCollege(), not through this endpoint.)
 const adminRegister = async (req, res) => {
   try {
     await validator(req.body);
     const { password, firstName, lastName, age, profileImage, role } = req.body;
     const emailId = normalizeEmail(req.body.emailId);
 
-    const existingUser = await User.findOne({ emailId });
-    if (existingUser) {
-      return res.status(409).json({ message: "Email is already registered" });
-    }
-
-    const userData = {
+    const user = await createAccount({
       firstName,
+      lastName,
       emailId,
-      password: await bcrypt.hash(password, 10),
+      password,
+      age,
+      profileImage,
       role,
-    };
-    if (lastName) userData.lastName = lastName;
-    if (age !== undefined) userData.age = age;
-    if (profileImage !== undefined) userData.profileImage = profileImage;
-
-    const user = await User.create(userData);
+    });
     await issueTokens(res, user);
 
     res.status(201).json({
@@ -275,7 +343,43 @@ const adminRegister = async (req, res) => {
       message: "User registered successfully",
     });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(err.statusCode || 400).json({ message: err.message });
+  }
+};
+
+// One-time bootstrap: creates the very first platform Admin over HTTP.
+// Self-locking - refuses to run once any Admin already exists, so it
+// can't be used to mint extra admins later even if left wired up.
+// Route it behind a setup secret (see routes) for defense in depth, but
+// the "no Admin exists yet" check is what actually makes this safe.
+const bootstrapAdmin = async (req, res) => {
+  try {
+    const existingAdmin = await User.findOne({ role: "Admin" });
+    if (existingAdmin) {
+      return res.status(403).json({ message: "An admin already exists - use /auth/admin/register instead" });
+    }
+
+    await validator(req.body);
+    const { password, firstName, lastName, age, profileImage } = req.body;
+    const emailId = normalizeEmail(req.body.emailId);
+
+    const user = await createAccount({
+      firstName,
+      lastName,
+      emailId,
+      password,
+      age,
+      profileImage,
+      role: "Admin",
+    });
+    await issueTokens(res, user);
+
+    res.status(201).json({
+      user: publicUser(user),
+      message: "First admin created",
+    });
+  } catch (err) {
+    res.status(err.statusCode || 400).json({ message: err.message });
   }
 };
 
@@ -288,4 +392,11 @@ module.exports = {
   profile,
   deleteUser,
   adminRegister,
+  bootstrapAdmin,
+  // exported for reuse outside this file (currently: college.js's
+  // registerCollege, to create the CollageAdmin account)
+  createAccount,
+  issueTokens,
+  publicUser,
+  normalizeEmail,
 };

@@ -14,12 +14,12 @@ const UserSchema = new Schema({
         trim: true,
     },
     emailId: {
-  type: String,
-  required: true,
-  unique: true,
-  trim: true,
-  lowercase: true,
-},
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true,
+    },
     password: {
         type: String,
         minLength: [6, "Password must be at least 6 characters long"],
@@ -32,18 +32,34 @@ const UserSchema = new Schema({
     },
     role: {
         type: String,
-        enum: ["Admin", "User"],
+        enum: ["Admin", "User", "CollageAdmin"],
         default: "User",
+    },
+    // Tenant link. Required for students ("User") and college admins
+    // ("CollageAdmin") - every college-scoped API filters on this field.
+    // Platform-level "Admin" accounts are not tied to any single college,
+    // so it's left undefined for them.
+    collegeId: {
+        type: Schema.Types.ObjectId,
+        ref: "College",
+        required: function () {
+            return this.role === "User" || this.role === "CollageAdmin";
+        },
     },
     problemsolve: {
         type: [String],
     },
     profileImage: {
-    type: String,
-    default: "https://example.com/default-avatar.png"
+        type: String,
+        default: "https://example.com/default-avatar.png"
     }
 
 }, { timestamps: true });
+
+// Every college-scoped query (student list, single student, etc.) filters
+// by collegeId, so this index matters once you have more than a handful
+// of users.
+UserSchema.index({ collegeId: 1 });
 
 const User = mongoose.model('User', UserSchema);
 module.exports = User;

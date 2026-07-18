@@ -6,11 +6,22 @@ const buildFullCode = (userCode, driverCode, language) => {
   switch (language.toLowerCase()) {
     case "javascript":
       return `${userCode}\n\n${driverCode}`;
+
     case "c++":
     case "cpp":
       return `#include <bits/stdc++.h>\nusing namespace std;\n\n${userCode}\n\n${driverCode}`;
+
     case "java":
+      // userCode = just the method(s) (e.g. "static int firstOdd(...) { ... }")
+      // driverCode = just the statements that go inside main(), NOT a full class
+      return `import java.util.Scanner;\n\npublic class Main {\n    ${userCode}\n\n    public static void main(String[] args) {\n        ${driverCode}\n    }\n}`;
+
+    case "python":
+    case "python3":
+      // No braces/includes needed — but userCode must sit at column 0
+      // since driverCode is appended directly below it.
       return `${userCode}\n\n${driverCode}`;
+
     default:
       throw new Error(`Unsupported language: ${language}`);
   }
@@ -25,14 +36,12 @@ const createProblem = async (req, res) => {
     visibleTestCases,
     hiddenTestCases,
     startCode,
-    driverCode,        // ✅ NEW
+    driverCode,
     referenceSolution
   } = req.body;
 
   try {
     // Validate reference solution using driverCode wrapping
-    // referenceSolution now only has the function (solutionCode)
-    // BUT to stay backward compatible, if completeCode exists we use it directly
     for (const { language, completeCode, solutionCode } of referenceSolution) {
       const languageId = getLanguageById(language);
 
@@ -90,7 +99,7 @@ const createProblem = async (req, res) => {
       visibleTestCases,
       hiddenTestCases: allHiddenTestCases,
       startCode,
-      driverCode,          // ✅ saved to DB
+      driverCode,
       referenceSolution,
       problemCreator: req.result._id
     });
