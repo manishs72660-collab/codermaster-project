@@ -2,45 +2,44 @@ const College = require("../models/collagescheam");
 const User = require("../models/Userschema");
 const Submission = require("../models/Submission");
 const client = require("../config/redis");
-const { createAccount, issueTokens, publicUser, normalizeEmail } = require("./auth");
+const { createAccount, publicUser, normalizeEmail } = require("./auth");
+const crypto = require("crypto");
+const CollegeRequest = require("../models/collegeRequest");
+const {
+  sendCollegeRequestNotification,
+  sendCollegeApprovedEmail,
+  sendCollegeRejectedEmail,
+} = require("../utils/mailer");
 
 // ---- college lifecycle ---------------------------------------------------
 
-// Public signup endpoint: creates the College doc AND its first
-// CollageAdmin user in one call, using the same createAccount() helper
-// that auth.js's register()/adminRegister() use. On success the admin is
-// immediately logged in (cookies set), same as a normal register call.
-const registerCollege = async (req, res) => {
-  const {
-    Collage_name,
-    collegeCode,
-    adminFirstName,
-    adminLastName,
-    adminEmail,
-    adminPassword,
-  } = req.body;
-
+// Validates input, creates the College doc + its first CollageAdmin user,
+// and links them together. Does NOT touch cookies/tokens.
+const createCollegeWithAdmin = async ({
+  Collage_name,
+  collegeCode,
+  adminFirstName,
+  adminLastName,
+  adminEmail,
+  adminPassword,
+}) => {
   if (!Collage_name || !collegeCode || !adminFirstName || !adminEmail || !adminPassword) {
-    return res.status(400).json({
-      success: false,
-      message: "Collage_name, collegeCode, adminFirstName, adminEmail and adminPassword are all required",
-    });
+    const err = new Error(
+      "Collage_name, collegeCode, adminFirstName, adminEmail and adminPassword are all required"
+    );
+    err.statusCode = 400;
+    throw err;
   }
 
-  // Catches the classic "sent as a JSON number/boolean instead of a
-  // quoted string" mistake before it reaches bcrypt and throws a cryptic
-  // "data must be a string or Buffer" error.
   if (typeof adminPassword !== "string" || typeof adminEmail !== "string") {
-    return res.status(400).json({
-      success: false,
-      message: "adminPassword and adminEmail must be strings",
-    });
+    const err = new Error("adminPassword and adminEmail must be strings");
+    err.statusCode = 400;
+    throw err;
   }
   if (adminPassword.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: "adminPassword must be at least 6 characters long",
-    });
+    const err = new Error("adminPassword must be at least 6 characters long");
+    err.statusCode = 400;
+    throw err;
   }
 
   const normalizedAdminEmail = normalizeEmail(adminEmail);
@@ -50,10 +49,9 @@ const registerCollege = async (req, res) => {
     $or: [{ collegeCode: normalizedCode }, { adminEmail: normalizedAdminEmail }],
   });
   if (existingCollege) {
-    return res.status(409).json({
-      success: false,
-      message: "College code or admin email is already in use",
-    });
+    const err = new Error("College code or admin email is already in use");
+    err.statusCode = 409;
+    throw err;
   }
 
   let college;
@@ -64,8 +62,6 @@ const registerCollege = async (req, res) => {
       adminEmail: normalizedAdminEmail,
     });
 
-    // Same account-creation path as a normal user registering, just with
-    // role "CollageAdmin" and this college's id attached.
     const adminUser = await createAccount({
       firstName: adminFirstName,
       lastName: adminLastName,
@@ -78,11 +74,25 @@ const registerCollege = async (req, res) => {
     college.adminId = adminUser._id;
     await college.save();
 
-    await issueTokens(res, adminUser);
+    return { college, adminUser };
+  } catch (err) {
+    if (college?._id && !college.adminId) {
+      await College.findByIdAndDelete(college._id);
+    }
+    throw err;
+  }
+};
+
+// Platform-admin only. Does NOT log the caller in as the new admin - the
+// caller stays logged in as themselves. Used by the "Register College"
+// form on the platform admin dashboard.
+const adminCreateCollege = async (req, res) => {
+  try {
+    const { college, adminUser } = await createCollegeWithAdmin(req.body);
 
     return res.status(201).json({
       success: true,
-      message: "College registered successfully",
+      message: "College created successfully",
       college: {
         _id: college._id,
         Collage_name: college.Collage_name,
@@ -93,42 +103,30 @@ const registerCollege = async (req, res) => {
       admin: publicUser(adminUser),
     });
   } catch (err) {
-    // createAccount() throws (409) if the email is taken elsewhere as a
-    // non-college-admin user - in that edge case, undo the College doc so
-    // we don't leave an orphaned college with no admin.
-    if (college?._id && !college.adminId) {
-      await College.findByIdAndDelete(college._id);
-    }
     return res.status(err.statusCode || 400).json({ success: false, message: err.message });
   }
 };
 
-// Platform-admin only.
+// Platform-admin only. Populates adminId so the "all colleges" dashboard
+// can show admin name/email without a second round trip per row.
 const getAllColleges = async (req, res) => {
   try {
-    const colleges = await College.find().select("-__v");
+    const colleges = await College.find()
+      .select("-__v")
+      .populate("adminId", "firstName lastName emailId role")
+      .sort({ createdAt: -1 });
     res.status(200).json({ success: true, colleges });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-const getCollegeById = async (req, res) => {
-  try {
-    const college = await College.findById(req.params.collegeId);
-    if (!college) {
-      return res.status(404).json({ success: false, message: "College not found" });
-    }
-    res.status(200).json({ success: true, college });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
-
+// Platform admin (or that college's own admin, via collegeScope) can edit
+// name/plan/active-status. The ManageColleges edit modal sends all three;
+// the College Admin Dashboard doesn't call this at all right now.
 const updateCollege = async (req, res) => {
   try {
     const { collegeId } = req.params;
-    // Whitelist: don't let arbitrary body fields overwrite collegeCode/adminEmail/adminId.
     const allowedUpdates = ["Collage_name", "plan", "isActive"];
     const updates = {};
     for (const key of allowedUpdates) {
@@ -174,17 +172,24 @@ const deleteCollege = async (req, res) => {
 
 // ---- students within a college ------------------------------------------
 
-// GET /college/:collegeId/students - paginated list of students (role
-// "User") belonging to :collegeId. Route is expected to sit behind
-// collegeScope middleware, which already confirmed the caller may see
-// this collegeId.
+// GET /collage/:collegeId/students - paginated name/email list, what the
+// simplified College Admin Dashboard renders.
 const getCollegeStudents = async (req, res) => {
   try {
     const { collegeId } = req.params;
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+    const search = (req.query.search || "").trim();
 
     const filter = { collegeId, role: "User" };
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { emailId: { $regex: search, $options: "i" } },
+      ];
+    }
+
     const [students, total] = await Promise.all([
       User.find(filter)
         .select("-password")
@@ -206,45 +211,182 @@ const getCollegeStudents = async (req, res) => {
   }
 };
 
-// GET /college/:collegeId/students/:userId - fetch one student, but only
-// if they actually belong to :collegeId. This is the tenant-isolation
-// check: a college admin can't fetch another college's student just by
-// guessing a userId.
-const getCollegeStudentById = async (req, res) => {
+// PATCH /collage/:collegeId/students/:userId/make-admin - promotes a
+// student ("User") in this college to "CollageAdmin". Any number of
+// CollageAdmins can exist per college - authorization (collegeScope) only
+// checks role + collegeId, it never looks at College.adminId, so this
+// doesn't require a schema change. NOTE: College.adminId still only
+// points at whoever registered the college first, so ManageColleges'
+// "Admin" column on the platform-admin side will keep showing that
+// original admin, not every co-admin - cosmetic only, doesn't affect
+// permissions.
+const makeStudentCollegeAdmin = async (req, res) => {
   try {
     const { collegeId, userId } = req.params;
-    const student = await User.findOne({ _id: userId, collegeId }).select("-password");
+    const student = await User.findOne({ _id: userId, collegeId, role: "User" });
     if (!student) {
       return res.status(404).json({ success: false, message: "Student not found in this college" });
     }
-    res.status(200).json({ success: true, student });
+
+    student.role = "CollageAdmin";
+    await student.save();
+
+    res.status(200).json({
+      success: true,
+      message: `${student.firstName} is now a College Admin`,
+      user: publicUser(student),
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+// ---- college registration requests (public → admin review) --------------
+
+// PUBLIC — no auth. This is what the Signup page's "Register your college"
+// popup calls. Just saves the request + notifies the platform admin by
+// email. Does NOT create the college or account yet.
+const requestCollege = async (req, res) => {
+  try {
+    const { Collage_name, collegeCode, adminFirstName, adminLastName, adminEmail, message } = req.body;
+
+    if (!Collage_name || !collegeCode || !adminFirstName || !adminEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Collage_name, collegeCode, adminFirstName and adminEmail are required",
+      });
+    }
+
+    const normalizedEmail = normalizeEmail(adminEmail);
+    const normalizedCode = String(collegeCode).trim().toUpperCase();
+
+    const alreadyExists = await College.findOne({
+      $or: [{ collegeCode: normalizedCode }, { adminEmail: normalizedEmail }],
+    });
+    if (alreadyExists) {
+      return res.status(409).json({
+        success: false,
+        message: "A college with this code or admin email is already registered",
+      });
+    }
+
+    const request = await CollegeRequest.create({
+      Collage_name,
+      collegeCode: normalizedCode,
+      adminFirstName,
+      adminLastName,
+      adminEmail: normalizedEmail,
+      message,
+    });
+
+    sendCollegeRequestNotification(request).catch((err) =>
+      console.error("Failed to send request notification email:", err)
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Request received — we'll email you once it's reviewed.",
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-const deleteCollegeStudent = async (req, res) => {
+// Platform-admin only. Lists requests, optionally filtered by ?status=pending
+const getCollegeRequests = async (req, res) => {
   try {
-    const { collegeId, userId } = req.params;
-    const student = await User.findOneAndDelete({ _id: userId, collegeId });
-    if (!student) {
-      return res.status(404).json({ success: false, message: "Student not found in this college" });
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+    const requests = await CollegeRequest.find(filter).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, requests });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// Platform-admin only. Creates the college + admin account for real (reuses
+// the exact same helper the direct "Register College" admin form uses),
+// generates a temp password, and emails the requester their login.
+const approveCollegeRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await CollegeRequest.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
     }
-    await Submission.deleteMany({ userId });
-    await client.del(`refreshToken:${userId}`);
-    res.status(200).json({ success: true, message: "Student removed" });
+    if (request.status !== "pending") {
+      return res.status(400).json({ success: false, message: `Request already ${request.status}` });
+    }
+
+    const tempPassword = crypto.randomBytes(6).toString("hex");
+
+    const { college } = await createCollegeWithAdmin({
+      Collage_name: request.Collage_name,
+      collegeCode: request.collegeCode,
+      adminFirstName: request.adminFirstName,
+      adminLastName: request.adminLastName,
+      adminEmail: request.adminEmail,
+      adminPassword: tempPassword,
+    });
+
+    request.status = "approved";
+    request.reviewedBy = req.result?._id; // adjust to whatever field your usermiddleware sets (e.g. req.user)
+    request.reviewedAt = new Date();
+    await request.save();
+
+    sendCollegeApprovedEmail({
+      toEmail: request.adminEmail,
+      collegeName: college.Collage_name,
+      collegeCode: college.collegeCode,
+      tempPassword,
+      loginUrl: `${process.env.FRONTEND_URL}/login`,
+    }).catch((err) => console.error("Failed to send approval email:", err));
+
+    res.status(200).json({ success: true, message: "College approved and registered", college });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({ success: false, message: err.message });
+  }
+};
+
+// Platform-admin only.
+const rejectCollegeRequest = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { reason } = req.body;
+    const request = await CollegeRequest.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+    if (request.status !== "pending") {
+      return res.status(400).json({ success: false, message: `Request already ${request.status}` });
+    }
+
+    request.status = "rejected";
+    request.rejectionReason = reason;
+    request.reviewedBy = req.result?._id;
+    request.reviewedAt = new Date();
+    await request.save();
+
+    sendCollegeRejectedEmail({
+      toEmail: request.adminEmail,
+      collegeName: request.Collage_name,
+      reason,
+    }).catch((err) => console.error("Failed to send rejection email:", err));
+
+    res.status(200).json({ success: true, message: "Request rejected" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
 module.exports = {
-  registerCollege,
+  adminCreateCollege,
   getAllColleges,
-  getCollegeById,
   updateCollege,
   deleteCollege,
   getCollegeStudents,
-  getCollegeStudentById,
-  deleteCollegeStudent,
+  makeStudentCollegeAdmin,
+  requestCollege,
+  getCollegeRequests,
+  approveCollegeRequest,
+  rejectCollegeRequest,
 };

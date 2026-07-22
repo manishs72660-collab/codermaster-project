@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, ShieldCheck, Video, Trophy, Settings } from 'lucide-react';
+import { Plus, Edit, Trash2, ShieldCheck, Video, Trophy, Settings, Building2, Inbox } from 'lucide-react';
 import { NavLink } from 'react-router';
 
 function Admin() {
@@ -83,6 +83,40 @@ function Admin() {
       accentBg: '#2a0d1a',
       accentBorder: '#3a1a2e',
       tag: 'CONTEST',
+    },
+    // ── COLLEGE CARDS ──
+    {
+      id: 'manage-colleges',
+      title: 'Manage Colleges',
+      description: 'View every registered college, its admin, and student counts',
+      icon: Building2,
+      route: '/admin/colleges',
+      accent: '#4493f8',
+      accentBg: '#0d1a2e',
+      accentBorder: '#1c2a3a',
+      tag: 'COLLEGE',
+    },
+    {
+      id: 'register-college',
+      title: 'Register College',
+      description: 'Onboard a new college and create its first admin account',
+      icon: Plus,
+      route: '/admin/colleges/register',
+      accent: '#00b86b',
+      accentBg: '#0f2a1a',
+      accentBorder: '#1a3a2a',
+      tag: 'COLLEGE',
+    },
+    {
+      id: 'college-requests',
+      title: 'College Requests',
+      description: 'Review self-service registration requests from the public signup page',
+      icon: Inbox,
+      route: '/admin/colleges/requests',
+      accent: '#f59e0b',
+      accentBg: '#2a1f0a',
+      accentBorder: '#3a2e0f',
+      tag: 'COLLEGE',
     },
   ];
 
@@ -248,7 +282,7 @@ function Admin() {
               <span className="adm-tag">Admin Panel</span>
             </div>
             <h1 className="adm-h1">Platform Management</h1>
-            <p className="adm-sub">Create, update, and delete problems — manage contests and user permissions.</p>
+            <p className="adm-sub">Create, update, and delete problems — manage contests, colleges and user permissions.</p>
           </div>
 
           <div className="adm-divider" />
@@ -261,7 +295,7 @@ function Admin() {
           </div>
 
           <div className="adm-grid" style={{ marginBottom: 32 }}>
-            {adminOptions.filter(o => !o.id.startsWith('contest')).map((option) => {
+            {adminOptions.filter(o => !o.id.startsWith('contest') && o.id !== 'manage-colleges' && o.id !== 'register-college' && o.id !== 'college-requests').map((option) => {
               const Icon = option.icon;
               return (
                 <NavLink
@@ -290,8 +324,38 @@ function Admin() {
             <div className="adm-section-line" />
           </div>
 
-          <div className="adm-grid">
+          <div className="adm-grid" style={{ marginBottom: 32 }}>
             {adminOptions.filter(o => o.id.startsWith('contest')).map((option) => {
+              const Icon = option.icon;
+              return (
+                <NavLink
+                  key={option.id}
+                  to={option.route}
+                  className="adm-card"
+                  style={{ '--c-accent': option.accent, '--c-bg': option.accentBg, '--c-border': option.accentBorder }}
+                  onClick={() => setSelectedOption(option.id)}
+                >
+                  <div className="adm-card-top">
+                    <div className="adm-icon-box"><Icon /></div>
+                    <span className="adm-card-op-tag">{option.tag}</span>
+                  </div>
+                  <div className="adm-card-title">{option.title}</div>
+                  <div className="adm-card-desc">{option.description}</div>
+                  <span className="adm-card-btn">{option.title}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+
+          {/* Colleges section */}
+          <div className="adm-section-label">
+            <div className="adm-section-bar" style={{ background: '#4493f8' }} />
+            <span className="adm-section-text">Colleges</span>
+            <div className="adm-section-line" />
+          </div>
+
+          <div className="adm-grid">
+            {adminOptions.filter(o => o.id === 'manage-colleges' || o.id === 'register-college' || o.id === 'college-requests').map((option) => {
               const Icon = option.icon;
               return (
                 <NavLink
@@ -316,7 +380,7 @@ function Admin() {
           <div className="adm-stats">
             <div className="adm-stat">
               <span className="adm-stat-label">Operations</span>
-              <span className="adm-stat-val">7</span>
+              <span className="adm-stat-val">10</span>
               <span className="adm-stat-sub">available actions</span>
             </div>
             <div className="adm-stat">

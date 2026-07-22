@@ -35,10 +35,6 @@ const UserSchema = new Schema({
         enum: ["Admin", "User", "CollageAdmin"],
         default: "User",
     },
-    // Tenant link. Required for students ("User") and college admins
-    // ("CollageAdmin") - every college-scoped API filters on this field.
-    // Platform-level "Admin" accounts are not tied to any single college,
-    // so it's left undefined for them.
     collegeId: {
         type: Schema.Types.ObjectId,
         ref: "College",
@@ -51,14 +47,15 @@ const UserSchema = new Schema({
     },
     profileImage: {
         type: String,
-        default: "https://example.com/default-avatar.png"
+        default: "https://i.pinimg.com/736x/83/bc/8b/83bc8b88cf6bc4b4e04d153a418cde62.jpg"
+    },
+    reputation: {
+        type: Number,
+        default: 0,
     }
 
 }, { timestamps: true });
 
-// Every college-scoped query (student list, single student, etc.) filters
-// by collegeId, so this index matters once you have more than a handful
-// of users.
 UserSchema.index({ collegeId: 1 });
 
 const User = mongoose.model('User', UserSchema);

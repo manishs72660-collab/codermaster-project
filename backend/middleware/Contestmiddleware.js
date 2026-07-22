@@ -1,8 +1,10 @@
 const Contest = require('../models/Contest');
 
-// Only Admin role can create/update/delete contests
+// Platform Admin AND College Admin can create/update/delete contests.
+// (Previously platform-Admin-only - opened up so a college's own admin
+// can run contests for their students too.)
 const isAdmin = (req, res, next) => {
-    if (!req.result || req.result.role !== 'Admin') {
+    if (!req.result || (req.result.role !== 'Admin' && req.result.role !== 'CollageAdmin')) {
         return res.status(403).json({ message: 'Access denied. Admins only.' });
     }
     next();

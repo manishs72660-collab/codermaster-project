@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { LogOut, User as UserIcon, Code2 } from 'lucide-react';
+import { LogOut, User as UserIcon, Code2, GraduationCap } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { logoutUser } from '../authSlice';
 
@@ -20,6 +20,9 @@ function Navbar() {
   const handleLogout = () => {
     dispatch(logoutUser());
   };
+
+  const roleLabel =
+    user?.role === 'Admin' ? 'Grandmaster' : user?.role === 'CollageAdmin' ? 'Faculty' : 'Master';
 
   return (
     <nav className={cn(
@@ -49,7 +52,6 @@ function Navbar() {
               { to: '/explore', label: 'Explorer' },
               { to: '/contest', label: 'Contests' },
               { to: '/discuss', label: 'Community' },
-              {to: '/doubts', label: 'solveqoubt'}
             ].map(({ to, label }) => (
               <NavLink
                 key={to} to={to}
@@ -58,6 +60,18 @@ function Navbar() {
                 {label}
               </NavLink>
             ))}
+
+            {/* College admins get a direct top-nav shortcut to their dashboard,
+                same as Admins get an "Admin Panel" entry in the profile menu below. */}
+            {user?.role === 'CollageAdmin' && (
+              <NavLink
+                to="/collegeadmin"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-sky-400/80 hover:text-sky-300 hover:bg-sky-500/[0.08] rounded-lg transition-all"
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                College Admin
+              </NavLink>
+            )}
           </div>
         </div>
 
@@ -67,7 +81,7 @@ function Navbar() {
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex flex-col items-end">
                 <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">
-                  {user?.role === 'Admin' ? 'Grandmaster' : 'Master'}
+                  {roleLabel}
                 </span>
                 <span className="text-sm font-semibold text-white leading-tight">
                   {user?.firstName || 'User'}
@@ -75,24 +89,29 @@ function Navbar() {
               </div>
 
               <div className="relative group">
-                <NavLink to="/profile">
-                  <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 hover:border-orange-500/30 transition-all">
-                    <UserIcon className="w-4 h-4 text-white/70" />
-                  </button>
-                </NavLink>
+               <NavLink to={`/profile/${user._id}`}>
+  <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 hover:border-orange-500/30 transition-all">
+    <UserIcon className="w-4 h-4 text-white/70" />
+  </button>
+</NavLink>
                 <div className="absolute right-0 top-full w-2 h-2" />
                 <div className="absolute right-0 top-[calc(100%+6px)] w-52 bg-[#0e0e0e] border border-white/[0.08] rounded-2xl shadow-[0_24px_48px_rgba(0,0,0,0.7)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 overflow-hidden">
                   <div className="px-4 py-3 border-b border-white/[0.06]">
                     <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Logged in as</p>
                     <p className="text-sm font-semibold text-white">{user?.firstName || 'User'}</p>
                     <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mt-0.5">
-                      {user?.role === 'Admin' ? 'Administrator' : 'User'}
+                      {user?.role === 'Admin' ? 'Administrator' : user?.role === 'CollageAdmin' ? 'College Admin' : 'User'}
                     </p>
                   </div>
                   <div className="p-2">
                     {user?.role === 'Admin' && (
                       <NavLink to="/admin" className="flex items-center gap-2.5 px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10 rounded-xl transition-colors">
                         <Code2 className="w-3.5 h-3.5" /> Admin Panel
+                      </NavLink>
+                    )}
+                    {user?.role === 'CollageAdmin' && (
+                      <NavLink to="/collegeadmin" className="flex items-center gap-2.5 px-3 py-2 text-sm text-sky-400 hover:bg-sky-500/10 rounded-xl transition-colors">
+                        <GraduationCap className="w-3.5 h-3.5" /> College Admin
                       </NavLink>
                     )}
                     <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors text-left">

@@ -121,24 +121,40 @@ const createAccount = async ({
 const register = async (req, res) => {
   try {
     await validator(req.body);
-    const { password, firstName, lastName, age, profileImage, collegeCode } = req.body;
+
+    const {
+      password,
+      firstName,
+      lastName,
+      age,
+      profileImage,
+      collegeCode,
+    } = req.body;
+
     const emailId = normalizeEmail(req.body.emailId);
 
-    // A student registering directly (not via a college-admin invite flow)
-    // can optionally join a college at signup time using its human-readable
-    // code (e.g. "EXU01") - the one shown to the college admin after
-    // registerCollege(), not the raw Mongo _id. Looking it up here means
-    // the frontend never has to know or handle ObjectId format at all.
+    // Find college by college code (optional)
     let collegeId;
     if (collegeCode) {
       const college = await College.findOne({
         collegeCode: String(collegeCode).trim().toUpperCase(),
       });
+
       if (!college || !college.isActive) {
-        return res.status(400).json({ message: "Invalid or inactive college code" });
+        return res.status(400).json({
+          message: "Invalid or inactive college code",
+        });
       }
+
       collegeId = college._id;
     }
+
+    // Generate random robot avatar if profile image is not provided
+    const avatar =
+      profileImage ||
+      `https://api.dicebear.com/9.x/bottts/png?seed=${Math.floor(
+        Math.random() * 1000000
+      )}`;
 
     const user = await createAccount({
       firstName,
@@ -146,10 +162,11 @@ const register = async (req, res) => {
       emailId,
       password,
       age,
-      profileImage,
+      profileImage: avatar,
       role: "User",
       collegeId,
     });
+
     await issueTokens(res, user);
 
     res.status(201).json({
@@ -157,7 +174,9 @@ const register = async (req, res) => {
       message: "Registered successfully",
     });
   } catch (err) {
-    res.status(err.statusCode || 400).json({ message: err.message });
+    res.status(err.statusCode || 400).json({
+      message: err.message,
+    });
   }
 };
 

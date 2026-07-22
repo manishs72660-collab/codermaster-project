@@ -1,3 +1,4 @@
+require('dotenv').config();
 require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
 const express = require("express");
 const { createServer } = require("http");
@@ -17,11 +18,11 @@ const contestRouter = require('./routes/contestroute');
 const initializeSocket = require("./socket/index");
 const adminListRouter = require("./routes/onlineadmin");
 const chatrouter = require("./routes/chatroute");
-const doubtRouter=require("./routes/doubtroute");
-const answerRouter=require("./routes/answerrote");
-const postrouter=require("./routes/solutionpost");
-const collagerouter=require("./routes/Collegeroutes")
-require('dotenv').config();
+const postrouter = require("./routes/solutionpost");
+const collagerouter = require("./routes/Collegeroutes")
+const profileRouter = require("./routes/profileRoute");
+const communityRouter = require("./routes/communityroute");
+
 const cors = require('cors');
 
 const app = express();
@@ -54,12 +55,11 @@ app.use("/video", videoRouter);
 app.use("/duel", duelRouter);
 app.use('/contest', contestRouter);
 app.use("/api", adminListRouter);
-app.use("/api", chatrouter); 
-app.use("/doubt",doubtRouter);
-app.use("/answer",answerRouter);
-app.use("/solution",postrouter);
-app.use("/collage",collagerouter)
-
+app.use("/api", chatrouter);
+app.use("/solution", postrouter);
+app.use("/collage", collagerouter)
+app.use("/profile", profileRouter);
+app.use("/community", communityRouter);
 initializeSocket(io);
 
 const InitlizeConnection = async () => {

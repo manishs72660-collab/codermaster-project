@@ -59,7 +59,7 @@ function AuthVisualPanel() {
             <Code2 className="h-4.5 w-4.5" />
           </div>
           <span className="font-display text-lg font-800 tracking-tight text-white">
-            CodeMaster<span className="text-orange-500">Dark</span>
+            Code<span className="text-orange-500">Master</span>
           </span>
         </div>
 
@@ -111,7 +111,7 @@ function AuthVisualPanel() {
         <span className="tag-pill text-rose-400 border-rose-500/25 bg-rose-500/8">240 Hard</span>
       </motion.div>
 
-      <p className="relative z-10 text-[11px] text-white/20">© {new Date().getFullYear()} CodeMasterDark</p>
+      <p className="relative z-10 text-[11px] text-white/20">© {new Date().getFullYear()} CodeMaster</p>
     </div>
   );
 }

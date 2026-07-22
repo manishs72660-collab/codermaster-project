@@ -13,7 +13,7 @@ import Admin from "./pages/admin";
 import AdminPanel from "./component/creat";
 import DSAVisualizer from "./pages/visu";
 import Explore from "./pages/expore";
-import Profilepage from "./component/profile"
+import ProfilePage from "./pages/ProfilePage";
 import ContactPage from "./pages/connect";
 import Contest from "./pages/context";
 import AdminVideo from "./component/adminvideo";
@@ -22,7 +22,6 @@ import ArenaChat from "./component/discord"
 import Updateproblem from "./component/updatepeoblem";
 import AdminUpdate from "./component/Adminupdate";
 import UserProfile from "./component/profile";
-import { HLDComponentsDemo } from "./component/hld";
 import DuelLobby from "./pages/DuelLobby";
 import DuelPage from "./pages/DuelPage";
 import DuelLeaderboard from "./pages/DuelLeaderboard";
@@ -37,9 +36,12 @@ import AdminListPage from "./pages/AdminListPage";
 import IncomingChatPopup from "./component/IncomingChatPopup"; 
 import socket from "./utils/socket";
 import ChatRoomPage from "./pages/chatroompage";
-import DoubtBoard from "../src/pages/Doubtboard"
-import AskDoubt from "../src/pages/Askdoubt"
-import DoubtDetail from "../src/pages/Doubtdetai"
+// -- college feature --
+import ManageColleges from "./component/ManageColleges";
+import CollegeAdminDashboard from "./pages/CollegeAdminDashboard";
+import RegisterCollege from "./component/Registercollege";
+import CollegeRequests from "./pages/CollegeRequests";
+
 function App(){
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -84,7 +86,7 @@ function App(){
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
       <Route path="/signup" element={isAuthenticated?<Navigate to="/" />:<Signup></Signup>}></Route>
       <Route path="/problem/:problemId" element={<ProblemPage></ProblemPage>}></Route>
-      <Route path="/profile" element={<Profilepage></Profilepage>}></Route>
+    <Route path="/profile/:userId" element={<ProfilePage></ProfilePage>}></Route>
         <Route path="/admin" element={isAuthenticated && user?.role == 'Admin' ? <Admin /> : <Navigate to="/" />} />
       <Route path="/admin/create" element={isAuthenticated && user?.role === 'Admin' ? <AdminPanel /> : <Navigate to="/" />} />
       <Route path="/explore/dsa-visualizer" element={<DSAVisualizer></DSAVisualizer>}></Route>
@@ -96,7 +98,6 @@ function App(){
       <Route path="/arechat" element={<ArenaChat/>}></Route>
       <Route path="/admin/update" element={<Updateproblem></Updateproblem>}></Route>
       <Route path="/admin/update/:problemId" element={<AdminUpdate></AdminUpdate>}/>
-      <Route path="/hld" element={<HLDComponentsDemo></HLDComponentsDemo>}></Route>
       <Route path="/duel" element={ <DuelLobby />} />
      <Route path="/duel/:roomCode" element={<DuelPage />} />
     <Route path="/duel/leaderboard" element={<DuelLeaderboard />} />
@@ -109,9 +110,17 @@ function App(){
     <Route path="/explore/complexity" element={<ComplexityVisualizer></ComplexityVisualizer>}></Route>
     <Route path="/explore/talkadmin" element={<AdminListPage /> } />
     <Route path="/chat/:roomName" element={isAuthenticated ? <ChatRoomPage /> : <Navigate to="/login" />} />
-    <Route path="/doubts" element={<DoubtBoard />} />
-<Route path="/doubts/ask" element={isAuthenticated ? <AskDoubt /> : <Navigate to="/login" />} />
-<Route path="/doubts/:id" element={<DoubtDetail />} />
+    {/* -- college feature -- */}
+    {/* Platform admin: browse every registered college + its admin details */}
+    <Route path="/admin/colleges" element={isAuthenticated && user?.role === 'Admin' ? <ManageColleges /> : <Navigate to="/" />} />
+    {/* Platform admin: onboard a new college (uses the admin-only POST /collage, not the public /collage/register) */}
+    <Route path="/admin/colleges/register" element={isAuthenticated && user?.role === 'Admin' ? <RegisterCollege /> : <Navigate to="/" />} />
+    {/* Platform admin: review self-service registration requests from the public Signup page popup, approve/reject them */}
+    <Route path="/admin/colleges/requests" element={isAuthenticated && user?.role === 'Admin' ? <CollegeRequests /> : <Navigate to="/" />} />
+    {/* Platform admin: drill into one college's dashboard (view-only lens on someone else's college) */}
+    <Route path="/admin/colleges/:collegeId" element={isAuthenticated && user?.role === 'Admin' ? <CollegeAdminDashboard /> : <Navigate to="/" />} />
+    {/* College admin: their own college's dashboard (collegeId comes from their own user record) */}
+    <Route path="/collegeadmin" element={isAuthenticated && user?.role === 'CollageAdmin' ? <CollegeAdminDashboard /> : <Navigate to="/" />} />
     </Routes>
   </>
   )

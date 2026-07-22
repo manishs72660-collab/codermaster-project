@@ -23,60 +23,36 @@ const problemSchema = new Schema({
     },
     visibleTestCases:[
         {
-            input:{
-                type:String,
-                required:true,
-            },
-            output:{
-                type:String,
-                required:true,
-            },
-            explanation:{
-                type:String,
-                required:true
-            }
+            input:{ type:String, required:true },
+            output:{ type:String, required:true },
+            explanation:{ type:String, required:true }
         }
     ],
-
     hiddenTestCases:[
         {
-            input:{
-                type:String,
-                required:true,
-            },
-            output:{
-                type:String,
-                required:true,
-            }
+            input:{ type:String, required:true },
+            output:{ type:String, required:true }
         }
     ],
-
     startCode: [
         {
-            language:{
-                type:String,
-                required:true,
-            },
-            initialCode:{
-                type:String,
-                required:true
-            }
+            language:{ type:String, required:true },
+            initialCode:{ type:String, required:true }
         }
     ],
-driverCode: [
+    driverCode: [
         {
             language: { type: String, required: true },
             code: { type: String, required: true }
         }
     ],
     referenceSolution: [
-    {
-        language: { type: String, required: true },
-        completeCode: { type: String },   // ✅ removed required
-        solutionCode: { type: String }    // ✅ added
-    }
-],
-
+        {
+            language: { type: String, required: true },
+            completeCode: { type: String },
+            solutionCode: { type: String }
+        }
+    ],
     problemCreator:{
         type: Schema.Types.ObjectId,
         ref:'user',
@@ -85,5 +61,5 @@ driverCode: [
 })
 problemSchema.index({ userId: 1, problemId: 1 }, { unique: true });
 
-const Problem = mongoose.model('problem',problemSchema);
+const Problem = mongoose.model('problem', problemSchema);
 module.exports = Problem;

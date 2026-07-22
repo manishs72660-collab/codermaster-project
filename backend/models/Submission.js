@@ -4,12 +4,12 @@ const Schema = mongoose.Schema;
 const submissionSchema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'User',       // matches mongoose.model('User', ...) — unchanged
     required: true
   },
   problemId: {
     type: Schema.Types.ObjectId,
-    ref: 'Problem',
+    ref: 'problem',     // <-- FIXED: was 'Problem', now matches mongoose.model('problem', ...)
     required: true
   },
   code: {
@@ -19,7 +19,7 @@ const submissionSchema = new Schema({
   language: {
     type: String,
     required: true,
-    enum: ['javascript', 'c++', 'java'] 
+    enum: ['javascript', 'c++', 'java','python']
   },
   status: {
     type: String,
@@ -42,15 +42,14 @@ const submissionSchema = new Schema({
     type: Number,
     default: 0
   },
-  testCasesTotal: {  // Recommended addition
+  testCasesTotal: {
     type: Number,
     default: 0
   },
-}, { 
+}, {
   timestamps: true
 });
 
-
-const Submission = mongoose.model('submission',submissionSchema);
+const Submission = mongoose.model('submission', submissionSchema);
 
 module.exports = Submission;
