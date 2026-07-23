@@ -21,12 +21,8 @@ function ChatRoomPage() {
   useEffect(() => {
     let isMounted = true;
 
-    // FIX: was "/chatapi/chats/..." (typo, 404'd every time) — the router is
-    // mounted at "/api" in index.js (app.use("/api", chatrouter)), so the real
-    // path is "/api/chats/:chatRequestId/messages". Switched to axiosClient so
-    // baseURL + withCredentials stay consistent with the rest of the app.
     axiosClient
-      .get(`/api/chats/${chatRequestId}/messages`)
+      .get(`/chat/chats/${chatRequestId}/messages`)
       .then((res) => {
         if (!isMounted) return;
         setChatRequest(res.data.chatRequest);
@@ -74,8 +70,16 @@ function ChatRoomPage() {
 
   const endChat = () => {
     if (!chatRequest) return;
+
+    // FIX: was checking role === "admin" (lowercase, matches nothing in the
+    // schema). The person on the "admin side" of this chat is a "CollageAdmin",
+    // so recognize them directly by role rather than falling through to the
+    // populated chatRequest.adminId every time.
     const adminId =
-      user.role === "admin" ? user._id : chatRequest.adminId?._id || chatRequest.adminId;
+      user.role === "CollageAdmin"
+        ? user._id
+        : chatRequest.adminId?._id || chatRequest.adminId;
+
     socket.emit("chat:end", { chatRequestId, roomName, adminId });
     navigate("/admins");
   };

@@ -14,7 +14,8 @@ import AdminPanel from "./component/creat";
 import DSAVisualizer from "./pages/visu";
 import Explore from "./pages/expore";
 import ProfilePage from "./pages/ProfilePage";
-import ContactPage from "./pages/connect";
+import Community from "./pages/connect";
+import CommunityPostDetail from "./pages/Communitypostdetail";
 import Contest from "./pages/context";
 import AdminVideo from "./component/adminvideo";
 import AdminUpload from "./component/Adminupload";
@@ -41,6 +42,12 @@ import ManageColleges from "./component/ManageColleges";
 import CollegeAdminDashboard from "./pages/CollegeAdminDashboard";
 import RegisterCollege from "./component/Registercollege";
 import CollegeRequests from "./pages/CollegeRequests";
+
+// NOTE: no "/discuss" route exists anywhere in this file. If clicking
+// "Community" sometimes lands you on a discuss view, that behavior is being
+// decided *inside* the Community page component (./pages/connect.jsx) —
+// e.g. a default tab, a redirect based on stored state, or an internal
+// nested route — not here. Check that file for the actual cause.
 
 function App(){
   const dispatch = useDispatch();
@@ -79,7 +86,7 @@ function App(){
   <>
     {/* Shows an Accept/Decline popup to admins whenever a user requests a chat.
         Mounted here (outside <Routes>) so it works no matter which page the admin is on. */}
-    {isAuthenticated && user?.role === "Admin" && <IncomingChatPopup />}
+   {isAuthenticated && user?.role === "CollageAdmin" && <IncomingChatPopup />}
 
     <Routes>
       <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route>
@@ -91,7 +98,6 @@ function App(){
       <Route path="/admin/create" element={isAuthenticated && user?.role === 'Admin' ? <AdminPanel /> : <Navigate to="/" />} />
       <Route path="/explore/dsa-visualizer" element={<DSAVisualizer></DSAVisualizer>}></Route>
       <Route path="/explore" element={<Explore></Explore>}></Route>
-      <Route path="/discuss" element={<ContactPage></ContactPage>}></Route>
       <Route path="/contest" element={<Contest></Contest>}></Route>
       <Route path="/admin/video" element={<AdminVideo></AdminVideo>}></Route>
       <Route path="/admin/upload/:problemId" element={<AdminUpload></AdminUpload>}/>
@@ -121,6 +127,8 @@ function App(){
     <Route path="/admin/colleges/:collegeId" element={isAuthenticated && user?.role === 'Admin' ? <CollegeAdminDashboard /> : <Navigate to="/" />} />
     {/* College admin: their own college's dashboard (collegeId comes from their own user record) */}
     <Route path="/collegeadmin" element={isAuthenticated && user?.role === 'CollageAdmin' ? <CollegeAdminDashboard /> : <Navigate to="/" />} />
+    <Route path="/community" element={<Community />} />
+<Route path="/community/post/:id" element={<CommunityPostDetail />} />
     </Routes>
   </>
   )

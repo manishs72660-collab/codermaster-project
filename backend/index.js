@@ -55,7 +55,7 @@ app.use("/video", videoRouter);
 app.use("/duel", duelRouter);
 app.use('/contest', contestRouter);
 app.use("/api", adminListRouter);
-app.use("/api", chatrouter);
+app.use("/chat", chatrouter);
 app.use("/solution", postrouter);
 app.use("/collage", collagerouter)
 app.use("/profile", profileRouter);

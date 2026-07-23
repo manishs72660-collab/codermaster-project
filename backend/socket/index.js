@@ -1,6 +1,6 @@
 const client = require("../config/redis");
-const ChatRequest = require("../models/ChatRequest"); // FIX: was "../models/chatrequest" (wrong casing)
-const Message = require("../models/Message");          // FIX: needed for persisting chat messages
+const ChatRequest = require("../models/ChatRequest");
+const Message = require("../models/Message");
 
 // tracks pending auto-expire timers so we can cancel them if admin responds in time
 const pendingTimeouts = {}; // { chatRequestId: timeoutHandle }
@@ -17,7 +17,10 @@ function initializeSocket(io) {
 
         await client.hSet("online_users", userId, socket.id);
 
-        if (role === "Admin") {
+        // FIX: the people users request chats WITH are "CollageAdmin" accounts,
+        // not the platform-level "Admin". Was checking "Admin" here, so college
+        // admins never registered as online and never appeared in the admin list.
+        if (role === "CollageAdmin") {
           await client.sAdd("online_admins", userId);
           io.emit("admin:status_update", { userId, status: "online" });
         }
@@ -107,7 +110,7 @@ function initializeSocket(io) {
       }
     });
 
-    // FIX: now persists to MongoDB (was only broadcasting live before, so refresh lost history)
+    // persists to MongoDB so refresh doesn't lose history
     socket.on("chat:message", async ({ roomName, chatRequestId, senderId, text }) => {
       try {
         if (!text || !text.trim()) return; // ignore empty messages
@@ -169,7 +172,9 @@ function initializeSocket(io) {
         if (socket.userId) {
           await client.hDel("online_users", socket.userId);
 
-          if (socket.role === "admin") {
+          // FIX: was checking "admin" (lowercase) — didn't match "CollageAdmin"
+          // OR the "Admin" check used above, so cleanup never actually ran.
+          if (socket.role === "CollageAdmin") {
             await client.sRem("online_admins", socket.userId);
             io.emit("admin:status_update", { userId: socket.userId, status: "offline" });
 

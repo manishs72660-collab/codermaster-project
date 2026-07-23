@@ -5,7 +5,7 @@ const commentSchema = new Schema(
   {
     author: {
       type: Schema.Types.ObjectId,
-      ref: "user",
+      ref: "User",
       required: true,
     },
     body: {
@@ -17,7 +17,7 @@ const commentSchema = new Schema(
     upvotes: [
       {
         type: Schema.Types.ObjectId,
-        ref: "user",
+        ref: "User",
       },
     ],
   },
@@ -28,7 +28,7 @@ const postSchema = new Schema(
   {
     author: {
       type: Schema.Types.ObjectId,
-      ref: "user",
+      ref: "User",
       required: true,
     },
     title: {
@@ -67,7 +67,7 @@ const postSchema = new Schema(
     upvotes: [
       {
         type: Schema.Types.ObjectId,
-        ref: "user",
+        ref: "User",
       },
     ],
     comments: [commentSchema],

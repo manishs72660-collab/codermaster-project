@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import Editor from '@monaco-editor/react';
-import { useParams } from 'react-router';
+import { NavLink, useParams } from 'react-router';
 import axiosClient from "../utils/axiosClient";
 import SubmissionHistory from '../component/subbsion';
 import CodeBoard from '../component/whiteboard';
@@ -1101,7 +1101,9 @@ const ProblemPage = () => {
         <div className="cm-topbar">
           <div className="cm-logo">
             <div className="cm-logo-mark">⌨</div>
+            <NavLink to={"/"}>
             <span className="cm-logo-name">CodeMaster</span>
+            </NavLink>
           </div>
 
           {problem && (

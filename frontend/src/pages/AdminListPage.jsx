@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import socket from "../utils/socket";
-import axios from "axios";
 import { useSelector } from "react-redux";
 import axiosClient from "../utils/axiosClient";
 import { useNavigate } from "react-router";
@@ -12,7 +11,7 @@ function AdminListPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    axiosClient.get("/api/admins", { withCredentials: true })
+    axiosClient.get("/chat/admins")
       .then((res) => setAdmins(res.data))
       .catch((err) => console.error(err));
 
@@ -50,6 +49,10 @@ function AdminListPage() {
     socket.emit("chat:request", { userId: user._id, adminId });
   };
 
+  // only the platform-level "Admin" sees admins from multiple colleges at once,
+  // since /api/admins scopes everyone else to their own college server-side.
+  const showCollegeName = user?.role === "Admin";
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 px-4 py-10">
       <div className="max-w-2xl mx-auto">
@@ -75,6 +78,9 @@ function AdminListPage() {
         <ul className="space-y-3">
           {admins.map((admin) => {
             const status = requestStatus[admin._id];
+            // populated via .populate("collegeId", "Collage_name collegeCode") on the backend
+            const collegeName = admin.collegeId?.Collage_name;
+
             return (
               <li
                 key={admin._id}
@@ -93,11 +99,18 @@ function AdminListPage() {
                     />
                   </div>
 
-                  {/* Name + status */}
+                  {/* Name + college + status */}
                   <div className="min-w-0">
-                    <p className="font-medium text-neutral-100 truncate">
-                      {admin.firstName || admin.emailId || admin._id}
-                    </p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="font-medium text-neutral-100 truncate">
+                        {admin.firstName || admin.emailId || admin._id}
+                      </p>
+                      {showCollegeName && collegeName && (
+                        <span className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
+                          {collegeName}
+                        </span>
+                      )}
+                    </div>
                     <p
                       className={`text-xs ${
                         admin.isOnline ? "text-emerald-500" : "text-neutral-500"
