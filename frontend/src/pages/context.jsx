@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Trophy,
@@ -12,11 +12,15 @@ import {
   Lock,
   Zap,
   Code2,
+  LogOut,
+  User as UserIcon,
   Timer,
+  KeyRound,
+  X,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
+import { logoutUser } from '../authSlice';
 import { cn } from '../utils/cn';
-import Navbar from '../component/Navbar';
 
 /* ─── helpers ─── */
 const getStatusStyle = (status) => {
@@ -63,12 +67,29 @@ function useCountdown(targetDate) {
    MAIN PAGE
 ══════════════════════════════════════════ */
 export default function Contest() {
+  const dispatch  = useDispatch();
   const navigate  = useNavigate();
-  const { user }  = useSelector((s) => s.auth); // still used lower on the page (top-3 cards, etc.)
+  const { user }  = useSelector((s) => s.auth);
 
   const [contests, setContests]   = useState([]);
   const [loading, setLoading]     = useState(true);
   const [tab, setTab]             = useState('all'); // all | ongoing | upcoming | ended
+  const [scrolled, setScrolled]   = useState(false);
+
+  // ── join-by-code modal state ──
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode]           = useState('');
+  const [joining, setJoining]             = useState(false);
+  const [joinError, setJoinError]         = useState('');
+  // when set, the modal was opened by clicking a specific private card
+  // (so we know which title to show, though the code itself decides the contest)
+  const [joinTarget, setJoinTarget]       = useState(null);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     axiosClient.get('/contest/all')
@@ -76,6 +97,33 @@ export default function Contest() {
       .catch(() => setContests([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleLogout = () => dispatch(logoutUser());
+
+  const handleJoinByCode = async (e) => {
+    e.preventDefault();
+    if (!joinCode.trim()) return;
+    setJoining(true);
+    setJoinError('');
+    try {
+      const { data } = await axiosClient.post('/contest/join', { code: joinCode.trim() });
+      setShowJoinModal(false);
+      setJoinCode('');
+      setJoinTarget(null);
+      navigate(`/contest/${data.contestId}`);
+    } catch (err) {
+      setJoinError(err?.response?.data?.message || 'Invalid or expired code');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const openJoinModal = (contest) => {
+    setJoinTarget(contest || null);
+    setJoinError('');
+    setJoinCode('');
+    setShowJoinModal(true);
+  };
 
   const filtered = contests.filter((c) => tab === 'all' || c.computedStatus === tab);
 
@@ -130,12 +178,89 @@ export default function Contest() {
           <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-purple-500/[0.04] blur-[130px] rounded-full" />
         </div>
 
-        {/* ── NAV ──
-            Was a hand-copied inline nav ("exact same as Homepage") that had
-            drifted out of sync with the real shared component — this is what
-            was causing the Community link to behave differently per page.
-            Now using the single shared Navbar everywhere instead. */}
-        <Navbar />
+        {/* ── NAV ── */}
+        <nav className={cn(
+          "sticky top-0 z-50 transition-all duration-300",
+          scrolled
+            ? "border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
+            : "border-b border-transparent bg-transparent"
+        )}>
+          <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <NavLink to="/" className="flex items-center gap-2.5 group">
+                <div className="relative">
+                  <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+                    <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
+                  </div>
+                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-[#050505]" />
+                </div>
+                <span className="font-display text-[17px] font-800 tracking-tight text-white italic">CodeMaster</span>
+              </NavLink>
+
+              <div className="hidden md:flex items-center gap-1">
+                {[
+                  { to: '/explore', label: 'Explorer' },
+                  { to: '/contest', label: 'Contests' },
+                  { to: '/discuss', label: 'Community' },
+                ].map(({ to, label }) => (
+                  <NavLink key={to} to={to}
+                    className={({ isActive }) => cn(
+                      "px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all",
+                      isActive ? "text-white bg-white/[0.06]" : "text-white/50 hover:text-white hover:bg-white/[0.04]"
+                    )}>
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Join private contest button */}
+              <button
+                onClick={() => openJoinModal(null)}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white/50 border border-white/[0.08] hover:text-white hover:border-white/20 hover:bg-white/[0.04] transition-all"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Join with code
+              </button>
+
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex flex-col items-end">
+                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">
+                      {user?.role === 'admin' ? 'Grandmaster' : 'Master'}
+                    </span>
+                    <span className="text-sm font-semibold text-white leading-tight">{user?.firstName || 'User'}</span>
+                  </div>
+                  <div className="relative group">
+                    <NavLink to="/profile">
+                      <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 hover:border-orange-500/30 transition-all">
+                        <UserIcon className="w-4 h-4 text-white/70" />
+                      </button>
+                    </NavLink>
+                    <div className="absolute right-0 top-[calc(100%+6px)] w-52 bg-[#0e0e0e] border border-white/[0.08] rounded-2xl shadow-[0_24px_48px_rgba(0,0,0,0.7)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-white/[0.06]">
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Logged in as</p>
+                        <p className="text-sm font-semibold text-white">{user?.firstName || 'User'}</p>
+                      </div>
+                      <div className="p-2">
+                        <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors text-left">
+                          <LogOut className="w-3.5 h-3.5" /> Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <NavLink to="/login">
+                  <button className="bg-orange-500 text-black px-5 py-2 rounded-xl text-sm font-bold hover:bg-orange-400 transition-colors shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+                    Connect
+                  </button>
+                </NavLink>
+              )}
+            </div>
+          </div>
+        </nav>
 
         {/* ── HERO ── */}
         <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
@@ -160,6 +285,15 @@ export default function Contest() {
               <p className="text-white/40 text-base max-w-md leading-relaxed">
                 Join timed contests, climb the leaderboard, and prove your skills against the best.
               </p>
+
+              {/* mobile join-with-code link (button above is hidden on small screens) */}
+              <button
+                onClick={() => openJoinModal(null)}
+                className="sm:hidden mt-4 flex items-center gap-1.5 text-xs font-bold text-white/50 hover:text-white transition-colors"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Have a private invite code? Join here
+              </button>
             </motion.div>
           </div>
           <div className="absolute top-4 right-4 w-24 h-24 border-r-2 border-t-2 border-white/[0.04] rounded-tr-2xl pointer-events-none" />
@@ -304,7 +438,7 @@ export default function Contest() {
               <div className="space-y-3">
                 <AnimatePresence mode="popLayout">
                   {filtered.map((contest, index) => (
-                    <ContestCard key={contest._id} contest={contest} index={index} />
+                    <ContestCard key={contest._id} contest={contest} index={index} onRequestJoin={openJoinModal} />
                   ))}
                 </AnimatePresence>
               </div>
@@ -312,6 +446,72 @@ export default function Contest() {
           </div>
         </div>
       </div>
+
+      {/* ── JOIN WITH CODE MODAL ── */}
+      <AnimatePresence>
+        {showJoinModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+            onClick={() => setShowJoinModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-[#0e0e0e] border border-white/[0.08] rounded-2xl p-6 relative"
+            >
+              <button
+                onClick={() => setShowJoinModal(false)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center mb-4">
+                <KeyRound className="w-6 h-6 text-orange-400" />
+              </div>
+
+              <h3 className="font-display text-xl font-700 text-white mb-1">
+                {joinTarget ? joinTarget.title : 'Join Private Contest'}
+              </h3>
+              <p className="text-white/40 text-sm mb-5">
+                {joinTarget
+                  ? 'This is a private contest — enter its invite code to unlock it.'
+                  : 'Enter the invite code shared by the contest organizer.'}
+              </p>
+
+              <form onSubmit={handleJoinByCode}>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setJoinError(''); }}
+                  placeholder="e.g. K4F9XQ"
+                  autoFocus
+                  maxLength={6}
+                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white font-mono text-center text-lg tracking-[0.3em] uppercase placeholder:text-white/15 placeholder:tracking-normal focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all mb-3"
+                />
+
+                {joinError && (
+                  <p className="text-rose-400 text-xs mb-3 text-center">{joinError}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={joining || !joinCode.trim()}
+                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {joining
+                    ? <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                    : <KeyRound className="w-4 h-4" />}
+                  {joining ? 'Joining…' : 'Join Contest'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -319,16 +519,26 @@ export default function Contest() {
 /* ══════════════════════════════════════════
    CONTEST CARD
 ══════════════════════════════════════════ */
-function ContestCard({ contest, index }) {
+function ContestCard({ contest, index, onRequestJoin }) {
   const navigate  = useNavigate();
   const status    = getStatusStyle(contest.computedStatus);
   const isOngoing = contest.computedStatus === 'ongoing';
   const isUpcoming = contest.computedStatus === 'upcoming';
+  const isPrivate  = contest.isPublic === false;
+  const isLocked   = isPrivate && !contest.isRegistered;
 
   // countdown for upcoming contests
   const countdown = useCountdown(isUpcoming ? contest.startTime : null);
 
-  const handleClick = () => navigate(`/contest/${contest._id}`);
+  // Private + not-yet-joined → ask for the invite code instead of navigating in.
+  // Private + already joined (or public) → go straight to the contest page.
+  const handleClick = () => {
+    if (isLocked) {
+      onRequestJoin?.(contest);
+    } else {
+      navigate(`/contest/${contest._id}`);
+    }
+  };
 
   return (
     <motion.div
@@ -359,11 +569,13 @@ function ContestCard({ contest, index }) {
           {/* icon */}
           <div className={cn(
             "hidden sm:flex w-10 h-10 rounded-xl items-center justify-center flex-shrink-0 border transition-all",
+            isLocked   ? "bg-purple-500/10  border-purple-500/25  group-hover:border-purple-500/45" :
             isOngoing  ? "bg-emerald-500/10 border-emerald-500/20 group-hover:border-emerald-500/40" :
             isUpcoming ? "bg-orange-500/10  border-orange-500/20  group-hover:border-orange-500/40"  :
                          "bg-white/[0.03]   border-white/[0.07]"
           )}>
-            {isOngoing  ? <Zap       className="w-4 h-4 text-emerald-400" /> :
+            {isLocked   ? <Lock      className="w-4 h-4 text-purple-400"  /> :
+             isOngoing  ? <Zap       className="w-4 h-4 text-emerald-400" /> :
              isUpcoming ? <Timer     className="w-4 h-4 text-orange-400"  /> :
                           <Lock      className="w-4 h-4 text-white/20"    />}
           </div>
@@ -384,6 +596,14 @@ function ContestCard({ contest, index }) {
                 <span className={cn("w-1.5 h-1.5 rounded-full", status.dot, isOngoing && "live-dot")} />
                 {status.label}
               </span>
+
+              {/* private badge */}
+              {isPrivate && (
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border bg-purple-500/10 border-purple-500/20 text-purple-400">
+                  <Lock className="w-2.5 h-2.5" />
+                  Private
+                </span>
+              )}
 
               {/* duration */}
               <span className="flex items-center gap-1 text-[11px] text-white/25">
@@ -443,9 +663,16 @@ function ContestCard({ contest, index }) {
             </span>
           )}
 
-          {/* arrow */}
-          <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] transition-all duration-300">
-            <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
+          {/* arrow / lock */}
+          <div className={cn(
+            "w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300",
+            isLocked
+              ? "bg-purple-500/10 border-purple-500/25 group-hover:bg-purple-500 group-hover:border-purple-500 group-hover:shadow-[0_0_18px_rgba(168,85,247,0.4)]"
+              : "bg-white/[0.04] border-white/[0.07] group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)]"
+          )}>
+            {isLocked
+              ? <Lock className="w-3.5 h-3.5 text-purple-400 group-hover:text-black transition-all" />
+              : <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black group-hover:translate-x-0.5 transition-all" />}
           </div>
         </div>
       </div>

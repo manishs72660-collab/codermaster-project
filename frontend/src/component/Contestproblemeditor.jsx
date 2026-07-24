@@ -4,6 +4,14 @@ import { useParams, useNavigate } from 'react-router';
 import axiosClient from '../utils/axiosClient';
 import { ChevronLeft, Code2 } from 'lucide-react';
 
+/* language metadata — color-coded per language so the pill + editor identity stays consistent */
+const LANGUAGES = [
+  { id: 'javascript', label: 'JavaScript', short: 'JS',   monaco: 'javascript', color: '#f0d64b' },
+  { id: 'python',     label: 'Python',     short: 'PY',   monaco: 'python',     color: '#4b8ef0' },
+  { id: 'java',       label: 'Java',       short: 'JAVA', monaco: 'java',       color: '#f0954b' },
+  { id: 'cpp',        label: 'C++',        short: 'C++',  monaco: 'cpp',        color: '#8b5cf6' },
+];
+
 const ContestProblemEditor = () => {
   const { contestId, problemId } = useParams();
   const navigate = useNavigate();
@@ -21,6 +29,8 @@ const ContestProblemEditor = () => {
   const [copied, setCopied]                 = useState(false);
   const [saveStatus, setSaveStatus]         = useState('');
   const [elapsedTime, setElapsedTime]       = useState(0);
+  const [editorTheme, setEditorTheme]       = useState('vs-dark');
+  const [isFullscreen, setIsFullscreen]     = useState(false);
   const editorRef                           = useRef(null);
   const startTimeRef                        = useRef(Date.now());
 
@@ -38,14 +48,28 @@ const ContestProblemEditor = () => {
     return `${m}:${sec}`;
   };
 
-  /* ── keyboard shortcut Ctrl+Enter = Run ── */
+  /* ── keyboard shortcuts: Ctrl+Enter = Run, Esc = exit fullscreen ── */
   useEffect(() => {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); handleRun(); }
+      if (e.key === 'Escape' && isFullscreen) { setIsFullscreen(false); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [code, selectedLanguage]);
+  }, [code, selectedLanguage, isFullscreen]);
+
+  /* ── helper: match a startCode entry to a language id ── */
+  const matchStartCode = (startCode, lang) => {
+    return startCode?.find((sc) => {
+      const l = sc.language.toLowerCase();
+      if (l === lang) return true;
+      if (lang === 'cpp' && (l === 'c++' || l === 'cpp')) return true;
+      if (lang === 'javascript' && (l === 'js' || l === 'javascript')) return true;
+      if (lang === 'python' && (l === 'py' || l === 'python' || l === 'python3')) return true;
+      if (lang === 'java' && l === 'java') return true;
+      return false;
+    })?.initialCode || '';
+  };
 
   /* ── fetch problem ── */
   useEffect(() => {
@@ -53,10 +77,7 @@ const ContestProblemEditor = () => {
     axiosClient.get(`/contest/${contestId}/problem/${problemId}`)
       .then(({ data }) => {
         setProblem(data);
-        const initial = data.startCode?.find(
-          (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
-                  (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
-        )?.initialCode || '';
+        const initial = matchStartCode(data.startCode, selectedLanguage);
         const saved = localStorage.getItem(`contest_${contestId}_${problemId}_${selectedLanguage}`);
         setCode(saved !== null ? saved : initial);
       })
@@ -69,11 +90,7 @@ const ContestProblemEditor = () => {
     if (!problem) return;
     const saved = localStorage.getItem(`contest_${contestId}_${problemId}_${selectedLanguage}`);
     if (saved !== null) { setCode(saved); return; }
-    const initial = problem.startCode?.find(
-      (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
-              (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
-    )?.initialCode || '';
-    setCode(initial);
+    setCode(matchStartCode(problem.startCode, selectedLanguage));
   }, [selectedLanguage, problem]);
 
   /* ── editor change (auto-save) ── */
@@ -141,11 +158,7 @@ const ContestProblemEditor = () => {
   /* ── reset ── */
   const handleReset = () => {
     if (!problem) return;
-    const initial = problem.startCode?.find(
-      (sc) => sc.language.toLowerCase() === selectedLanguage.toLowerCase() ||
-              (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
-    )?.initialCode || '';
-    setCode(initial);
+    setCode(matchStartCode(problem.startCode, selectedLanguage));
     localStorage.removeItem(`contest_${contestId}_${problemId}_${selectedLanguage}`);
   };
 
@@ -166,7 +179,12 @@ const ContestProblemEditor = () => {
     });
   };
 
-  const getMonacoLang = (lang) => lang === 'cpp' ? 'cpp' : lang === 'java' ? 'java' : 'javascript';
+  const toggleTheme = () => {
+    setEditorTheme((prev) => (prev === 'vs-dark' ? 'light' : 'vs-dark'));
+  };
+
+  const getMonacoLang = (lang) => LANGUAGES.find((l) => l.id === lang)?.monaco || 'javascript';
+  const activeLang = LANGUAGES.find((l) => l.id === selectedLanguage) || LANGUAGES[0];
 
   /* ── difficulty colors ── */
   const diffMap = {
@@ -201,11 +219,12 @@ const ContestProblemEditor = () => {
           font-family:'Outfit',system-ui,sans-serif;
         }
         .cm-root { background:var(--bg); color:var(--tx); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+        .cm-root.is-fullscreen { position:fixed; inset:0; z-index:1000; }
 
         /* TOPBAR */
         .cm-topbar { height:48px; background:var(--s1); border-bottom:1px solid var(--b1); display:flex; align-items:center; justify-content:space-between; padding:0 16px; flex-shrink:0; z-index:200; position:relative; }
         .cm-logo { display:flex; align-items:center; gap:8px; }
-        .cm-logo-mark { width:28px; height:28px; background:var(--ac); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:#000; }
+        .cm-logo-mark { width:28px; height:28px; background:var(--ac); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:#000; box-shadow:0 0 0 1px rgba(255,161,22,0.25), 0 4px 12px rgba(255,161,22,0.15); }
         .cm-logo-name { font-size:15px; font-weight:800; letter-spacing:-0.4px; color:var(--tx); }
         .cm-back-btn { display:inline-flex; align-items:center; gap:5px; background:var(--s3); color:var(--mu); border:1px solid var(--b1); border-radius:var(--r); cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:11px; font-weight:700; padding:6px 11px; transition:all 0.15s; text-decoration:none; }
         .cm-back-btn:hover { color:var(--tx); border-color:var(--b2); }
@@ -223,7 +242,7 @@ const ContestProblemEditor = () => {
         .cm-run-icon-btn:disabled { opacity:0.35; cursor:not-allowed; }
         .cm-play-icon { width:0; height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:9px solid currentColor; margin-left:2px; flex-shrink:0; }
         .cm-btn-submit { display:inline-flex; align-items:center; gap:6px; background:var(--ac); color:#000; border:none; border-radius:var(--r); cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:12px; font-weight:800; padding:0 16px; height:34px; transition:all 0.15s; }
-        .cm-btn-submit:hover:not(:disabled) { background:#ffb347; transform:translateY(-1px); }
+        .cm-btn-submit:hover:not(:disabled) { background:#ffb347; transform:translateY(-1px); box-shadow:0 6px 16px rgba(255,161,22,0.25); }
         .cm-btn-submit:disabled { opacity:0.35; cursor:not-allowed; }
         .cm-upload-icon { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-bottom:8px solid #000; flex-shrink:0; }
         .cm-spinner { width:11px; height:11px; border:2px solid rgba(0,0,0,0.2); border-top-color:#000; border-radius:50%; animation:cm-spin 0.65s linear infinite; flex-shrink:0; }
@@ -234,7 +253,8 @@ const ContestProblemEditor = () => {
         .cm-body { flex:1; display:flex; overflow:hidden; }
 
         /* LEFT */
-        .cm-left { width:43%; min-width:340px; display:flex; flex-direction:column; border-right:1px solid var(--b1); background:var(--s1); overflow:hidden; flex-shrink:0; }
+        .cm-left { width:43%; min-width:340px; display:flex; flex-direction:column; border-right:1px solid var(--b1); background:var(--s1); overflow:hidden; flex-shrink:0; transition:width 0.2s ease, opacity 0.2s ease; }
+        .cm-left.is-hidden { width:0; min-width:0; opacity:0; pointer-events:none; border-right:none; }
         .cm-tabs { display:flex; align-items:flex-end; background:var(--s1); border-bottom:1px solid var(--b1); padding:0 4px; flex-shrink:0; overflow-x:auto; gap:2px; }
         .cm-tabs::-webkit-scrollbar { display:none; }
         .cm-tab { background:none; border:none; cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:11px; font-weight:600; color:var(--di); padding:9px 10px 8px; border-bottom:2px solid transparent; white-space:nowrap; transition:color 0.14s; }
@@ -258,11 +278,12 @@ const ContestProblemEditor = () => {
 
         /* RIGHT */
         .cm-right { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; background:var(--bg); }
-        .cm-lang-bar { display:flex; align-items:center; justify-content:space-between; padding:7px 14px; background:var(--s1); border-bottom:1px solid var(--b1); flex-shrink:0; }
+        .cm-lang-bar { display:flex; align-items:center; justify-content:space-between; padding:7px 14px; background:var(--s1); border-bottom:1px solid var(--b1); flex-shrink:0; flex-wrap:wrap; gap:8px; }
         .cm-lang-pills { display:flex; gap:3px; }
-        .cm-lang-pill { background:none; border:1px solid var(--b1); border-radius:5px; cursor:pointer; padding:3px 12px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; color:var(--di); transition:all 0.14s; }
+        .cm-lang-pill { display:inline-flex; align-items:center; gap:6px; background:none; border:1px solid var(--b1); border-radius:5px; cursor:pointer; padding:3px 11px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; color:var(--di); transition:all 0.14s; }
         .cm-lang-pill:hover { border-color:var(--b2); color:var(--mu); }
-        .cm-lang-pill.active { background:var(--as); color:var(--ac); border-color:rgba(255,161,22,0.3); }
+        .cm-lang-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; opacity:0.55; transition:opacity 0.14s; }
+        .cm-lang-pill.active .cm-lang-dot { opacity:1; box-shadow:0 0 6px currentColor; }
         .cm-tool-row { display:flex; align-items:center; gap:5px; }
         .cm-tbtn { display:inline-flex; align-items:center; gap:3px; background:none; border:1px solid var(--b1); border-radius:5px; cursor:pointer; color:var(--di); font-size:10px; font-weight:700; padding:3px 8px; font-family:'JetBrains Mono',monospace; transition:all 0.12s; }
         .cm-tbtn:hover { color:var(--mu); border-color:var(--b2); }
@@ -337,7 +358,7 @@ const ContestProblemEditor = () => {
         .cm-back-to-contest:hover { background: rgba(45,186,110,0.2); }
       `}</style>
 
-      <div className="cm-root">
+      <div className={`cm-root${isFullscreen ? ' is-fullscreen' : ''}`}>
 
         {/* ── TOPBAR ── */}
         <div className="cm-topbar">
@@ -382,7 +403,7 @@ const ContestProblemEditor = () => {
         <div className="cm-body">
 
           {/* ── LEFT PANEL ── */}
-          <div className="cm-left">
+          <div className={`cm-left${isFullscreen ? ' is-hidden' : ''}`}>
             <div className="cm-tabs">
               {[
                 { id: 'description', label: 'Description' },
@@ -459,13 +480,15 @@ const ContestProblemEditor = () => {
               <>
                 <div className="cm-lang-bar">
                   <div className="cm-lang-pills">
-                    {['javascript', 'cpp'].map((lang) => (
+                    {LANGUAGES.map((lang) => (
                       <button
-                        key={lang}
-                        className={`cm-lang-pill${selectedLanguage === lang ? ' active' : ''}`}
-                        onClick={() => setSelectedLanguage(lang)}
+                        key={lang.id}
+                        className={`cm-lang-pill${selectedLanguage === lang.id ? ' active' : ''}`}
+                        style={selectedLanguage === lang.id ? { color: lang.color, borderColor: `${lang.color}55`, background: `${lang.color}14` } : undefined}
+                        onClick={() => setSelectedLanguage(lang.id)}
                       >
-                        {lang === 'cpp' ? 'C++' : 'JavaScript'}
+                        <span className="cm-lang-dot" style={{ background: lang.color, color: lang.color }} />
+                        {lang.label}
                       </button>
                     ))}
                   </div>
@@ -476,23 +499,29 @@ const ContestProblemEditor = () => {
                     <button className="cm-tbtn" onClick={() => changeFontSize(-1)}>A−</button>
                     <span style={{ fontSize: 10, color: 'var(--di)', fontFamily: 'monospace' }}>{fontSize}</span>
                     <button className="cm-tbtn" onClick={() => changeFontSize(1)}>A+</button>
+                    <button className="cm-tbtn" onClick={toggleTheme} title="Toggle editor theme">
+                      {editorTheme === 'vs-dark' ? '◐ Dark' : '◑ Light'}
+                    </button>
+                    <button className={`cm-tbtn${isFullscreen ? ' active' : ''}`} onClick={() => setIsFullscreen((v) => !v)} title="Toggle fullscreen (Esc to exit)">
+                      {isFullscreen ? '⤡ Exit' : '⤢ Full'}
+                    </button>
                     <span className={`cm-save-status ${saveStatus === 'saving' ? 'cm-save-saving' : saveStatus === 'saved' ? 'cm-save-saved' : ''}`}>
                       {saveStatus === 'saving' ? '● saving' : saveStatus === 'saved' ? '✓ saved' : ''}
                     </span>
                   </div>
                 </div>
 
-                <div style={{ height: `${editorHeight}px`, flexShrink: 0, overflow: 'hidden' }}>
+                <div style={{ height: isFullscreen ? 'calc(100vh - 160px)' : `${editorHeight}px`, flexShrink: 0, overflow: 'hidden' }}>
                   <Editor
                     height="100%"
                     language={getMonacoLang(selectedLanguage)}
                     value={code}
                     onChange={handleEditorChange}
                     onMount={handleEditorDidMount}
-                    theme="vs-dark"
+                    theme={editorTheme}
                     options={{
                       fontSize,
-                      minimap: { enabled: false },
+                      minimap: { enabled: isFullscreen },
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
                       tabSize: 2,
@@ -506,7 +535,7 @@ const ContestProblemEditor = () => {
                   />
                 </div>
 
-                <div className="cm-resize" onMouseDown={startResize} />
+                {!isFullscreen && <div className="cm-resize" onMouseDown={startResize} />}
 
                 <div className="cm-action-bar">
                   <div className="cm-action-left">

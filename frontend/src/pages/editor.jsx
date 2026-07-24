@@ -377,7 +377,7 @@ const ProblemPage = () => {
   // ── DIFFICULTY COLORS ──
   const diffMap = {
     easy:   { color: '#2dba6e', bg: 'rgba(45,186,110,0.1)',   border: 'rgba(45,186,110,0.22)' },
-    medium: { color: '#ffa116', bg: 'rgba(255,161,22,0.1)',   border: 'rgba(255,161,22,0.22)' },
+    medium: { color: '#ff5b1f', bg: 'rgba(255,91,31,0.12)',   border: 'rgba(255,91,31,0.28)' },
     hard:   { color: '#f04f4f', bg: 'rgba(240,79,79,0.1)',    border: 'rgba(240,79,79,0.22)' },
   };
   const diff = problem?.difficulty?.toLowerCase();
@@ -394,17 +394,17 @@ const ProblemPage = () => {
     return (
       <div style={{
         display: 'flex', justifyContent: 'center', alignItems: 'center',
-        minHeight: '100vh', background: '#08090c', flexDirection: 'column', gap: 16
+        minHeight: '100vh', background: '#000000', flexDirection: 'column', gap: 16
       }}>
         <div style={{
           width: 40, height: 40,
-          border: '2px solid #1c2030',
-          borderTop: '2px solid #ffa116',
+          border: '2px solid #1a1a1a',
+          borderTop: '2px solid #ff5b1f',
           borderRadius: '50%',
           animation: 'spin 0.7s linear infinite'
         }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: '#2e3448', fontFamily: 'monospace', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase' }}>
+        <span style={{ color: '#454549', fontFamily: 'monospace', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase' }}>
           Loading…
         </span>
       </div>
@@ -414,33 +414,40 @@ const ProblemPage = () => {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Sora:wght@400;500;600;700;800&display=swap');
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-          --bg:     #08090c;
-          --s1:     #0e1016;
-          --s2:     #13151d;
-          --s3:     #181c26;
-          --b1:     #1c2030;
-          --b2:     #242a3a;
-          --tx:     #dde3f0;
-          --mu:     #5c6580;
-          --di:     #2e3448;
-          --ac:     #ffa116;
-          --as:     rgba(255,161,22,0.1);
+          --bg:     #000000;
+          --s1:     #0a0a0a;
+          --s2:     #0e0e0e;
+          --s3:     #131313;
+          --b1:     #1c1c1c;
+          --b2:     #292929;
+          --tx:     #f2f2f2;
+          --mu:     #85888f;
+          --di:     #454549;
+          --ac:     #ff5b1f;
+          --ac2:    #ff8a3d;
+          --as:     rgba(255,91,31,0.12);
           --gr:     #2dba6e;
           --rd:     #f04f4f;
           --bl:     #4b8ef0;
           --pu:     #8b5cf6;
           --r:      7px;
           --r2:     10px;
-          font-family: 'Outfit', system-ui, sans-serif;
+          font-family: 'Sora', system-ui, sans-serif;
         }
 
         .cm-root {
-          background: var(--bg);
+          background:
+            radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255,91,31,0.06), transparent 60%),
+            radial-gradient(ellipse 700px 500px at 100% 0%, rgba(75,142,240,0.05), transparent 55%),
+            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+            var(--bg);
+          background-size: auto, auto, 34px 34px, 34px 34px, auto;
           color: var(--tx);
           height: 100vh;
           display: flex;
@@ -451,7 +458,8 @@ const ProblemPage = () => {
         /* ── TOPBAR ── */
         .cm-topbar {
           height: 48px;
-          background: var(--s1);
+          background: rgba(10,10,10,0.85);
+          backdrop-filter: blur(10px);
           border-bottom: 1px solid var(--b1);
           display: flex;
           align-items: center;
@@ -465,10 +473,11 @@ const ProblemPage = () => {
         .cm-logo { display: flex; align-items: center; gap: 8px; }
         .cm-logo-mark {
           width: 28px; height: 28px;
-          background: var(--ac);
+          background: linear-gradient(135deg, var(--ac), #ff8a3d);
+          box-shadow: 0 2px 12px rgba(255,91,31,0.4);
           border-radius: 8px;
           display: flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 900; color: #000;
+          font-size: 13px; font-weight: 900; color: #180800;
           flex-shrink: 0;
         }
         .cm-logo-name {
@@ -519,7 +528,7 @@ const ProblemPage = () => {
           background: rgba(139,92,246,0.12); color: #a78bfa;
           border: 1px solid rgba(139,92,246,0.22);
           border-radius: var(--r); cursor: pointer;
-          font-family: 'Outfit', system-ui, sans-serif;
+          font-family: 'Sora', system-ui, sans-serif;
           font-size: 11px; font-weight: 700; padding: 6px 11px;
           transition: all 0.15s;
         }
@@ -530,7 +539,7 @@ const ProblemPage = () => {
           display: inline-flex; align-items: center; gap: 5px;
           background: var(--s3); color: var(--mu);
           border: 1px solid var(--b1); border-radius: var(--r); cursor: pointer;
-          font-family: 'Outfit', system-ui, sans-serif;
+          font-family: 'Sora', system-ui, sans-serif;
           font-size: 11px; font-weight: 700; padding: 6px 11px;
           transition: all 0.15s;
         }
@@ -544,7 +553,7 @@ const ProblemPage = () => {
           border: 1px solid var(--b2); border-radius: var(--r);
           cursor: pointer; transition: all 0.15s; flex-shrink: 0;
         }
-        .cm-run-icon-btn:hover:not(:disabled) { color: var(--ac); border-color: rgba(255,161,22,0.4); background: rgba(255,161,22,0.06); }
+        .cm-run-icon-btn:hover:not(:disabled) { color: var(--ac); border-color: rgba(255,91,31,0.45); background: rgba(255,91,31,0.08); }
         .cm-run-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
         .cm-play-icon {
@@ -558,13 +567,14 @@ const ProblemPage = () => {
         /* Submit button */
         .cm-btn-submit {
           display: inline-flex; align-items: center; gap: 6px;
-          background: var(--ac); color: #000;
+          background: linear-gradient(135deg, var(--ac), #ff8a3d); color: #180800;
           border: none; border-radius: var(--r); cursor: pointer;
-          font-family: 'Outfit', system-ui, sans-serif;
+          font-family: 'Sora', system-ui, sans-serif;
           font-size: 12px; font-weight: 800; padding: 0 16px; height: 34px;
+          box-shadow: 0 4px 18px rgba(255,91,31,0.28);
           transition: all 0.15s;
         }
-        .cm-btn-submit:hover:not(:disabled) { background: #ffb347; transform: translateY(-1px); }
+        .cm-btn-submit:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(255,91,31,0.45); transform: translateY(-1px); }
         .cm-btn-submit:active:not(:disabled) { transform: translateY(0); }
         .cm-btn-submit:disabled { opacity: 0.35; cursor: not-allowed; }
         .cm-upload-icon {
@@ -614,7 +624,7 @@ const ProblemPage = () => {
         .cm-tabs::-webkit-scrollbar { display: none; }
         .cm-tab {
           background: none; border: none; cursor: pointer;
-          font-family: 'Outfit', system-ui, sans-serif;
+          font-family: 'Sora', system-ui, sans-serif;
           font-size: 11px; font-weight: 600; color: var(--di);
           padding: 9px 10px 8px; border-bottom: 2px solid transparent;
           white-space: nowrap; transition: color 0.14s; display: flex; align-items: center; gap: 4px;
@@ -648,11 +658,29 @@ const ProblemPage = () => {
 
         .cm-code-block { background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r2); overflow: hidden; margin-bottom: 12px; }
         .cm-code-block-hdr { background: var(--s2); padding: 8px 14px; font-size: 11px; font-weight: 600; color: var(--mu); border-bottom: 1px solid var(--b1); display: flex; align-items: center; justify-content: space-between; }
-        .cm-lang-badge { background: var(--as); color: var(--ac); border: 1px solid rgba(255,161,22,0.2); padding: 2px 8px; border-radius: 5px; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; }
+        .cm-lang-badge { background: var(--as); color: var(--ac); border: 1px solid rgba(255,91,31,0.22); padding: 2px 8px; border-radius: 5px; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; }
         .cm-code-block pre { padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; color: #c9d1d9; overflow-x: auto; }
 
         /* ── RIGHT PANEL ── */
         .cm-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; background: var(--bg); }
+
+        /* Monaco editor — premium scrollbar + framed surface so both scroll axes read clearly */
+        .cm-editor-frame {
+          position: relative;
+          border-top: 1px solid var(--b1);
+          border-bottom: 1px solid var(--b1);
+          box-shadow: inset 0 1px 24px rgba(0,0,0,0.55);
+        }
+        .cm-editor-frame .monaco-editor,
+        .cm-editor-frame .monaco-editor-background,
+        .cm-editor-frame .margin { background-color: #060606 !important; }
+        .cm-editor-frame .monaco-scrollable-element > .scrollbar > .slider {
+          background: rgba(255,91,31,0.28) !important;
+          border-radius: 6px !important;
+        }
+        .cm-editor-frame .monaco-scrollable-element > .scrollbar > .slider:hover {
+          background: rgba(255,91,31,0.5) !important;
+        }
 
         /* Language + tools bar */
         .cm-lang-bar {
@@ -667,7 +695,7 @@ const ProblemPage = () => {
           transition: all 0.14s;
         }
         .cm-lang-pill:hover { border-color: var(--b2); color: var(--mu); }
-        .cm-lang-pill.active { background: var(--as); color: var(--ac); border-color: rgba(255,161,22,0.3); }
+        .cm-lang-pill.active { background: var(--as); color: var(--ac); border-color: rgba(255,91,31,0.35); }
 
         .cm-tool-row { display: flex; align-items: center; gap: 5px; }
         .cm-tbtn {
@@ -677,7 +705,7 @@ const ProblemPage = () => {
           padding: 3px 8px; font-family: 'JetBrains Mono', monospace; transition: all 0.12s;
         }
         .cm-tbtn:hover { color: var(--mu); border-color: var(--b2); }
-        .cm-tbtn.active { color: var(--ac); border-color: rgba(255,161,22,0.3); background: var(--as); }
+        .cm-tbtn.active { color: var(--ac); border-color: rgba(255,91,31,0.35); background: var(--as); }
 
         /* Save status */
         .cm-save-status {
@@ -689,9 +717,9 @@ const ProblemPage = () => {
 
         /* Resize */
         .cm-resize { height: 5px; cursor: row-resize; background: var(--b1); flex-shrink: 0; position: relative; transition: background 0.14s; }
-        .cm-resize:hover { background: rgba(255,161,22,0.08); }
+        .cm-resize:hover { background: rgba(255,91,31,0.1); }
         .cm-resize::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 22px; height: 2px; background: var(--b2); border-radius: 2px; transition: background 0.14s; }
-        .cm-resize:hover::after { background: rgba(255,161,22,0.4); }
+        .cm-resize:hover::after { background: rgba(255,91,31,0.45); }
 
         /* Right tabs */
         .cm-right-tabs { display: flex; background: var(--s1); border-bottom: 1px solid var(--b1); padding: 0 4px; flex-shrink: 0; }
@@ -708,7 +736,7 @@ const ProblemPage = () => {
           display: inline-flex; align-items: center; gap: 5px;
           background: var(--s2); color: var(--mu); border: 1px solid var(--b1);
           border-radius: var(--r); cursor: pointer;
-          font-family: 'Outfit', system-ui, sans-serif; font-size: 11px; font-weight: 700; padding: 6px 12px;
+          font-family: 'Sora', system-ui, sans-serif; font-size: 11px; font-weight: 700; padding: 6px 12px;
           transition: all 0.14s;
         }
         .cm-console-btn:hover { color: var(--tx); border-color: var(--b2); }
@@ -719,7 +747,7 @@ const ProblemPage = () => {
           display: inline-flex; align-items: center; gap: 4px;
           background: none; color: var(--di); border: 1px solid var(--b1);
           border-radius: 6px; cursor: pointer;
-          font-family: 'Outfit', system-ui, sans-serif; font-size: 10px; font-weight: 700; padding: 5px 10px;
+          font-family: 'Sora', system-ui, sans-serif; font-size: 10px; font-weight: 700; padding: 5px 10px;
           transition: all 0.14s;
         }
         .cm-reset-btn:hover { color: var(--rd); border-color: rgba(240,79,79,0.3); background: rgba(240,79,79,0.06); }
@@ -801,7 +829,7 @@ const ProblemPage = () => {
           display: inline-flex; align-items: center; gap: 7px;
           background: rgba(45,186,110,0.12); color: var(--gr);
           border: 1px solid rgba(45,186,110,0.28); border-radius: var(--r);
-          cursor: pointer; font-family: 'Outfit', system-ui, sans-serif;
+          cursor: pointer; font-family: 'Sora', system-ui, sans-serif;
           font-size: 12px; font-weight: 800; padding: 9px 16px;
           transition: all 0.15s; width: 100%; justify-content: center;
         }
@@ -809,20 +837,26 @@ const ProblemPage = () => {
         .cm-post-solution-btn:disabled { opacity: 0.55; cursor: default; }
 
         .cm-post-modal {
+          position: relative;
           width: min(560px, 92vw); max-height: 88vh;
-          background: var(--s1); border: 1px solid var(--b2); border-radius: 16px;
+          background: linear-gradient(180deg, #0d0d0d, #090909);
+          border: 1px solid var(--b2); border-radius: 16px;
           display: flex; flex-direction: column; overflow: hidden;
-          box-shadow: 0 32px 80px rgba(0,0,0,0.75);
-          animation: cm-slideup 0.2s ease;
+          box-shadow: 0 32px 90px rgba(0,0,0,0.8), 0 0 0 1px rgba(45,186,110,0.06), 0 -1px 0 rgba(255,255,255,0.04) inset;
+          animation: cm-slideup 0.22s cubic-bezier(0.16,1,0.3,1);
+        }
+        .cm-post-modal::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, var(--gr), var(--ac), var(--bl));
         }
         .cm-post-body { padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
         .cm-field-label { font-size: 10px; font-weight: 700; color: var(--mu); letter-spacing: 0.6px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; margin-bottom: 7px; display: block; }
         .cm-field-input {
           width: 100%; background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r);
-          color: var(--tx); font-family: 'Outfit', system-ui, sans-serif; font-size: 13px;
+          color: var(--tx); font-family: 'Sora', system-ui, sans-serif; font-size: 13px;
           padding: 10px 12px; outline: none; transition: border-color 0.14s;
         }
-        .cm-field-input:focus { border-color: rgba(255,161,22,0.5); }
+        .cm-field-input:focus { border-color: rgba(255,91,31,0.55); }
         .cm-field-textarea { resize: vertical; min-height: 110px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; }
         .cm-post-code-preview { background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r); padding: 10px 12px; max-height: 160px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7e92b0; }
         .cm-post-error { color: var(--rd); font-size: 11px; font-family: 'JetBrains Mono', monospace; background: rgba(240,79,79,0.08); border: 1px solid rgba(240,79,79,0.2); padding: 8px 12px; border-radius: 6px; }
@@ -830,16 +864,17 @@ const ProblemPage = () => {
         .cm-btn-ghost {
           background: none; border: 1px solid var(--b1); color: var(--mu);
           border-radius: var(--r); cursor: pointer; padding: 9px 16px;
-          font-family: 'Outfit', system-ui, sans-serif; font-size: 12px; font-weight: 700; transition: all 0.14s;
+          font-family: 'Sora', system-ui, sans-serif; font-size: 12px; font-weight: 700; transition: all 0.14s;
         }
         .cm-btn-ghost:hover { color: var(--tx); border-color: var(--b2); }
         .cm-btn-confirm {
           display: inline-flex; align-items: center; gap: 6px;
-          background: var(--ac); color: #000; border: none; border-radius: var(--r);
+          background: linear-gradient(135deg, var(--gr), #23a25f); color: #04150a; border: none; border-radius: var(--r);
           cursor: pointer; padding: 9px 18px;
-          font-family: 'Outfit', system-ui, sans-serif; font-size: 12px; font-weight: 800; transition: all 0.14s;
+          font-family: 'Sora', system-ui, sans-serif; font-size: 12px; font-weight: 800; transition: all 0.14s;
+          box-shadow: 0 4px 16px rgba(45,186,110,0.25);
         }
-        .cm-btn-confirm:hover:not(:disabled) { background: #ffb347; }
+        .cm-btn-confirm:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(45,186,110,0.4); }
         .cm-btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Already posted banner */
@@ -851,7 +886,7 @@ const ProblemPage = () => {
           background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r2);
           padding: 13px 15px; cursor: pointer; transition: all 0.14s;
         }
-        .cm-community-card:hover { border-color: rgba(255,161,22,0.35); background: rgba(255,161,22,0.03); }
+        .cm-community-card:hover { border-color: rgba(255,91,31,0.4); background: rgba(255,91,31,0.04); }
         .cm-cc-title { font-size: 13px; font-weight: 700; color: var(--tx); margin-bottom: 8px; line-height: 1.4; }
         .cm-cc-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .cm-cc-author { display: flex; align-items: center; gap: 6px; }
@@ -881,7 +916,7 @@ const ProblemPage = () => {
           display: inline-flex; align-items: center; gap: 5px;
           background: rgba(240,79,79,0.1); color: var(--rd); border: 1px solid rgba(240,79,79,0.28);
           border-radius: var(--r); cursor: pointer; padding: 6px 12px;
-          font-family: 'Outfit', system-ui, sans-serif; font-size: 11px; font-weight: 700; transition: all 0.14s;
+          font-family: 'Sora', system-ui, sans-serif; font-size: 11px; font-weight: 700; transition: all 0.14s;
         }
         .cm-btn-danger:hover:not(:disabled) { background: rgba(240,79,79,0.18); }
         .cm-btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -974,14 +1009,14 @@ const ProblemPage = () => {
           width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center; font-size: 11px;
         }
-        .cm-metric-chip.time { background: rgba(255,161,22,0.15); color: var(--ac); }
+        .cm-metric-chip.time { background: rgba(255,91,31,0.16); color: var(--ac); }
         .cm-metric-chip.mem  { background: rgba(75,142,240,0.15); color: var(--bl); }
         .cm-metric-label { font-size: 9.5px; font-weight: 700; color: var(--di); letter-spacing: 1px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
         .cm-metric-value { font-size: 24px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
         .cm-metric-value .unit { font-size: 11px; font-weight: 500; color: var(--mu); margin-left: 4px; letter-spacing: 0; }
         .cm-metric-bar-track { height: 4px; border-radius: 3px; background: var(--b1); margin-top: 12px; overflow: hidden; }
         .cm-metric-bar-fill { height: 100%; border-radius: 3px; transform-origin: left; animation: cm-bar-fill 0.7s cubic-bezier(0.4,0,0.2,1) 0.15s both; }
-        .cm-metric-bar-fill.time { background: linear-gradient(90deg, var(--ac), #ffb347); }
+        .cm-metric-bar-fill.time { background: linear-gradient(90deg, var(--ac), #ff8a3d); }
         .cm-metric-bar-fill.mem  { background: linear-gradient(90deg, var(--bl), #7fb0ff); }
 
         .cm-tc-summary-strip {
@@ -1034,11 +1069,26 @@ const ProblemPage = () => {
         }
         .cm-verdict-hero::after {
           content: ''; position: absolute; top: -60%; right: -10%; width: 220px; height: 220px;
-          border-radius: 50%; filter: blur(50px); pointer-events: none;
+          border-radius: 50%; filter: blur(50px); pointer-events: none; z-index: 0;
           animation: cm-glow-pulse 3s ease-in-out infinite;
         }
+        .cm-confetti { z-index: 1; }
         .cm-verdict-hero.ok::after  { background: rgba(45,186,110,0.35); }
         .cm-verdict-hero.no::after  { background: rgba(240,79,79,0.35); }
+
+        /* Confetti burst — plays once when a submission is Accepted */
+        .cm-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+        .cm-confetti-piece {
+          position: absolute; top: -12px;
+          width: 6px; height: 12px; border-radius: 1px;
+          opacity: 0;
+          animation: cm-confetti-fall 1.6s cubic-bezier(0.25,0.46,0.45,0.94) both;
+        }
+        @keyframes cm-confetti-fall {
+          0%   { opacity: 0; transform: translate3d(0,-10px,0) rotate(0deg); }
+          8%   { opacity: 1; }
+          100% { opacity: 0; transform: translate3d(var(--dx,0px), 160px, 0) rotate(340deg); }
+        }
 
         .cm-verdict-top { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
         .cm-signal.lg .cm-signal-bar { width: 7px; border-radius: 4px 4px 1px 1px; }
@@ -1058,7 +1108,7 @@ const ProblemPage = () => {
         .cm-verdict-caption { font-size: 11.5px; color: var(--mu); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
 
         /* Segmented meter — replaces the smooth progress bar */
-        .cm-meter { position: relative; z-index: 1; display: flex; gap: 3px; margin-top: 20px; }
+        .cm-meter { position: relative; z-index: 2; display: flex; gap: 3px; margin-top: 20px; }
         .cm-meter-seg { flex: 1; height: 9px; border-radius: 3px; background: var(--b1); overflow: hidden; }
         .cm-meter-seg .fill {
           display: block; width: 100%; height: 100%; border-radius: 3px;
@@ -1069,7 +1119,7 @@ const ProblemPage = () => {
         .cm-meter-seg.on.ok .fill { background: linear-gradient(180deg, #5eeba0, var(--gr)); box-shadow: 0 0 8px rgba(45,186,110,0.55); }
         .cm-meter-seg.on.no .fill { background: linear-gradient(180deg, #ff8080, var(--rd)); box-shadow: 0 0 8px rgba(240,79,79,0.55); }
         .cm-verdict-progress-label {
-          position: relative; z-index: 1;
+          position: relative; z-index: 2;
           display: flex; justify-content: space-between;
           font-size: 10px; color: var(--di); font-family: 'JetBrains Mono', monospace;
           margin-top: 7px;
@@ -1368,7 +1418,7 @@ const ProblemPage = () => {
                   </div>
                 </div>
 
-                <div style={{ height: `${editorHeight}px`, flexShrink: 0, overflow: 'hidden' }}>
+                <div className="cm-editor-frame" style={{ height: `${editorHeight}px`, flexShrink: 0, overflow: 'hidden' }}>
                   <Editor
                     height="100%"
                     language={getLanguageForMonaco(selectedLanguage)}
@@ -1380,10 +1430,12 @@ const ProblemPage = () => {
                       fontSize: fontSize,
                       minimap: { enabled: false },
                       scrollBeyondLastLine: false,
+                      scrollBeyondLastColumn: 12,
                       automaticLayout: true,
                       tabSize: 2,
                       insertSpaces: true,
-                      wordWrap: 'on',
+                      // Word-wrap off so long lines scroll horizontally instead of wrapping.
+                      wordWrap: 'off',
                       lineNumbers: 'on',
                       mouseWheelZoom: true,
                       fontFamily: "'JetBrains Mono', monospace",
@@ -1392,6 +1444,14 @@ const ProblemPage = () => {
                       renderLineHighlight: 'line',
                       cursorBlinking: 'smooth',
                       smoothScrolling: true,
+                      scrollbar: {
+                        vertical: 'visible',
+                        horizontal: 'visible',
+                        verticalScrollbarSize: 11,
+                        horizontalScrollbarSize: 11,
+                        alwaysConsumeMouseWheel: false,
+                        useShadows: true,
+                      },
                     }}
                   />
                 </div>
@@ -1544,7 +1604,32 @@ const ProblemPage = () => {
                   <>
                     {/* Verdict hero: glow card with a signal-bar meter and gradient headline — no tick, no ring */}
                     <div key={`verdict-${submitCount}`} className={`cm-verdict-hero ${submitResult.accepted ? 'ok' : 'no'}`}>
-                      <div className="cm-verdict-top">
+                      {submitResult.accepted && (
+                        <div className="cm-confetti">
+                          {Array.from({ length: 26 }).map((_, i) => {
+                            const colors = ['#ff5b1f', '#2dba6e', '#4b8ef0', '#ffd166', '#f2f2f2'];
+                            const left = Math.random() * 100;
+                            const dx = (Math.random() * 120 - 60) + 'px';
+                            const delay = (Math.random() * 0.4) + 's';
+                            const dur = (1.2 + Math.random() * 0.8) + 's';
+                            const color = colors[i % colors.length];
+                            return (
+                              <span
+                                key={i}
+                                className="cm-confetti-piece"
+                                style={{
+                                  left: `${left}%`,
+                                  background: color,
+                                  animationDelay: delay,
+                                  animationDuration: dur,
+                                  '--dx': dx,
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="cm-verdict-top" style={{ zIndex: 2 }}>
                         <div className={`cm-signal lg ${submitResult.accepted ? 'pass' : 'fail'}`}>
                           {[16, 26, 36, 46, 58].map((h, i) => {
                             const litCount = submitResult.accepted ? 5 : Math.max(1, Math.round((submitPct / 100) * 5));

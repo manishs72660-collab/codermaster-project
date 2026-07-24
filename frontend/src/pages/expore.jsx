@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../component/navbar";
 
@@ -14,7 +14,6 @@ const exploreCards = [
     accentBorder: "#3a2e0f",
     accentGlow: "rgba(255,161,22,0.14)",
     items: ["Sorting Algorithms", "Graph Traversal", "Tree Operations", "Dynamic Programming"],
-    badge: "20+ Animations",
     route: "/explore/dsa-visualizer",
   },
   {
@@ -28,7 +27,6 @@ const exploreCards = [
     accentBorder: "#3d260d",
     accentGlow: "rgba(255,138,0,0.14)",
     items: ["Big-O Reference", "Pattern Recognition", "Syntax Snippets", "Formula Sheet"],
-    badge: "50+ Sheets",
     route: "/explore/cheatsheet",
   },
   {
@@ -42,7 +40,6 @@ const exploreCards = [
     accentBorder: "#3f2c0e",
     accentGlow: "rgba(255,184,77,0.14)",
     items: ["Big O Notation", "Growth Curves", "Space Complexity", "Algorithm Comparison"],
-    badge: "Interactive Graphs",
     route: "/explore/complexity",
   },
   {
@@ -56,28 +53,75 @@ const exploreCards = [
     accentBorder: "#3d220c",
     accentGlow: "rgba(255,107,0,0.14)",
     items: ["Live Chat", "Real-time Help", "Doubt Solving", "1-on-1 Support"],
-    badge: "Live Support",
     route: "/explore/talkadmin",
   },
 ];
 
-const stats = [
-  { label: "Problems", value: "2,400+", sub: "and growing" },
-  { label: "Categories", value: "18", sub: "topics covered" },
-  { label: "Active Users", value: "84k", sub: "this month" },
-  { label: "Avg Rating", value: "4.9★", sub: "from learners" },
+// Faint node/edge map drawn behind the hero — a graph quietly traversing itself,
+// a nod to what the platform actually teaches.
+const graphNodes = [
+  { x: 60, y: 40 }, { x: 200, y: 20 }, { x: 340, y: 70 },
+  { x: 120, y: 130 }, { x: 280, y: 150 }, { x: 420, y: 110 },
+  { x: 40, y: 210 }, { x: 380, y: 220 },
+];
+const graphEdges = [
+  [0, 1], [1, 2], [0, 3], [3, 4], [4, 2], [4, 5], [3, 6], [4, 7],
 ];
 
-export default function Explore() {
-  const [hovered, setHovered] = useState(null);
-  const [filter, setFilter] = useState("All");
+function GraphField() {
+  return (
+    <svg className="ex-graph" viewBox="0 0 460 250" preserveAspectRatio="none" aria-hidden="true">
+      {graphEdges.map(([a, b], i) => {
+        const n1 = graphNodes[a], n2 = graphNodes[b];
+        return (
+          <line
+            key={i}
+            x1={n1.x} y1={n1.y} x2={n2.x} y2={n2.y}
+            className="ex-graph-edge"
+            style={{ animationDelay: `${i * 0.35}s` }}
+          />
+        );
+      })}
+      {graphNodes.map((n, i) => (
+        <circle key={i} cx={n.x} cy={n.y} r="3.2" className="ex-graph-node" style={{ animationDelay: `${i * 0.22}s` }} />
+      ))}
+      <circle r="3.5" className="ex-graph-pulse">
+        <animateMotion
+          dur="7s"
+          repeatCount="indefinite"
+          path="M60,40 L200,20 L340,70 L280,150 L120,130 L40,210"
+        />
+      </circle>
+    </svg>
+  );
+}
 
-  const filters = ["All", "Interactive", "Curated", "Daily", "Foundations", "Advanced", "Popular"];
+export default function Explore() {
+  const [filter, setFilter] = useState("All");
+  const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
+  const cardRefs = useRef([]);
+
+  const filters = ["All", "Interactive", "Curated", "Daily"];
   const filtered =
     filter === "All"
       ? exploreCards
       : exploreCards.filter((c) => c.tag.toLowerCase() === filter.toLowerCase());
+
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setLoaded(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+
+  const handleMove = (e, id) => {
+    const el = cardRefs.current[id];
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const mx = ((e.clientX - r.left) / r.width) * 100;
+    const my = ((e.clientY - r.top) / r.height) * 100;
+    el.style.setProperty("--mx", `${mx}%`);
+    el.style.setProperty("--my", `${my}%`);
+  };
 
   return (
     <>
@@ -94,6 +138,7 @@ export default function Explore() {
             radial-gradient(circle at 85% 15%, rgba(255,107,0,0.05), transparent 35%);
           color: #f2f2f2;
           font-family: 'Inter', -apple-system, sans-serif;
+          overflow-x: hidden;
         }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -101,8 +146,30 @@ export default function Explore() {
         ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ff8a00; }
 
+        @media (prefers-reduced-motion: reduce) {
+          * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+
         /* ── HERO ── */
-        .ex-hero { padding: 56px 24px 0; max-width: 1000px; margin: 0 auto; }
+        .ex-hero { position: relative; padding: 64px 24px 40px; max-width: 1000px; margin: 0 auto; }
+
+        .ex-graph {
+          position: absolute; top: -10px; right: -40px;
+          width: 480px; height: 260px; opacity: 0.55;
+          pointer-events: none;
+        }
+        .ex-graph-edge {
+          stroke: #ff8a00; stroke-width: 1; opacity: 0;
+          stroke-dasharray: 6 4;
+          animation: ex-edge-in 0.9s ease forwards;
+        }
+        @keyframes ex-edge-in { from { opacity: 0; } to { opacity: 0.28; } }
+        .ex-graph-node {
+          fill: #ffb84d; opacity: 0;
+          animation: ex-node-in 0.6s ease forwards;
+        }
+        @keyframes ex-node-in { from { opacity: 0; r: 1; } to { opacity: 0.85; r: 3.2; } }
+        .ex-graph-pulse { fill: #ff6b00; filter: drop-shadow(0 0 5px #ff6b00); }
 
         .ex-hero-tag {
           display: inline-flex; align-items: center; gap: 7px;
@@ -111,6 +178,8 @@ export default function Explore() {
           text-transform: uppercase; color: #ff8a00;
           background: rgba(255,138,0,0.08); border: 1px solid rgba(255,138,0,0.25);
           border-radius: 20px; padding: 5px 12px 5px 10px; margin-bottom: 22px;
+          opacity: 0; transform: translateY(10px);
+          transition: opacity 0.5s ease, transform 0.5s ease;
         }
         .ex-hero-tag::before {
           content: ''; width: 6px; height: 6px; border-radius: 50%;
@@ -123,47 +192,33 @@ export default function Explore() {
           font-size: clamp(30px, 4.2vw, 44px);
           font-weight: 800; letter-spacing: -1.2px;
           color: #f7f7f7; line-height: 1.12;
-          margin-bottom: 16px;
+          margin-bottom: 16px; max-width: 620px;
+          opacity: 0; transform: translateY(14px);
+          transition: opacity 0.6s ease 0.08s, transform 0.6s ease 0.08s;
         }
         .ex-hero-h1 em {
           font-style: normal;
           background: linear-gradient(90deg, #ffb84d, #ff6b00);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+          background-size: 200% 100%;
+          animation: ex-gradient-shift 6s ease infinite;
         }
+        @keyframes ex-gradient-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
         .ex-hero-sub {
           font-size: 15px; color: #9a9a9a; line-height: 1.75;
-          max-width: 520px; margin-bottom: 40px;
+          max-width: 480px; margin-bottom: 0;
+          opacity: 0; transform: translateY(14px);
+          transition: opacity 0.6s ease 0.16s, transform 0.6s ease 0.16s;
         }
 
-        /* ── STATS ── */
-        .ex-stats {
-          display: flex; background: #131313;
-          border: 1px solid #232323; border-radius: 14px;
-          overflow: hidden; margin-bottom: 44px;
-        }
-        .ex-stat {
-          flex: 1; padding: 18px 22px;
-          border-right: 1px solid #232323;
-          position: relative;
-        }
-        .ex-stat:last-child { border-right: none; }
-        .ex-stat::before {
-          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-          background: linear-gradient(90deg, transparent, #ff8a00, transparent);
-          opacity: 0; transition: opacity 0.2s;
-        }
-        .ex-stat:hover::before { opacity: 1; }
-        .ex-stat-label {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 9px; font-weight: 600; letter-spacing: 1.4px;
-          text-transform: uppercase; color: #666; margin-bottom: 6px; display: block;
-        }
-        .ex-stat-val { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #f7f7f7; display: block; }
-        .ex-stat-sub { font-size: 11px; color: #777; font-family: 'JetBrains Mono', monospace; }
+        .ex-root.loaded .ex-hero-tag,
+        .ex-root.loaded .ex-hero-h1,
+        .ex-root.loaded .ex-hero-sub { opacity: 1; transform: translateY(0); }
 
-        .ex-divider { height: 1px; background: linear-gradient(90deg, #232323, transparent); margin: 0 0 32px; }
+        .ex-divider { height: 1px; background: linear-gradient(90deg, #232323, transparent); margin: 40px 0 32px; }
 
-        .ex-main { max-width: 1000px; margin: 0 auto; padding: 0 24px 90px; }
+        .ex-main { position: relative; max-width: 1000px; margin: 0 auto; padding: 0 24px 90px; }
 
         /* ── FILTERS ── */
         .ex-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -172,6 +227,7 @@ export default function Explore() {
           color: #666; letter-spacing: 1px; text-transform: uppercase; margin-right: 6px;
         }
         .ex-filter-btn {
+          position: relative;
           background: #131313; border: 1px solid #232323; border-radius: 20px;
           cursor: pointer; padding: 6px 14px;
           font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500;
@@ -192,48 +248,46 @@ export default function Explore() {
           background: #121212; border: 1px solid #232323; border-radius: 16px;
           padding: 24px 22px 22px; color: #f2f2f2;
           display: flex; flex-direction: column; cursor: pointer;
-          transition: border-color 0.2s, transform 0.2s cubic-bezier(.22,1,.36,1), background 0.2s;
+          transition: border-color 0.25s, transform 0.3s cubic-bezier(.22,1,.36,1), background 0.25s, box-shadow 0.3s;
+          opacity: 0; transform: translateY(18px);
+          animation: ex-card-in 0.55s cubic-bezier(.22,1,.36,1) forwards;
         }
-        .ex-card::after {
-          content: ''; position: absolute; top: -50px; right: -50px;
-          width: 160px; height: 160px;
-          background: radial-gradient(circle, var(--glow), transparent 70%);
-          opacity: 0; transition: opacity 0.25s ease; pointer-events: none;
+        @keyframes ex-card-in { to { opacity: 1; transform: translateY(0); } }
+
+        .ex-card::before {
+          content: ''; position: absolute; inset: 0; border-radius: inherit;
+          background: radial-gradient(240px circle at var(--mx,50%) var(--my,50%), var(--glow), transparent 65%);
+          opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
         }
+        .ex-card:hover::before { opacity: 1; }
         .ex-card:hover {
           border-color: var(--accent-border);
           background: var(--accent-bg);
-          transform: translateY(-4px);
+          transform: translateY(-5px);
+          box-shadow: 0 18px 40px -18px rgba(0,0,0,0.55);
         }
-        .ex-card:hover::after { opacity: 1; }
-        .ex-card:active { transform: translateY(-1px); }
+        .ex-card:active { transform: translateY(-2px); }
 
-        .ex-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
+        .ex-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; position: relative; z-index: 1; }
         .ex-card-icon-wrap {
           width: 44px; height: 44px; border-radius: 12px;
           display: flex; align-items: center; justify-content: center;
           background: var(--accent-bg); border: 1px solid var(--accent-border);
           font-size: 21px; color: var(--accent); flex-shrink: 0;
-          transition: transform 0.2s, background 0.15s;
+          transition: transform 0.3s cubic-bezier(.22,1,.36,1), background 0.15s;
         }
-        .ex-card:hover .ex-card-icon-wrap { transform: scale(1.08) rotate(-4deg); background: var(--accent-border); }
-
-        .ex-card-badge {
-          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600;
-          letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent);
-          background: var(--accent-bg); border: 1px solid var(--accent-border);
-          border-radius: 20px; padding: 3px 9px; white-space: nowrap;
-        }
+        .ex-card:hover .ex-card-icon-wrap { transform: scale(1.1) rotate(-6deg); background: var(--accent-border); }
 
         .ex-card-tag {
+          position: relative; z-index: 1;
           font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
           letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent);
           margin-bottom: 7px; opacity: 0.85;
         }
-        .ex-card-title { font-size: 16px; font-weight: 700; color: #f7f7f7; letter-spacing: -0.3px; margin-bottom: 9px; line-height: 1.3; }
-        .ex-card-desc { font-size: 12.5px; color: #999; line-height: 1.7; margin-bottom: 18px; flex: 1; }
+        .ex-card-title { position: relative; z-index: 1; font-size: 16px; font-weight: 700; color: #f7f7f7; letter-spacing: -0.3px; margin-bottom: 9px; line-height: 1.3; }
+        .ex-card-desc { position: relative; z-index: 1; font-size: 12.5px; color: #999; line-height: 1.7; margin-bottom: 18px; flex: 1; }
 
-        .ex-card-items { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+        .ex-card-items { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
         .ex-card-item {
           font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888;
           background: #0a0a0a; border: 1px solid #232323; border-radius: 6px; padding: 3px 9px;
@@ -242,6 +296,7 @@ export default function Explore() {
         .ex-card:hover .ex-card-item { color: var(--accent); border-color: var(--accent-border); }
 
         .ex-card-cta {
+          position: relative; z-index: 1;
           display: inline-flex; align-items: center; gap: 6px;
           font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
           color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-border);
@@ -249,14 +304,14 @@ export default function Explore() {
           transition: gap 0.15s, background 0.15s;
         }
         .ex-card:hover .ex-card-cta { gap: 11px; background: var(--accent-border); }
-        .ex-card-cta-arrow { transition: transform 0.15s; }
+        .ex-card-cta-arrow { display: inline-block; transition: transform 0.15s; }
         .ex-card:hover .ex-card-cta-arrow { transform: translateX(3px); }
 
         /* ── FEATURED ── */
         .ex-card.featured {
           grid-column: 1 / -1; flex-direction: row; gap: 34px; padding: 30px 30px; align-items: center;
         }
-        .ex-card.featured .ex-card-left { flex: 1; }
+        .ex-card.featured .ex-card-left { flex: 1; position: relative; z-index: 1; }
         .ex-card.featured .ex-card-icon-wrap { width: 68px; height: 68px; border-radius: 16px; font-size: 32px; flex-shrink: 0; }
         .ex-card.featured .ex-card-title { font-size: 19px; }
         .ex-card.featured .ex-card-desc { font-size: 13.5px; }
@@ -268,19 +323,17 @@ export default function Explore() {
         }
         .ex-section-label-line { flex: 1; height: 1px; background: #232323; }
 
-        @keyframes ex-fadein { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-        .ex-hero { animation: ex-fadein 0.4s ease both; }
-        .ex-card { animation: ex-fadein 0.4s ease both; }
-        .ex-card:nth-child(1) { animation-delay: 0.05s; }
-        .ex-card:nth-child(2) { animation-delay: 0.10s; }
-        .ex-card:nth-child(3) { animation-delay: 0.15s; }
-        .ex-card:nth-child(4) { animation-delay: 0.20s; }
+        @media (max-width: 640px) {
+          .ex-graph { display: none; }
+          .ex-card.featured { flex-direction: column; align-items: flex-start; }
+        }
       `}</style>
 
-      <div className="ex-root">
+      <div className={`ex-root${loaded ? " loaded" : ""}`}>
         <Navbar />
 
         <div className="ex-hero">
+          <GraphField />
           <div className="ex-hero-tag">Explore CodeMaster</div>
           <h1 className="ex-hero-h1">
             Everything you need to<br />
@@ -289,16 +342,6 @@ export default function Explore() {
           <p className="ex-hero-sub">
             From DSA visualizations to curated FAANG problem sets — pick a path and start building real skills today.
           </p>
-
-          <div className="ex-stats">
-            {stats.map((s) => (
-              <div key={s.label} className="ex-stat">
-                <span className="ex-stat-label">{s.label}</span>
-                <span className="ex-stat-val">{s.value}</span>
-                <span className="ex-stat-sub">{s.sub}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="ex-main">
@@ -328,15 +371,16 @@ export default function Explore() {
             {filtered.map((card, i) => (
               <div
                 key={card.id}
+                ref={(el) => (cardRefs.current[card.id] = el)}
                 className={`ex-card${i === 0 && filter === "All" ? " featured" : ""}`}
                 style={{
                   "--accent": card.accent,
                   "--accent-bg": card.accentBg,
                   "--accent-border": card.accentBorder,
                   "--glow": card.accentGlow,
+                  animationDelay: `${0.25 + i * 0.08}s`,
                 }}
-                onMouseEnter={() => setHovered(card.id)}
-                onMouseLeave={() => setHovered(null)}
+                onMouseMove={(e) => handleMove(e, card.id)}
                 onClick={() => navigate(card.route)}
               >
                 {i === 0 && filter === "All" ? (
@@ -360,7 +404,6 @@ export default function Explore() {
                   <>
                     <div className="ex-card-head">
                       <div className="ex-card-icon-wrap">{card.icon}</div>
-                      <span className="ex-card-badge">{card.badge}</span>
                     </div>
                     <div className="ex-card-tag">{card.tag}</div>
                     <div className="ex-card-title">{card.title}</div>

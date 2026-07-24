@@ -32,8 +32,8 @@ import AdminCreateContest from "./component/creatcontest";
 import AdminManageContests from "./component/managecontext";
 import ContestProblemEditor from "./component/Contestproblemeditor";
 import CheatSheet from "./component/cheatsheet";
-import ComplexityVisualizer from "./component/complexity";
 import AdminListPage from "./pages/AdminListPage";
+import TimeComplexityVisualizer from "./component/complexity"
 import IncomingChatPopup from "./component/IncomingChatPopup"; 
 import socket from "./utils/socket";
 import ChatRoomPage from "./pages/chatroompage";
@@ -113,7 +113,7 @@ function App(){
     <Route path="/admin/contest/manage" element={<AdminManageContests></AdminManageContests>}></Route>
     <Route path="/contest/:contestId/problem/:problemId" element={<ContestProblemEditor></ContestProblemEditor>}></Route>
     <Route path="/explore/cheatsheet" element={<CheatSheet></CheatSheet>}></Route>
-    <Route path="/explore/complexity" element={<ComplexityVisualizer></ComplexityVisualizer>}></Route>
+    <Route path="/explore/complexity" element={<TimeComplexityVisualizer></TimeComplexityVisualizer>}></Route>
     <Route path="/explore/talkadmin" element={<AdminListPage /> } />
     <Route path="/chat/:roomName" element={isAuthenticated ? <ChatRoomPage /> : <Navigate to="/login" />} />
     {/* -- college feature -- */}

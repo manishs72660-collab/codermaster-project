@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { NavLink } from "react-router";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -624,10 +625,14 @@ export default function DSAVisualizer() {
         {/* ── TOPBAR ── */}
         <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, height: 48, display: "flex", alignItems: "center", padding: "0 20px", gap: 10, position: "sticky", top: 0, zIndex: 20 }}>
           <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg,#ffa116,#ff6b00)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#0d1117" }}>⌨</div>
+          <NavLink to={"/"}>
           <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3 }}>CodeMaster</span>
+          </NavLink>
           <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px" }} />
           <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.muted }}>
+            <NavLink to={"/explore"}> 
             Explore / <span style={{ color: CM.accent }}>DSA Visualizer</span>
+            </NavLink>
           </span>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             <Badge label="Interactive" color={CM.green} />
