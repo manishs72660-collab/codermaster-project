@@ -43,6 +43,40 @@ const ALG_COLORS = {
   path:      CM.accent,
 };
 
+// ─── Speed control (fixed) ─────────────────────────────────────────────────────
+// Higher label = faster animation. Internally maps to a millisecond delay
+// that shrinks as the level increases, so the UI direction now matches
+// what "speed" means (right / higher = faster), instead of the old
+// slider where a bigger number meant a bigger, slower delay.
+const SPEED_LEVELS = [
+  { label: "0.5×", delay: 900 },
+  { label: "1×",   delay: 500 },
+  { label: "2×",   delay: 260 },
+  { label: "4×",   delay: 130 },
+  { label: "8×",   delay: 55  },
+];
+
+function SpeedControl({ value, onChange, disabled }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1 }}>SPEED</span>
+      <div style={{ display: "flex", background: CM.bg, borderRadius: 8, overflow: "hidden", border: `1px solid ${CM.border2}` }}>
+        {SPEED_LEVELS.map((s, i) => (
+          <button key={s.label} disabled={disabled} onClick={() => onChange(i)} style={{
+            padding: "6px 10px", fontSize: 11, fontWeight: 700, border: "none",
+            cursor: disabled ? "not-allowed" : "pointer",
+            background: value === i ? CM.accent : "transparent",
+            color: value === i ? "#0d1117" : CM.muted,
+            fontFamily: "'JetBrains Mono',monospace",
+            opacity: disabled ? 0.5 : 1,
+            transition: "all 0.15s",
+          }}>{s.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Reusable UI ──────────────────────────────────────────────────────────────
 function CMButton({ onClick, disabled, children, variant = "default", style = {} }) {
   const variants = {
@@ -77,9 +111,10 @@ function CMSelect({ value, onChange, options, disabled }) {
   );
 }
 
-function CMInput({ value, onChange, placeholder, width = 80 }) {
+function CMInput({ value, onChange, placeholder, width = 80, onEnter }) {
   return (
     <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      onKeyDown={e => { if (e.key === "Enter" && onEnter) onEnter(); }}
       style={{
         background: CM.surface2, color: CM.text, border: `1px solid ${CM.border2}`,
         borderRadius: 7, padding: "6px 10px", fontSize: 12, width,
@@ -120,6 +155,31 @@ function SectionLabel({ children, color = CM.accent }) {
   );
 }
 
+// ─── About card (algorithm explanation) ───────────────────────────────────────
+function AboutCard({ title, description, useCase, badges }) {
+  return (
+    <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ padding: "9px 14px", borderBottom: `1px solid ${CM.border}`, background: CM.bg, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1, textTransform: "uppercase" }}>About</span>
+        <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.accent }}>{title}</span>
+      </div>
+      <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <p style={{ fontSize: 12.5, lineHeight: 1.65, color: CM.muted, margin: 0 }}>{description}</p>
+        {useCase && (
+          <p style={{ fontSize: 11.5, lineHeight: 1.6, color: CM.dim, margin: 0 }}>
+            <span style={{ color: CM.teal, fontWeight: 700 }}>USE WHEN — </span>{useCase}
+          </p>
+        )}
+        {badges && badges.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {badges.map(([label, color]) => <Badge key={label} label={label} color={color} />)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Bar (sorting/searching) ──────────────────────────────────────────────────
 function Bar({ value, max, color, width = 26 }) {
   const h = Math.max(6, Math.round((value / max) * 200));
@@ -152,7 +212,7 @@ function CodeView({ lines, highlight, title }) {
           <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.accent }}>{title}</span>
         </div>
       )}
-      <div style={{ padding: "12px 4px", maxHeight: 190, overflowY: "auto" }}>
+      <div style={{ padding: "12px 4px", maxHeight: 220, overflowY: "auto" }}>
         {lines.map((line, i) => (
           <div key={i} style={{
             display: "flex", gap: 10, alignItems: "center",
@@ -208,7 +268,9 @@ function Legend({ items }) {
 const SORT_ALGOS = {
   "Bubble Sort": {
     code: ["for i in range(n):","  for j in range(n-i-1):","    if arr[j] > arr[j+1]:","      swap(arr[j], arr[j+1])"],
-    complexity: { time: "O(n²)", space: "O(1)", best: "O(n)", stable: true },
+    complexity: { time: "O(n²)", space: "O(1)", best: "O(n)", stable: true, inPlace: true, adaptive: true },
+    description: "Repeatedly steps through the array, comparing each pair of adjacent elements and swapping them if they're in the wrong order. The largest unsorted value 'bubbles' to the end on every pass.",
+    useCase: "Teaching the concept of sorting, or sorting tiny/nearly-sorted lists where simplicity matters more than speed.",
     async run(arr, setColors, setArr, speed) {
       const a=[...arr],n=a.length,cols=Array(n).fill(ALG_COLORS.default);
       for(let i=0;i<n;i++){
@@ -225,7 +287,9 @@ const SORT_ALGOS = {
   },
   "Selection Sort": {
     code: ["for i in range(n):","  min_idx = i","  for j in range(i+1, n):","    if arr[j] < arr[min_idx]: min_idx=j","  swap(arr[i], arr[min_idx])"],
-    complexity: { time: "O(n²)", space: "O(1)", best: "O(n²)", stable: false },
+    complexity: { time: "O(n²)", space: "O(1)", best: "O(n²)", stable: false, inPlace: true, adaptive: false },
+    description: "Scans the unsorted portion of the array to find the minimum value, then swaps it into place at the front. Repeats until the whole array is sorted, always doing the same number of comparisons.",
+    useCase: "When memory writes are expensive — it performs at most n swaps total, far fewer than bubble or insertion sort.",
     async run(arr, setColors, setArr, speed) {
       const a=[...arr],n=a.length,cols=Array(n).fill(ALG_COLORS.default);
       for(let i=0;i<n-1;i++){
@@ -243,7 +307,9 @@ const SORT_ALGOS = {
   },
   "Insertion Sort": {
     code: ["for i in range(1, n):","  key = arr[i]; j = i-1","  while j>=0 and arr[j]>key:","    arr[j+1]=arr[j]; j-=1","  arr[j+1] = key"],
-    complexity: { time: "O(n²)", space: "O(1)", best: "O(n)", stable: true },
+    complexity: { time: "O(n²)", space: "O(1)", best: "O(n)", stable: true, inPlace: true, adaptive: true },
+    description: "Builds the sorted array one element at a time, taking each new value and sliding it left past every element bigger than it — the same way you'd sort playing cards in your hand.",
+    useCase: "Small arrays, or data that's already almost sorted — it approaches O(n) speed the closer the input is to sorted.",
     async run(arr, setColors, setArr, speed) {
       const a=[...arr],n=a.length,cols=Array(n).fill(ALG_COLORS.default);
       for(let i=1;i<n;i++){
@@ -259,9 +325,37 @@ const SORT_ALGOS = {
       cols.fill(ALG_COLORS.sorted);setColors([...cols]);
     }
   },
+  "Shell Sort": {
+    code: ["gap = n // 2","while gap > 0:","  for i in range(gap, n):","    temp = arr[i]; j = i","    while j>=gap and arr[j-gap]>temp:","      arr[j]=arr[j-gap]; j-=gap","    arr[j] = temp","  gap //= 2"],
+    complexity: { time: "O(n log² n)", space: "O(1)", best: "O(n log n)", stable: false, inPlace: true, adaptive: true },
+    description: "An extension of insertion sort that first compares elements far apart (a large 'gap'), then shrinks the gap each pass. Moving distant out-of-place elements early makes later passes much cheaper.",
+    useCase: "A drop-in upgrade over insertion sort for medium-sized arrays when you want better speed but still want something simple and in-place.",
+    async run(arr, setColors, setArr, speed) {
+      const a=[...arr],n=a.length,cols=Array(n).fill(ALG_COLORS.default);
+      let gap=Math.floor(n/2);
+      while(gap>0){
+        for(let i=gap;i<n;i++){
+          let temp=a[i],j=i;
+          cols[i]=ALG_COLORS.active;setColors([...cols]);await sleep(speed/2);
+          while(j>=gap&&a[j-gap]>temp){
+            cols[j]=ALG_COLORS.comparing;cols[j-gap]=ALG_COLORS.comparing;
+            setColors([...cols]);await sleep(speed);
+            a[j]=a[j-gap];setArr([...a]);
+            cols[j]=ALG_COLORS.default;cols[j-gap]=ALG_COLORS.default;
+            j-=gap;
+          }
+          a[j]=temp;setArr([...a]);cols[i]=ALG_COLORS.default;
+        }
+        gap=Math.floor(gap/2);
+      }
+      cols.fill(ALG_COLORS.sorted);setColors([...cols]);
+    }
+  },
   "Quick Sort": {
     code: ["def quicksort(arr, lo, hi):","  if lo < hi:","    pivot = arr[hi]; i = lo-1","    for j in range(lo, hi):","      if arr[j]<=pivot: i++; swap(i,j)","    swap(i+1, hi)","    quicksort(lo, i); quicksort(i+2, hi)"],
-    complexity: { time: "O(n log n)", space: "O(log n)", best: "O(n log n)", stable: false },
+    complexity: { time: "O(n log n)", space: "O(log n)", best: "O(n log n)", stable: false, inPlace: true, adaptive: false },
+    description: "Picks a pivot value (here, the last element), partitions the array so smaller values end up left of it and larger values right of it, then recursively sorts each side.",
+    useCase: "General-purpose sorting where average-case speed matters most — it's the default sort in many languages' standard libraries.",
     async run(arr, setColors, setArr, speed) {
       const a=[...arr],cols=Array(a.length).fill(ALG_COLORS.default);
       async function qs(lo,hi){
@@ -282,7 +376,9 @@ const SORT_ALGOS = {
   },
   "Merge Sort": {
     code: ["def mergesort(arr, l, r):","  if l < r:","    m = (l+r)//2","    mergesort(arr, l, m)","    mergesort(arr, m+1, r)","    merge(arr, l, m, r)"],
-    complexity: { time: "O(n log n)", space: "O(n)", best: "O(n log n)", stable: true },
+    complexity: { time: "O(n log n)", space: "O(n)", best: "O(n log n)", stable: true, inPlace: false, adaptive: false },
+    description: "Splits the array in half recursively until each piece has one element, then merges pieces back together in sorted order. The merge step always compares the fronts of two already-sorted halves.",
+    useCase: "When you need guaranteed O(n log n) performance and stability, e.g. sorting linked lists or external/disk-based data.",
     async run(arr, setColors, setArr, speed) {
       const a=[...arr],cols=Array(a.length).fill(ALG_COLORS.default);
       async function merge(l,m,r){
@@ -305,7 +401,9 @@ const SORT_ALGOS = {
   },
   "Heap Sort": {
     code: ["def heapify(arr, n, i):","  largest = i; l=2*i+1; r=2*i+2","  if l<n and arr[l]>arr[largest]: largest=l","  if r<n and arr[r]>arr[largest]: largest=r","  if largest!=i: swap(i,largest); heapify(n,largest)","for i in range(n//2-1,-1,-1): heapify(n,i)","for i in range(n-1,0,-1): swap(0,i); heapify(i,0)"],
-    complexity: { time: "O(n log n)", space: "O(1)", best: "O(n log n)", stable: false },
+    complexity: { time: "O(n log n)", space: "O(1)", best: "O(n log n)", stable: false, inPlace: true, adaptive: false },
+    description: "Builds a max-heap from the array so the largest value sits at the root, repeatedly swaps that root to the end of the array, shrinks the heap, and re-heapifies.",
+    useCase: "Guaranteed O(n log n) with O(1) extra space — good when memory is tight and stability isn't required.",
     async run(arr, setColors, setArr, speed) {
       const a=[...arr],n=a.length,cols=Array(n).fill(ALG_COLORS.default);
       async function heapify(sz,i){
@@ -331,6 +429,30 @@ const SORT_ALGOS = {
       cols[0]=ALG_COLORS.sorted;setColors([...cols]);
     }
   },
+  "Counting Sort": {
+    code: ["max_val = max(arr)","count = [0] * (max_val + 1)","for x in arr: count[x] += 1","idx = 0","for v in range(max_val + 1):","  while count[v] > 0:","    arr[idx] = v; idx += 1","    count[v] -= 1"],
+    complexity: { time: "O(n + k)", space: "O(k)", best: "O(n + k)", stable: true, inPlace: false, adaptive: false },
+    description: "Skips comparisons entirely: counts how many times each value appears, then rebuilds the array by writing each value that many times in order. 'k' is the range of possible values.",
+    useCase: "Sorting integers over a small, known range (e.g. exam scores 0–100) — it can beat O(n log n) sorts when k is small relative to n.",
+    async run(arr, setColors, setArr, speed) {
+      const a=[...arr],n=a.length,maxV=Math.max(...a);
+      const count=new Array(maxV+1).fill(0);
+      const cols=Array(n).fill(ALG_COLORS.default);
+      for(let i=0;i<n;i++){
+        cols[i]=ALG_COLORS.comparing;setColors([...cols]);await sleep(speed/2);
+        count[a[i]]++;cols[i]=ALG_COLORS.default;
+      }
+      let idx=0;
+      for(let v=0;v<=maxV;v++){
+        while(count[v]>0){
+          a[idx]=v;setArr([...a]);cols[idx]=ALG_COLORS.sorted;
+          setColors([...cols]);await sleep(speed);
+          idx++;count[v]--;
+        }
+      }
+      setColors(Array(n).fill(ALG_COLORS.sorted));
+    }
+  },
 };
 
 // ─── SEARCH ALGORITHMS ────────────────────────────────────────────────────────
@@ -338,6 +460,8 @@ const SEARCH_ALGOS = {
   "Linear Search": {
     code: ["for i in range(n):","  if arr[i] == target: return i","return -1"],
     complexity: { time: "O(n)", space: "O(1)" },
+    description: "Checks every element one by one from the start until it finds the target or reaches the end. Makes no assumptions about ordering.",
+    useCase: "Unsorted data, or a one-off lookup where sorting first wouldn't pay off.",
     async run(arr, target, setColors, speed) {
       const cols=Array(arr.length).fill(ALG_COLORS.default);
       for(let i=0;i<arr.length;i++){
@@ -352,6 +476,8 @@ const SEARCH_ALGOS = {
     code: ["lo, hi = 0, n-1","while lo <= hi:","  mid = (lo+hi)//2","  if arr[mid]==target: return mid","  elif arr[mid]<target: lo=mid+1","  else: hi=mid-1","return -1"],
     complexity: { time: "O(log n)", space: "O(1)" },
     note: "Auto-sorts for visualization",
+    description: "Repeatedly checks the middle of the remaining range and discards the half that can't contain the target, halving the search space each step.",
+    useCase: "Sorted arrays with random access (arrays, not linked lists) — the go-to for fast lookups.",
     async run(arr, target, setColors, speed) {
       const sorted=[...arr].sort((a,b)=>a-b);
       const cols=Array(sorted.length).fill(ALG_COLORS.default);
@@ -372,6 +498,8 @@ const SEARCH_ALGOS = {
     code: ["step = √n; prev = 0","while arr[min(step,n)-1] < target:","  prev=step; step+=√n","  if prev>=n: return -1","while arr[prev] < target:","  prev++; if prev==min(step,n): return -1","if arr[prev]==target: return prev","return -1"],
     complexity: { time: "O(√n)", space: "O(1)" },
     note: "Requires sorted array",
+    description: "Jumps ahead in fixed-size blocks (√n at a time) to find the block that could contain the target, then does a linear scan inside that block.",
+    useCase: "Sorted arrays where jumping backward is costly (e.g. slow storage) — fewer jumps than linear search, simpler than binary search.",
     async run(arr, target, setColors, speed) {
       const sorted=[...arr].sort((a,b)=>a-b);
       const cols=Array(sorted.length).fill(ALG_COLORS.default);
@@ -389,6 +517,63 @@ const SEARCH_ALGOS = {
         if(prev===Math.min(step,n)){setColors([...cols]);return -1;}
       }
       if(sorted[prev]===target){cols[prev]=ALG_COLORS.found;setColors([...cols]);return prev;}
+      setColors([...cols]);return -1;
+    }
+  },
+  "Exponential Search": {
+    code: ["if arr[0]==target: return 0","i = 1","while i<n and arr[i]<=target:","  i *= 2","lo, hi = i//2, min(i, n-1)","return binary_search(arr, lo, hi, target)"],
+    complexity: { time: "O(log n)", space: "O(1)" },
+    note: "Requires sorted array",
+    description: "Doubles an index (1, 2, 4, 8…) until it overshoots the target, locating a range the target must fall in, then runs binary search inside just that range.",
+    useCase: "Sorted arrays where the target is likely near the start, or the array size is unknown/unbounded (e.g. searching a stream).",
+    async run(arr, target, setColors, speed) {
+      const sorted=[...arr].sort((a,b)=>a-b);
+      const n=sorted.length;
+      const cols=Array(n).fill(ALG_COLORS.default);
+      if(sorted[0]===target){cols[0]=ALG_COLORS.found;setColors([...cols]);return 0;}
+      let i=1;
+      while(i<n&&sorted[i]<=target){
+        cols[i]=ALG_COLORS.visited;setColors([...cols]);await sleep(speed);
+        i*=2;
+      }
+      let lo=Math.floor(i/2),hi=Math.min(i,n-1);
+      while(lo<=hi){
+        const mid=Math.floor((lo+hi)/2);
+        for(let k=0;k<n;k++)cols[k]=(k>=lo&&k<=hi)?ALG_COLORS.comparing:cols[k]===ALG_COLORS.visited?ALG_COLORS.visited:ALG_COLORS.default;
+        cols[mid]=ALG_COLORS.active;
+        setColors([...cols]);await sleep(speed);
+        if(sorted[mid]===target){cols[mid]=ALG_COLORS.found;setColors([...cols]);return mid;}
+        else if(sorted[mid]<target)lo=mid+1;
+        else hi=mid-1;
+      }
+      setColors([...cols]);return -1;
+    }
+  },
+  "Interpolation Search": {
+    code: ["lo, hi = 0, n-1","while lo<=hi and target>=arr[lo] and target<=arr[hi]:","  pos = lo + (target-arr[lo])*(hi-lo)//(arr[hi]-arr[lo])","  if arr[pos]==target: return pos","  elif arr[pos]<target: lo=pos+1","  else: hi=pos-1","return -1"],
+    complexity: { time: "O(log log n)", space: "O(1)" },
+    note: "Requires sorted, uniformly distributed array",
+    description: "Estimates where the target is likely to sit using linear interpolation between the low and high bounds — like flipping straight to the right page of a dictionary instead of always opening to the middle.",
+    useCase: "Large sorted arrays of uniformly distributed numeric data, where it can beat binary search's O(log n).",
+    async run(arr, target, setColors, speed) {
+      const sorted=[...arr].sort((a,b)=>a-b);
+      const n=sorted.length;
+      const cols=Array(n).fill(ALG_COLORS.default);
+      let lo=0,hi=n-1;
+      while(lo<=hi&&target>=sorted[lo]&&target<=sorted[hi]){
+        if(sorted[hi]===sorted[lo]){
+          cols[lo]=ALG_COLORS.comparing;setColors([...cols]);await sleep(speed);
+          if(sorted[lo]===target){cols[lo]=ALG_COLORS.found;setColors([...cols]);return lo;}
+          break;
+        }
+        const pos=lo+Math.floor((target-sorted[lo])*(hi-lo)/(sorted[hi]-sorted[lo]));
+        for(let k=lo;k<=hi;k++)cols[k]=ALG_COLORS.comparing;
+        cols[pos]=ALG_COLORS.active;
+        setColors([...cols]);await sleep(speed);
+        if(sorted[pos]===target){cols[pos]=ALG_COLORS.found;setColors([...cols]);return pos;}
+        else if(sorted[pos]<target)lo=pos+1;
+        else hi=pos-1;
+      }
       setColors([...cols]);return -1;
     }
   },
@@ -532,9 +717,12 @@ export default function DSAVisualizer() {
   const [arr, setArr] = useState([38,27,43,13,55,19,32,47,8,60,24,71]);
   const [colors, setColors] = useState(Array(12).fill(ALG_COLORS.default));
   const [running, setRunning] = useState(false);
-  const [speed, setSpeed] = useState(200);
+  const [speedIdx, setSpeedIdx] = useState(2);
+  const speed = SPEED_LEVELS[speedIdx].delay;
   const [status, setStatus] = useState("");
   const [searchTarget, setSearchTarget] = useState(27);
+  const [customInput, setCustomInput] = useState("");
+  const [customError, setCustomError] = useState("");
   // LL
   const [llNodes, setLLNodes] = useState([10,20,30,40,50]);
   const [llInput, setLLInput] = useState("");
@@ -561,7 +749,16 @@ export default function DSAVisualizer() {
 
   const genArr = () => {
     const a = Array.from({ length: 14 }, () => Math.floor(Math.random() * 88) + 5);
-    setArr(a); setColors(Array(a.length).fill(ALG_COLORS.default)); setStatus("");
+    setArr(a); setColors(Array(a.length).fill(ALG_COLORS.default)); setStatus(""); setCustomError("");
+  };
+
+  const applyCustomArr = () => {
+    const parts = customInput.split(",").map(s => s.trim()).filter(s => s.length);
+    const nums = parts.map(Number);
+    if (nums.length < 2) { setCustomError("Enter at least 2 comma-separated numbers"); return; }
+    if (nums.length > 20) { setCustomError("Max 20 numbers"); return; }
+    if (nums.some(n => isNaN(n) || n < 0 || n > 999)) { setCustomError("Use whole numbers between 0 and 999"); return; }
+    setArr(nums); setColors(Array(nums.length).fill(ALG_COLORS.default)); setStatus(""); setCustomError("");
   };
 
   const runSort = async () => {
@@ -607,16 +804,17 @@ export default function DSAVisualizer() {
 
   const bstRoot = buildBST(bstVals);
   const tabColor = TAB_COLORS[TABS.indexOf(tab)] || CM.accent;
+  const activeSort = SORT_ALGOS[sortAlgo];
+  const activeSearch = SEARCH_ALGOS[searchAlgo];
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
         ::-webkit-scrollbar{width:5px;height:5px;}
         ::-webkit-scrollbar-track{background:${CM.surface};}
         ::-webkit-scrollbar-thumb{background:${CM.border2};border-radius:3px;}
-        input[type=range]{accent-color:${CM.accent};}
         select option{background:${CM.surface2};}
       `}</style>
 
@@ -630,13 +828,14 @@ export default function DSAVisualizer() {
           </NavLink>
           <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px" }} />
           <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.muted }}>
-            <NavLink to={"/explore"}> 
+            <NavLink to={"/explore"}>
             Explore / <span style={{ color: CM.accent }}>DSA Visualizer</span>
             </NavLink>
           </span>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             <Badge label="Interactive" color={CM.green} />
             <Badge label="6 Topics" color={CM.accent} />
+            <Badge label="13 Algorithms" color={CM.purple} />
           </div>
         </div>
 
@@ -655,7 +854,7 @@ export default function DSAVisualizer() {
           ))}
         </div>
 
-        <div style={{ maxWidth: 920, margin: "0 auto", padding: "24px 20px 60px" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "24px 20px 60px" }}>
 
           {/* ══ SORT ════════════════════════════════════════════════════════ */}
           {tab === "Sort" && (
@@ -665,28 +864,32 @@ export default function DSAVisualizer() {
               {/* Controls */}
               <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <CMSelect value={sortAlgo} onChange={setSortAlgo} options={Object.keys(SORT_ALGOS)} disabled={running} />
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim }}>SPEED</span>
-                  <input type="range" min={40} max={700} step={40} value={speed} onChange={e => setSpeed(+e.target.value)} style={{ width: 80 }} />
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.accent, width: 40 }}>{speed}ms</span>
-                </div>
+                <SpeedControl value={speedIdx} onChange={setSpeedIdx} disabled={running} />
                 <CMButton onClick={genArr} disabled={running}>⟳ Shuffle</CMButton>
                 <CMButton onClick={runSort} disabled={running} variant="accent">▶ Visualize</CMButton>
                 <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <Badge label={`⏱ ${SORT_ALGOS[sortAlgo].complexity.time}`} color={CM.blue} />
-                  <Badge label={`📦 ${SORT_ALGOS[sortAlgo].complexity.space}`} color={CM.green} />
-                  <Badge label={`Best ${SORT_ALGOS[sortAlgo].complexity.best}`} color={CM.teal} />
-                  <Badge label={SORT_ALGOS[sortAlgo].complexity.stable ? "Stable" : "Unstable"} color={SORT_ALGOS[sortAlgo].complexity.stable ? CM.green : CM.red} />
+                  <Badge label={`⏱ ${activeSort.complexity.time}`} color={CM.blue} />
+                  <Badge label={`📦 ${activeSort.complexity.space}`} color={CM.green} />
+                  <Badge label={`Best ${activeSort.complexity.best}`} color={CM.teal} />
+                  <Badge label={activeSort.complexity.stable ? "Stable" : "Unstable"} color={activeSort.complexity.stable ? CM.green : CM.red} />
                 </div>
+              </div>
+
+              {/* Custom array input */}
+              <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "12px 16px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1 }}>CUSTOM ARRAY</span>
+                <CMInput value={customInput} onChange={setCustomInput} onEnter={applyCustomArr} placeholder="e.g. 12, 4, 30, 8, 91" width={280} />
+                <CMButton onClick={applyCustomArr} disabled={running} variant="blue">Set Array</CMButton>
+                {customError && <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.red }}>{customError}</span>}
               </div>
 
               {/* Bars */}
               <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "20px 16px", display: "flex", alignItems: "flex-end", gap: 3, minHeight: 250, flexWrap: "wrap" }}>
-                {arr.map((v, i) => <Bar key={i} value={v} max={Math.max(...arr)} color={colors[i]} width={Math.min(32, Math.floor(840 / arr.length - 4))} />)}
+                {arr.map((v, i) => <Bar key={i} value={v} max={Math.max(...arr)} color={colors[i]} width={Math.min(32, Math.floor(880 / arr.length - 4))} />)}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <CodeView lines={SORT_ALGOS[sortAlgo].code} highlight={-1} title={sortAlgo} />
+                <CodeView lines={activeSort.code} highlight={-1} title={sortAlgo} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {status && (
                     <div style={{
@@ -700,6 +903,17 @@ export default function DSAVisualizer() {
                   <Legend items={[["Comparing", ALG_COLORS.comparing], ["Active", ALG_COLORS.active], ["Sorted", ALG_COLORS.sorted], ["Pivot", ALG_COLORS.pivot]]} />
                 </div>
               </div>
+
+              <AboutCard
+                title={sortAlgo}
+                description={activeSort.description}
+                useCase={activeSort.useCase}
+                badges={[
+                  [activeSort.complexity.inPlace ? "In-place" : "Extra memory", activeSort.complexity.inPlace ? CM.green : CM.red],
+                  [activeSort.complexity.adaptive ? "Adaptive" : "Non-adaptive", activeSort.complexity.adaptive ? CM.green : CM.dim],
+                  [activeSort.complexity.stable ? "Stable" : "Unstable", activeSort.complexity.stable ? CM.green : CM.red],
+                ]}
+              />
             </div>
           )}
 
@@ -711,14 +925,23 @@ export default function DSAVisualizer() {
               <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <CMSelect value={searchAlgo} onChange={setSearchAlgo} options={Object.keys(SEARCH_ALGOS)} disabled={running} />
                 <CMInput value={searchTarget} onChange={v => setSearchTarget(+v)} placeholder="Target" width={80} />
+                <SpeedControl value={speedIdx} onChange={setSpeedIdx} disabled={running} />
                 <CMButton onClick={genArr} disabled={running}>⟳ Shuffle</CMButton>
                 <CMButton onClick={runSearch} disabled={running} variant="purple">🔍 Search</CMButton>
-                <Badge label={`⏱ ${SEARCH_ALGOS[searchAlgo].complexity.time}`} color={CM.purple} />
+                <Badge label={`⏱ ${activeSearch.complexity.time}`} color={CM.purple} />
               </div>
 
-              {SEARCH_ALGOS[searchAlgo].note && (
+              {/* Custom array input */}
+              <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "12px 16px", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1 }}>CUSTOM ARRAY</span>
+                <CMInput value={customInput} onChange={setCustomInput} onEnter={applyCustomArr} placeholder="e.g. 12, 4, 30, 8, 91" width={280} />
+                <CMButton onClick={applyCustomArr} disabled={running} variant="blue">Set Array</CMButton>
+                {customError && <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.red }}>{customError}</span>}
+              </div>
+
+              {activeSearch.note && (
                 <div style={{ background: CM.accentDim, border: `1px solid ${CM.accentBdr}`, borderRadius: 7, padding: "8px 14px", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.accent }}>
-                  ⚠ {SEARCH_ALGOS[searchAlgo].note}
+                  ⚠ {activeSearch.note}
                 </div>
               )}
 
@@ -727,7 +950,7 @@ export default function DSAVisualizer() {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <CodeView lines={SEARCH_ALGOS[searchAlgo].code} title={searchAlgo} />
+                <CodeView lines={activeSearch.code} title={searchAlgo} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {status && (
                     <div style={{
@@ -741,6 +964,13 @@ export default function DSAVisualizer() {
                   <Legend items={[["Target Found", ALG_COLORS.found], ["Comparing", ALG_COLORS.comparing], ["Visited", ALG_COLORS.visited], ["Active", ALG_COLORS.active]]} />
                 </div>
               </div>
+
+              <AboutCard
+                title={searchAlgo}
+                description={activeSearch.description}
+                useCase={activeSearch.useCase}
+                badges={[["Time " + activeSearch.complexity.time, CM.purple], ["Space " + activeSearch.complexity.space, CM.blue]]}
+              />
             </div>
           )}
 
@@ -813,6 +1043,12 @@ export default function DSAVisualizer() {
                   </div>
                 </div>
               </div>
+
+              <AboutCard
+                title="Singly Linked List"
+                description="A chain of nodes where each node stores a value and a pointer to the next node. Unlike arrays, elements don't need to sit in contiguous memory, so inserting or removing at the head is instant."
+                useCase="Frequent insertions/removals at the ends (e.g. undo history, queues, LRU caches) where you don't need random-access indexing."
+              />
             </div>
           )}
 
@@ -876,6 +1112,19 @@ export default function DSAVisualizer() {
                   <ComplexityCard rows={[["Enqueue","O(1)",CM.green],["Dequeue","O(1)",CM.green],["Peek","O(1)",CM.green],["Search","O(n)",CM.blue]]} />
                 </div>
               </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <AboutCard
+                  title="Stack"
+                  description="Elements are added and removed from the same end (the 'top'). The last item pushed is always the first one popped."
+                  useCase="Undo/redo, function call stacks, expression parsing (matching brackets), and backtracking algorithms."
+                />
+                <AboutCard
+                  title="Queue"
+                  description="Elements are added at the rear and removed from the front, preserving arrival order."
+                  useCase="Task scheduling, BFS traversal, print queues, and any first-come-first-served processing."
+                />
+              </div>
             </div>
           )}
 
@@ -903,6 +1152,7 @@ export default function DSAVisualizer() {
                   const v = parseInt(bstInput); if (isNaN(v) || bstVals.includes(v)) return;
                   setBstVals(vs => [...vs, v]); setBstInput(""); setBstLog(l => [`Inserted ${v}`, ...l.slice(0,4)]);
                 }}>+ Insert</CMButton>
+                <SpeedControl value={speedIdx} onChange={setSpeedIdx} disabled={running} />
                 <CMButton onClick={() => { setBstHighlight(null); setBstLog([]); }}>Clear</CMButton>
               </div>
 
@@ -938,6 +1188,12 @@ export default function DSAVisualizer() {
                   </div>
                 </div>
               </div>
+
+              <AboutCard
+                title="Binary Search Tree"
+                description="Every node's left subtree holds only smaller values, and its right subtree only larger ones, so each comparison during a search eliminates half the remaining nodes — as long as the tree stays roughly balanced."
+                useCase="Ordered data that needs fast search, insert, and range queries. Unbalanced insert patterns (e.g. sorted input) degrade it to O(n), which is why balanced variants like AVL or Red-Black trees exist."
+              />
             </div>
           )}
 
@@ -957,10 +1213,7 @@ export default function DSAVisualizer() {
                     }}>{m}</button>
                   ))}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim }}>SPEED</span>
-                  <input type="range" min={100} max={1000} step={100} value={speed} onChange={e => setSpeed(+e.target.value)} style={{ width: 80 }} />
-                </div>
+                <SpeedControl value={speedIdx} onChange={setSpeedIdx} disabled={running} />
                 <CMButton onClick={() => { setGraphVisited([]); setGraphCurrent(null); setGraphPath([]); }} disabled={running}>↺ Reset</CMButton>
                 <CMButton variant="accent" onClick={graphMode === "BFS" ? runBFS : runDFS} disabled={running}>▶ Run {graphMode}</CMButton>
                 <Badge label="Time O(V+E)" color={CM.blue} />
@@ -1000,14 +1253,19 @@ export default function DSAVisualizer() {
                     ["Space", "O(V)", CM.green],
                     ["Shortest Path", graphMode === "BFS" ? "Yes ✓" : "No ✗", graphMode === "BFS" ? CM.green : CM.red],
                   ]} />
-                  <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 8, padding: "12px 14px", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.muted, lineHeight: 1.7 }}>
-                    {graphMode === "BFS"
-                      ? "BFS uses a queue — explores level by level. Guarantees shortest path in unweighted graphs."
-                      : "DFS uses a stack / recursion — goes as deep as possible before backtracking."}
-                  </div>
                   <Legend items={[["Current", CM.accent], ["Visited", CM.green]]} />
                 </div>
               </div>
+
+              <AboutCard
+                title={graphMode === "BFS" ? "Breadth-First Search" : "Depth-First Search"}
+                description={graphMode === "BFS"
+                  ? "Explores the graph level by level using a queue: visit a node, then queue up all its unvisited neighbors before moving deeper. This guarantees the shortest path in an unweighted graph."
+                  : "Explores as far as possible down one branch before backtracking, using a stack (or recursion). It doesn't guarantee the shortest path, but uses less memory on wide graphs."}
+                useCase={graphMode === "BFS"
+                  ? "Shortest-path problems, finding connected components, or web crawling level by level."
+                  : "Cycle detection, topological sorting, maze/puzzle solving, and exploring all paths."}
+              />
             </div>
           )}
 

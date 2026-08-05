@@ -412,8 +412,6 @@ module.exports = {
   deleteUser,
   adminRegister,
   bootstrapAdmin,
-  // exported for reuse outside this file (currently: college.js's
-  // registerCollege, to create the CollageAdmin account)
   createAccount,
   issueTokens,
   publicUser,

@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router';
+import { useDispatch, useSelector } from 'react-redux';
 import { Trash2, Edit, Trophy, Clock, Users, X, Check, Plus, Search, Lock } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
+import { fetchProblems } from '../problemslice';
+
+// Same rationale as AdminCreateContest: a large limit so the edit-mode
+// problem picker effectively has "all" problems in one page.
+const PROBLEM_FETCH_LIMIT = 200;
 
 const formatDate = (d) => {
   if (!d) return '—';
@@ -27,12 +33,23 @@ const diffColor = (d) => {
 
 export default function AdminManageContests() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  // Pull problems from the shared problemSlice instead of fetching locally
+  // via axiosClient.get('/problem/'). This reuses the same cached list
+  // (via `initialized`) that Homepage and AdminCreateContest already use,
+  // instead of hitting the backend a third time.
+  const {
+    problems: allProblemsRaw,
+    initialized: problemsInitialized,
+  } = useSelector((state) => state.problem);
+
+  const allProblems = Array.isArray(allProblemsRaw) ? allProblemsRaw : [];
 
   const [contests, setContests]         = useState([]);
   const [loading, setLoading]           = useState(true);
   const [editingId, setEditingId]       = useState(null);
   const [editForm, setEditForm]         = useState({});
-  const [allProblems, setAllProblems]   = useState([]);
   const [editProblems, setEditProblems] = useState([]);
   const [probSearch, setProbSearch]     = useState('');
   const [saving, setSaving]             = useState(false);
@@ -42,10 +59,10 @@ export default function AdminManageContests() {
 
   useEffect(() => {
     fetchContests();
-    axiosClient.get('/problem/')
-      .then(({ data }) => setAllProblems(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, []);
+    if (!problemsInitialized) {
+      dispatch(fetchProblems({ page: 1, limit: PROBLEM_FETCH_LIMIT }));
+    }
+  }, [dispatch, problemsInitialized]);
 
   // NOTE: this requires the backend fix to getAllContests — it must return
   // BOTH public and private contests (previously it filtered to
@@ -69,7 +86,8 @@ export default function AdminManageContests() {
       endTime: toLocalDatetime(contest.endTime),
       isPublic: contest.isPublic,
     });
-    // populate selected problems from contest
+    // populate selected problems from contest, matched against the
+    // Redux-backed problem list
     const ids = contest.problems || [];
     const selected = allProblems.filter((p) => ids.includes(p._id) || ids.find((id) => id === p._id || id?._id === p._id));
     setEditProblems(selected.length > 0 ? selected : ids.map((id) => ({ _id: typeof id === 'string' ? id : id._id, title: id?.title || 'Problem', difficulty: id?.difficulty || '' })));

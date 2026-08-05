@@ -7,8 +7,8 @@ import { useNavigate, NavLink } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Eye, EyeOff, Code2, UserPlus, School, Send, Loader2, CheckCircle2, X, AlertCircle } from 'lucide-react';
 import { registerUser } from '../authSlice';
-import AuthVisualPanel from '../component/AuthVisualPanel';
-import FormField from '../component/FormField';
+import AuthVisualPanel from '../component/Authvisualpanel';
+import FormField from '../component/Formfield';
 // Swap this import path if your axios wrapper lives somewhere else.
 import axiosClient from '../utils/axiosClient';
 
@@ -301,7 +301,7 @@ function Signup() {
 
                 <motion.div variants={itemVariants}>
                   <FormField
-                    label="College code (optional)"
+                    label="College code "
                     hint="Ask your college admin for this code"
                     {...register('collegeCode')}
                   />

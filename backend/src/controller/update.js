@@ -1,12 +1,13 @@
 const { getLanguageById, submitBatch, submitToken } = require("../utils/probelmutlity");
 const Problem = require("../models/problemschema");
 const SolutionVideo = require("../models/solutionvideo");
+const { buildFullCode } = require("./userproblem"); // adjust path/filename to match your actual file
 
 const updateproblem = async (req, res) => {
   const { id } = req.params;
   const { title, description, difficulty, tags,
     visibleTestCases, hiddenTestCases, startCode,
-    referenceSolution, problemCreator
+    driverCode, referenceSolution, problemCreator
   } = req.body;
   try {
 
@@ -19,12 +20,30 @@ const updateproblem = async (req, res) => {
       return res.status(404).send("ID is not persent in server");
     }
 
-    for (const { language, completeCode } of referenceSolution) {
+    for (const { language, completeCode, solutionCode } of referenceSolution) {
 
       const languageId = getLanguageById(language);
 
+      let finalCode;
+
+      if (solutionCode) {
+        // New style: wrap function + driver, same as createProblem
+        const driver = driverCode?.find(
+          (d) => d.language.toLowerCase() === language.toLowerCase()
+        );
+        if (!driver) {
+          return res.status(400).json({
+            message: `No driverCode found for language: ${language}`
+          });
+        }
+        finalCode = buildFullCode(solutionCode, driver.code, language);
+      } else {
+        // Backward compatible: completeCode is already the full code
+        finalCode = completeCode;
+      }
+
       const submissions = visibleTestCases.map((testcase) => ({
-        source_code: completeCode,
+        source_code: finalCode,
         language_id: languageId,
         stdin: testcase.input,
         expected_output: testcase.output
@@ -36,7 +55,10 @@ const updateproblem = async (req, res) => {
 
       for (const test of testResult) {
         if (test.status_id != 3) {
-          return res.status(400).send("Error Occured");
+          return res.status(400).json({
+            message: `Reference solution failed for language: ${language}`,
+            details: test
+          });
         }
       }
 
@@ -46,6 +68,7 @@ const updateproblem = async (req, res) => {
     res.status(200).send(newProblem);
   }
   catch (err) {
+    console.error("Update error:", err);
     res.status(500).send("Error: " + err);
   }
 }
@@ -116,20 +139,31 @@ const getProblemById = async (req, res) => {
 };
 
 const getAllProblem = async (req, res) => {
-
   try {
-
-    const getProblem = await Problem.find({}).select('_id title difficulty tags');
-
-    if (getProblem.length == 0)
+    const page  = parseInt(req.query.page)  || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip  = (page - 1) * limit;
+ 
+    const totalProblems = await Problem.countDocuments({});
+    const getProblem = await Problem.find({})
+      .select('_id title difficulty tags')
+      .skip(skip)
+      .limit(limit);
+ 
+    if (getProblem.length === 0 && page === 1)
       return res.status(404).send("Problem is Missing");
-    res.status(200).send(getProblem);
-  }
-  catch (err) {
+ 
+    res.status(200).json({
+      problems: getProblem,
+      currentPage: page,
+      totalProblems,                              // <-- now sent to client
+      totalPages: Math.ceil(totalProblems / limit),
+      hasMore: skip + getProblem.length < totalProblems,
+    });
+  } catch (err) {
     res.status(500).send("Error: " + err);
   }
-}
-
+};
 const problemsearch = async (req, res) => {
   try {
     const {

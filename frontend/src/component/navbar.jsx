@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { LogOut, User as UserIcon, Code2, GraduationCap } from 'lucide-react';
+import {
+  LogOut,
+  User as UserIcon,
+  Code2,
+  GraduationCap,
+  ShieldCheck,
+  ChevronDown,
+} from 'lucide-react';
 import { cn } from '../utils/cn';
 import { logoutUser } from '../authSlice';
 
@@ -9,6 +16,7 @@ function Navbar() {
   const dispatch = useDispatch();
   const { user } = useSelector((s) => s.auth);
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -16,30 +24,61 @@ function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // close the profile menu on outside click / escape, since it's now
+  // click-triggered (not hover) to make room for the richer content below
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e) => e.key === 'Escape' && setMenuOpen(false);
+    const onClick = (e) => {
+      if (!e.target.closest('[data-profile-menu]')) setMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onClick);
+    };
+  }, [menuOpen]);
+
   const handleLogout = () => {
     dispatch(logoutUser());
+    setMenuOpen(false);
   };
 
   const roleLabel =
     user?.role === 'Admin' ? 'Grandmaster' : user?.role === 'CollageAdmin' ? 'Faculty' : 'Master';
 
-  return (
-    <nav className={cn(
-      "sticky top-0 z-50 transition-all duration-300",
-      scrolled
-        ? "border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-        : "border-b border-transparent bg-transparent"
-    )}>
-      <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
+  const roleAccent =
+    user?.role === 'Admin'
+      ? { text: 'text-orange-400', dot: 'bg-orange-400', ring: 'from-orange-400 via-amber-300 to-orange-500' }
+      : user?.role === 'CollageAdmin'
+      ? { text: 'text-sky-400', dot: 'bg-sky-400', ring: 'from-sky-400 via-cyan-300 to-sky-500' }
+      : { text: 'text-emerald-400', dot: 'bg-emerald-400', ring: 'from-emerald-400 via-teal-300 to-emerald-500' };
 
+  // rank progress used to draw the dial around the avatar — falls back to a
+  // sane default so the ring still reads as "in progress" pre-data
+  const rankProgress = Math.min(Math.max(user?.rankProgress ?? 62, 4), 100);
+
+  const initials = (user?.firstName?.[0] || 'U') + (user?.lastName?.[0] || '');
+
+  return (
+    <nav
+      className={cn(
+        'sticky top-0 z-50 transition-all duration-300',
+        scrolled
+          ? 'border-b border-white/[0.06] bg-[#08090b]/85 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.55)]'
+          : 'border-b border-transparent bg-gradient-to-b from-[#08090b] to-transparent'
+      )}
+    >
+      <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
         {/* logo */}
         <div className="flex items-center gap-8">
           <NavLink to="/" end className="flex items-center gap-2.5 group">
             <div className="relative">
-              <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+              <div className="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.45)]">
                 <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
               </div>
-              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-[#050505]" />
+              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-[#08090b]" />
             </div>
             <span className="font-display text-[17px] font-800 tracking-tight text-white italic">
               CodeMaster
@@ -57,15 +96,11 @@ function Navbar() {
                 to={to}
                 // `end` keeps this link from staying "active" once you drill into
                 // a nested path (e.g. /community/post/123, /contest/:id, /explore/*).
-                // Without it, more than one nav item can appear highlighted at once,
-                // which is what looked like it was randomly landing on the wrong page.
                 end
                 className={({ isActive }) =>
                   cn(
-                    "px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all",
-                    isActive
-                      ? "text-white bg-white/[0.06]"
-                      : "text-white/50 hover:text-white hover:bg-white/[0.04]"
+                    'relative px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all',
+                    isActive ? 'text-white bg-white/[0.06]' : 'text-white/50 hover:text-white hover:bg-white/[0.04]'
                   )
                 }
               >
@@ -73,8 +108,6 @@ function Navbar() {
               </NavLink>
             ))}
 
-            {/* College admins get a direct top-nav shortcut to their dashboard,
-                same as Admins get an "Admin Panel" entry in the profile menu below. */}
             {user?.role === 'CollageAdmin' && (
               <NavLink
                 to="/collegeadmin"
@@ -91,57 +124,136 @@ function Navbar() {
         {/* right */}
         <div className="flex items-center gap-3">
           {user ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex flex-col items-end">
-                <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">
-                  {roleLabel}
-                </span>
-                <span className="text-sm font-semibold text-white leading-tight">
-                  {user?.firstName || 'User'}
-                </span>
-              </div>
+            <div className="relative" data-profile-menu>
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className={cn(
+                  'flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 rounded-2xl border transition-all',
+                  menuOpen
+                    ? 'bg-white/[0.07] border-white/[0.12]'
+                    : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1]'
+                )}
+              >
+                <div className="hidden sm:flex flex-col items-end leading-tight">
+                  <span className={cn('text-[9px] font-black uppercase tracking-[0.18em]', roleAccent.text)}>
+                    {roleLabel}
+                  </span>
+                  <span className="text-sm font-semibold text-white">{user?.firstName || 'User'}</span>
+                </div>
 
-              <div className="relative group">
-                <NavLink to={`/profile/${user._id}`}>
-                  <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 hover:border-orange-500/30 transition-all">
-                    <UserIcon className="w-4 h-4 text-white/70" />
+                {/* rank dial: conic-gradient progress ring drawn around the avatar,
+                    doubling as this platform's tiny signature touch */}
+                <div className="relative w-9 h-9 shrink-0">
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: `conic-gradient(from -90deg, #f97316 ${rankProgress}%, rgba(255,255,255,0.08) ${rankProgress}%)`,
+                    }}
+                  />
+                  <div className="absolute inset-[2px] rounded-full bg-[#08090b] flex items-center justify-center overflow-hidden">
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[11px] font-bold text-white/80">{initials}</span>
+                    )}
+                  </div>
+                </div>
+
+                <ChevronDown className={cn('w-3.5 h-3.5 text-white/40 transition-transform', menuOpen && 'rotate-180')} />
+              </button>
+
+              <div
+                className={cn(
+                  'absolute right-0 top-[calc(100%+10px)] w-72 origin-top-right rounded-2xl border border-white/[0.08] bg-[#0c0d10]/95 backdrop-blur-xl shadow-[0_28px_60px_rgba(0,0,0,0.75)] overflow-hidden transition-all duration-200',
+                  menuOpen ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-2 pointer-events-none'
+                )}
+              >
+                {/* profile header */}
+                <div className="relative px-5 pt-5 pb-4 bg-gradient-to-b from-white/[0.04] to-transparent">
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-14 h-14 shrink-0">
+                      <div
+                        className="absolute inset-0 rounded-full"
+                        style={{
+                          background: `conic-gradient(from -90deg, #f97316 ${rankProgress}%, rgba(255,255,255,0.08) ${rankProgress}%)`,
+                        }}
+                      />
+                      <div className="absolute inset-[2.5px] rounded-full bg-[#0c0d10] flex items-center justify-center overflow-hidden">
+                        {user?.avatar ? (
+                          <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-base font-bold text-white/85">{initials}</span>
+                        )}
+                      </div>
+                      <div className={cn('absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#0c0d10]', roleAccent.dot)} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold text-white truncate">
+                        {user?.firstName || 'User'} {user?.lastName || ''}
+                      </p>
+                      {user?.email && <p className="text-xs text-white/35 truncate">{user.email}</p>}
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white/[0.06]',
+                          roleAccent.text
+                        )}
+                      >
+                        {user?.role === 'Admin' && <ShieldCheck className="w-2.5 h-2.5" />}
+                        {roleLabel}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-white/[0.06]" />
+
+                {/* menu links */}
+                <div className="p-2">
+                  <NavLink
+                    to={`/profile/${user._id}`}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-white/[0.05] rounded-xl transition-colors"
+                  >
+                    <UserIcon className="w-3.5 h-3.5" /> View Profile
+                  </NavLink>
+
+                  {user?.role === 'Admin' && (
+                    <NavLink
+                      to="/admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10 rounded-xl transition-colors"
+                    >
+                      <Code2 className="w-3.5 h-3.5" /> Admin Panel
+                    </NavLink>
+                  )}
+                  {user?.role === 'CollageAdmin' && (
+                    <NavLink
+                      to="/collegeadmin"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-sky-400 hover:bg-sky-500/10 rounded-xl transition-colors"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5" /> College Admin
+                    </NavLink>
+                  )}
+
+                  <div className="h-px bg-white/[0.06] my-1.5" />
+
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5" /> Sign Out
                   </button>
-                </NavLink>
-                <div className="absolute right-0 top-full w-2 h-2" />
-                <div className="absolute right-0 top-[calc(100%+6px)] w-52 bg-[#0e0e0e] border border-white/[0.08] rounded-2xl shadow-[0_24px_48px_rgba(0,0,0,0.7)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-white/[0.06]">
-                    <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Logged in as</p>
-                    <p className="text-sm font-semibold text-white">{user?.firstName || 'User'}</p>
-                    <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mt-0.5">
-                      {user?.role === 'Admin' ? 'Administrator' : user?.role === 'CollageAdmin' ? 'College Admin' : 'User'}
-                    </p>
-                  </div>
-                  <div className="p-2">
-                    {user?.role === 'Admin' && (
-                      <NavLink to="/admin" className="flex items-center gap-2.5 px-3 py-2 text-sm text-orange-400 hover:bg-orange-500/10 rounded-xl transition-colors">
-                        <Code2 className="w-3.5 h-3.5" /> Admin Panel
-                      </NavLink>
-                    )}
-                    {user?.role === 'CollageAdmin' && (
-                      <NavLink to="/collegeadmin" className="flex items-center gap-2.5 px-3 py-2 text-sm text-sky-400 hover:bg-sky-500/10 rounded-xl transition-colors">
-                        <GraduationCap className="w-3.5 h-3.5" /> College Admin
-                      </NavLink>
-                    )}
-                    <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors text-left">
-                      <LogOut className="w-3.5 h-3.5" /> Sign Out
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            // Was: <button><NavLink to="/login">Connect</NavLink></button>
-            // A <NavLink> renders an <a>, and nesting an <a> inside a <button>
-            // is invalid HTML — it can cause inconsistent click/focus behavior
-            // across browsers. The button styling now lives directly on the link.
+            // A <NavLink> renders an <a>; nesting an <a> inside a <button> is
+            // invalid HTML, so the button styling lives directly on the link.
             <NavLink
               to="/login"
-              className="bg-orange-500 text-black px-5 py-2 rounded-xl text-sm font-bold hover:bg-orange-400 transition-colors shadow-[0_0_20px_rgba(249,115,22,0.3)]"
+              className="bg-gradient-to-r from-orange-400 to-orange-600 text-black px-5 py-2 rounded-xl text-sm font-bold hover:brightness-110 transition-all shadow-[0_0_20px_rgba(249,115,22,0.35)]"
             >
               Connect
             </NavLink>

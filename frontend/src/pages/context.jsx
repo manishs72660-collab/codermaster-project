@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Trophy,
@@ -12,14 +11,12 @@ import {
   Lock,
   Zap,
   Code2,
-  LogOut,
-  User as UserIcon,
   Timer,
   KeyRound,
   X,
 } from 'lucide-react';
+import Navbar from '../component/navbar';
 import axiosClient from '../utils/axiosClient';
-import { logoutUser } from '../authSlice';
 import { cn } from '../utils/cn';
 
 /* ─── helpers ─── */
@@ -67,14 +64,11 @@ function useCountdown(targetDate) {
    MAIN PAGE
 ══════════════════════════════════════════ */
 export default function Contest() {
-  const dispatch  = useDispatch();
-  const navigate  = useNavigate();
-  const { user }  = useSelector((s) => s.auth);
+  const navigate = useNavigate();
 
-  const [contests, setContests]   = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [tab, setTab]             = useState('all'); // all | ongoing | upcoming | ended
-  const [scrolled, setScrolled]   = useState(false);
+  const [contests, setContests] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [tab, setTab]           = useState('all'); // all | ongoing | upcoming | ended
 
   // ── join-by-code modal state ──
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -86,19 +80,11 @@ export default function Contest() {
   const [joinTarget, setJoinTarget]       = useState(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  useEffect(() => {
     axiosClient.get('/contest/all')
       .then(({ data }) => setContests(Array.isArray(data) ? data : []))
       .catch(() => setContests([]))
       .finally(() => setLoading(false));
   }, []);
-
-  const handleLogout = () => dispatch(logoutUser());
 
   const handleJoinByCode = async (e) => {
     e.preventDefault();
@@ -178,121 +164,46 @@ export default function Contest() {
           <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-purple-500/[0.04] blur-[130px] rounded-full" />
         </div>
 
-        {/* ── NAV ── */}
-        <nav className={cn(
-          "sticky top-0 z-50 transition-all duration-300",
-          scrolled
-            ? "border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-            : "border-b border-transparent bg-transparent"
-        )}>
-          <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <NavLink to="/" className="flex items-center gap-2.5 group">
-                <div className="relative">
-                  <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
-                    <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
-                  </div>
-                  <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-[#050505]" />
-                </div>
-                <span className="font-display text-[17px] font-800 tracking-tight text-white italic">CodeMaster</span>
-              </NavLink>
-
-              <div className="hidden md:flex items-center gap-1">
-                {[
-                  { to: '/explore', label: 'Explorer' },
-                  { to: '/contest', label: 'Contests' },
-                  { to: '/discuss', label: 'Community' },
-                ].map(({ to, label }) => (
-                  <NavLink key={to} to={to}
-                    className={({ isActive }) => cn(
-                      "px-3.5 py-1.5 text-sm font-medium rounded-lg transition-all",
-                      isActive ? "text-white bg-white/[0.06]" : "text-white/50 hover:text-white hover:bg-white/[0.04]"
-                    )}>
-                    {label}
-                  </NavLink>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Join private contest button */}
-              <button
-                onClick={() => openJoinModal(null)}
-                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white/50 border border-white/[0.08] hover:text-white hover:border-white/20 hover:bg-white/[0.04] transition-all"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                Join with code
-              </button>
-
-              {user ? (
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:flex flex-col items-end">
-                    <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">
-                      {user?.role === 'admin' ? 'Grandmaster' : 'Master'}
-                    </span>
-                    <span className="text-sm font-semibold text-white leading-tight">{user?.firstName || 'User'}</span>
-                  </div>
-                  <div className="relative group">
-                    <NavLink to="/profile">
-                      <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 hover:border-orange-500/30 transition-all">
-                        <UserIcon className="w-4 h-4 text-white/70" />
-                      </button>
-                    </NavLink>
-                    <div className="absolute right-0 top-[calc(100%+6px)] w-52 bg-[#0e0e0e] border border-white/[0.08] rounded-2xl shadow-[0_24px_48px_rgba(0,0,0,0.7)] opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 pointer-events-none group-hover:pointer-events-auto transition-all duration-200 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-white/[0.06]">
-                        <p className="text-[10px] text-white/30 uppercase tracking-widest mb-0.5">Logged in as</p>
-                        <p className="text-sm font-semibold text-white">{user?.firstName || 'User'}</p>
-                      </div>
-                      <div className="p-2">
-                        <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors text-left">
-                          <LogOut className="w-3.5 h-3.5" /> Sign Out
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <NavLink to="/login">
-                  <button className="bg-orange-500 text-black px-5 py-2 rounded-xl text-sm font-bold hover:bg-orange-400 transition-colors shadow-[0_0_20px_rgba(249,115,22,0.3)]">
-                    Connect
-                  </button>
-                </NavLink>
-              )}
-            </div>
-          </div>
-        </nav>
+        <Navbar />
 
         {/* ── HERO ── */}
         <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
           <div className="max-w-7xl mx-auto px-5 py-14 relative z-10">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400 live-dot" />
-                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.15em]">Arena</span>
-                </div>
-                {ongoing > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
-                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.15em]">{ongoing} Live Now</span>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex flex-col md:flex-row md:items-start md:justify-between gap-6"
+            >
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400 live-dot" />
+                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.15em]">Arena</span>
                   </div>
-                )}
+                  {ongoing > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+                      <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.15em]">{ongoing} Live Now</span>
+                    </div>
+                  )}
+                </div>
+                <h1 className="font-display text-4xl md:text-5xl font-800 text-white tracking-tight leading-[1.1] mb-3">
+                  Compete. Solve.<br />
+                  <span className="text-orange-500">Dominate.</span>
+                </h1>
+                <p className="text-white/40 text-base max-w-md leading-relaxed">
+                  Join timed contests, climb the leaderboard, and prove your skills against the best.
+                </p>
               </div>
-              <h1 className="font-display text-4xl md:text-5xl font-800 text-white tracking-tight leading-[1.1] mb-3">
-                Compete. Solve.<br />
-                <span className="text-orange-500">Dominate.</span>
-              </h1>
-              <p className="text-white/40 text-base max-w-md leading-relaxed">
-                Join timed contests, climb the leaderboard, and prove your skills against the best.
-              </p>
 
-              {/* mobile join-with-code link (button above is hidden on small screens) */}
+              {/* join-with-code — lives in the hero now that Navbar owns the top bar */}
               <button
                 onClick={() => openJoinModal(null)}
-                className="sm:hidden mt-4 flex items-center gap-1.5 text-xs font-bold text-white/50 hover:text-white transition-colors"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white/50 border border-white/[0.08] hover:text-white hover:border-white/20 hover:bg-white/[0.04] transition-all self-start md:mt-1 flex-shrink-0"
               >
                 <KeyRound className="w-3.5 h-3.5" />
-                Have a private invite code? Join here
+                Join with code
               </button>
             </motion.div>
           </div>
@@ -312,7 +223,6 @@ export default function Contest() {
               className="md:col-span-2 relative overflow-hidden rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/[0.08] via-white/[0.02] to-transparent p-6 group cursor-pointer hover:border-orange-500/40 transition-all duration-300"
               onClick={() => document.getElementById('contest-list')?.scrollIntoView({ behavior: 'smooth' })}
             >
-              {/* bg glow */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/[0.06] blur-[80px] rounded-full pointer-events-none" />
 
               <div className="relative z-10">
@@ -527,11 +437,8 @@ function ContestCard({ contest, index, onRequestJoin }) {
   const isPrivate  = contest.isPublic === false;
   const isLocked   = isPrivate && !contest.isRegistered;
 
-  // countdown for upcoming contests
   const countdown = useCountdown(isUpcoming ? contest.startTime : null);
 
-  // Private + not-yet-joined → ask for the invite code instead of navigating in.
-  // Private + already joined (or public) → go straight to the contest page.
   const handleClick = () => {
     if (isLocked) {
       onRequestJoin?.(contest);
@@ -556,17 +463,13 @@ function ContestCard({ contest, index, onRequestJoin }) {
           isUpcoming && "hover:border-orange-500/20"
         )}
       >
-        {/* live accent line */}
         {isOngoing && (
           <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-[3px_0_18px_rgba(52,211,153,0.35)]" />
         )}
 
-        {/* hover glow */}
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-orange-500/[0.025] to-transparent pointer-events-none" />
 
-        {/* LEFT */}
         <div className="flex items-center gap-4 min-w-0 flex-1">
-          {/* icon */}
           <div className={cn(
             "hidden sm:flex w-10 h-10 rounded-xl items-center justify-center flex-shrink-0 border transition-all",
             isLocked   ? "bg-purple-500/10  border-purple-500/25  group-hover:border-purple-500/45" :
@@ -581,14 +484,11 @@ function ContestCard({ contest, index, onRequestJoin }) {
           </div>
 
           <div className="min-w-0">
-            {/* title */}
             <h4 className="text-[14px] font-semibold text-white/80 group-hover:text-white transition-colors truncate mb-1.5">
               {contest.title}
             </h4>
 
-            {/* meta row */}
             <div className="flex items-center gap-3 flex-wrap">
-              {/* status badge */}
               <span className={cn(
                 "inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border",
                 status.bg, status.border, status.text
@@ -597,7 +497,6 @@ function ContestCard({ contest, index, onRequestJoin }) {
                 {status.label}
               </span>
 
-              {/* private badge */}
               {isPrivate && (
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border bg-purple-500/10 border-purple-500/20 text-purple-400">
                   <Lock className="w-2.5 h-2.5" />
@@ -605,25 +504,21 @@ function ContestCard({ contest, index, onRequestJoin }) {
                 </span>
               )}
 
-              {/* duration */}
               <span className="flex items-center gap-1 text-[11px] text-white/25">
                 <Clock className="w-3 h-3" />
                 {getDuration(contest.startTime, contest.endTime)}
               </span>
 
-              {/* participants */}
               <span className="flex items-center gap-1 text-[11px] text-white/25">
                 <Users className="w-3 h-3" />
                 {contest.totalParticipants ?? 0} joined
               </span>
 
-              {/* problems count */}
               <span className="flex items-center gap-1 text-[11px] text-white/25">
                 <Code2 className="w-3 h-3" />
                 {contest.totalProblems ?? 0} problems
               </span>
 
-              {/* date */}
               <span className="hidden md:flex items-center gap-1 text-[11px] text-white/20">
                 <CalendarDays className="w-3 h-3" />
                 {isOngoing  ? `Ends ${formatDate(contest.endTime)}`   :
@@ -634,10 +529,8 @@ function ContestCard({ contest, index, onRequestJoin }) {
           </div>
         </div>
 
-        {/* RIGHT */}
         <div className="flex items-center gap-4 flex-shrink-0 ml-4">
 
-          {/* countdown for upcoming */}
           {isUpcoming && countdown && (
             <div className="hidden md:flex items-center gap-1 font-mono text-xs">
               {[
@@ -656,14 +549,12 @@ function ContestCard({ contest, index, onRequestJoin }) {
             </div>
           )}
 
-          {/* registered badge */}
           {contest.isRegistered && (
             <span className="hidden sm:block text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">
               Registered
             </span>
           )}
 
-          {/* arrow / lock */}
           <div className={cn(
             "w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300",
             isLocked

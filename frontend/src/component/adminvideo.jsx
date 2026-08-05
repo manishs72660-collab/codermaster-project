@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axiosClient from '../utils/axiosClient'
 import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
-
+import BackButton from './backbutton';
 const AdminVideo = () => {
     const { problems, loading, error } = useSelector(
   (state) => state.problem
@@ -41,6 +41,7 @@ console.log(problems);
 
   return (
     <div className="container mx-auto p-4">
+       <BackButton></BackButton>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Video Upload and Delete</h1>
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, use } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'motion/react';
@@ -6,76 +6,93 @@ import Navbar from '../component/navbar';
 import {
   ChevronRight,
   Search,
-  Filter,
   CheckCircle2,
-  LogOut,
-  User as UserIcon,
-  Code2,
-  Trophy,
-  LayoutGrid,
-  ListFilter,
   Circle,
-  Zap,
+  Trophy,
   Target,
-  TrendingUp,
-  Star,
+  Loader2,
+  TerminalSquare,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
-import { logoutUser } from '../authSlice';
-import { fetchUserState } from '../userslice';
+import { fetchProblems } from '../problemslice';
 import { cn } from '../utils/cn';
 
+const PAGE_LIMIT = 20;
+
 /* ─── tiny helpers ─── */
-const getDifficultyStyle = (difficulty) => {
-  const d = String(difficulty || '').toLowerCase();
-  if (d === 'easy')   return 'text-emerald-400 border-emerald-500/25 bg-emerald-500/8';
-  if (d === 'medium') return 'text-amber-400   border-amber-500/25   bg-amber-500/8';
-  if (d === 'hard')   return 'text-rose-400    border-rose-500/25    bg-rose-500/8';
-  return 'text-white/40 border-white/10 bg-white/5';
+const DIFF = {
+  easy:   { label: 'easy',   dot: 'bg-emerald-400', text: 'text-emerald-400', bg: 'bg-emerald-500/8',  border: 'border-emerald-500/20' },
+  medium: { label: 'medium', dot: 'bg-amber-400',    text: 'text-amber-400',  bg: 'bg-amber-500/8',    border: 'border-amber-500/20' },
+  hard:   { label: 'hard',   dot: 'bg-rose-400',     text: 'text-rose-400',   bg: 'bg-rose-500/8',     border: 'border-rose-500/20' },
+};
+const diffMeta = (d) => DIFF[String(d || '').toLowerCase()] || { label: d || '—', dot: 'bg-white/20', text: 'text-white/40', bg: 'bg-white/5', border: 'border-white/10' };
+
+const TAG_OPTIONS = [
+  { label: 'all',    value: 'all' },
+  { label: 'array',  value: 'array' },
+  { label: 'string', value: 'string' },
+  { label: 'math',   value: 'math' },
+];
+
+const STATUS_OPTIONS = [
+  { label: 'all',      value: 'all' },
+  { label: 'solved',   value: 'solved' },
+  { label: 'unsolved', value: 'unsolved' },
+];
+
+const DIFF_OPTIONS = [
+  { label: 'all',    value: 'all' },
+  { label: 'easy',   value: 'easy' },
+  { label: 'medium', value: 'medium' },
+  { label: 'hard',   value: 'hard' },
+];
+
+/* tags can come back as a string ("array, two-pointers") or an array
+   (["array","two-pointers"]) depending on the problem — handle both so
+   the filter never silently no-ops. */
+const tagMatches = (tags, filterTag) => {
+  if (filterTag === 'all') return true;
+  if (!tags) return false;
+  if (Array.isArray(tags)) {
+    return tags.some((t) => String(t).toLowerCase().includes(filterTag));
+  }
+  return String(tags).toLowerCase().includes(filterTag);
 };
 
 /* ══════════════════════════════════════════
-   HOMEPAGE
+   HOMEPAGE — terminal / IDE style
 ══════════════════════════════════════════ */
 function Homepage() {
-  const dispatch  = useDispatch();
-  const { user, isAuthenticated }  = useSelector((s) => s.auth);
-//  console.log(user);
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((s) => s.auth);
   const { stats } = useSelector((s) => s.userState);
- //console.log(stats);
-  //const [problems, setProblems]             = useState([]);
-  const { problems, loading, error } = useSelector(
-  (state) => state.problem
-);
- // console.log(problems);
+  const {
+    problems,
+    loading,
+    loadingMore,
+    hasMore,
+    currentPage,
+    totalProblems,
+    error,
+    initialized,
+  } = useSelector((state) => state.problem);
+
   const [solvedProblems, setSolvedProblems] = useState([]);
- // console.log(solvedProblems)
-  const [searchQuery, setSearchQuery]       = useState('');
-  const [filters, setFilters]               = useState({ difficulty: 'all', tag: 'all', status: 'all' });
-  const [streak]                            = useState(0);
-  // const [scrolled, setScrolled]             = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({ difficulty: 'all', tag: 'all', status: 'all' });
 
-  /* scroll shadow for nav */
-  // useEffect(() => {
-  //   const onScroll = () => setScrolled(window.scrollY > 12);
-  //   window.addEventListener('scroll', onScroll);
-  //   return () => window.removeEventListener('scroll', onScroll);
-  // }, []);
+  useEffect(() => {
+    if (!initialized) {
+      dispatch(fetchProblems({ page: 1, limit: PAGE_LIMIT }));
+    }
+  }, [dispatch, initialized]);
 
-  // useEffect(() => {
-  //   axiosClient.get('/problem/').then(({ data }) => setProblems(Array.isArray(data) ? data : [])).catch(() => setProblems([]));
-  // }, [user]);
-
-  // fetch solved problems only once we know the user is authenticated.
-  // re-runs automatically right after login (no page refresh needed).
   useEffect(() => {
     if (!isAuthenticated) return;
     axiosClient.get('/code/solveduniqueproblem')
       .then(({ data }) => setSolvedProblems(Array.isArray(data) ? data : []))
       .catch(() => setSolvedProblems([]));
   }, [isAuthenticated]);
-
-  //const handleLogout = () => { dispatch(logoutUser()); setSolvedProblems([]); };
 
   const solvedProblemIds = useMemo(
     () => new Set(solvedProblems.map((sp) => sp.problemId?._id || sp.problemId || sp._id)),
@@ -86,82 +103,82 @@ function Homepage() {
     if (!Array.isArray(problems)) return [];
     return problems.filter((p) => {
       if (!p) return false;
-      const diffOk   = filters.difficulty === 'all' || p.difficulty?.toLowerCase() === filters.difficulty;
-      const tagOk    = filters.tag === 'all' || p.tags?.toLowerCase().includes(filters.tag);
+      const diffOk = filters.difficulty === 'all' || p.difficulty?.toLowerCase() === filters.difficulty;
+      const tagOk = tagMatches(p.tags, filters.tag);
       const isSolved = solvedProblems.some((sp) => String(sp?.problemId?._id || sp?.problemId || sp?._id) === String(p._id));
-      const statOk   = filters.status === 'all' || (filters.status === 'solved' && isSolved) || (filters.status === 'unsolved' && !isSolved);
-      const srchOk   = !searchQuery || p.title?.toLowerCase().includes(searchQuery.toLowerCase());
+      const statOk = filters.status === 'all' || (filters.status === 'solved' && isSolved) || (filters.status === 'unsolved' && !isSolved);
+      const srchOk = !searchQuery || p.title?.toLowerCase().includes(searchQuery.toLowerCase());
       return diffOk && tagOk && statOk && srchOk;
     });
   }, [problems, solvedProblems, filters, searchQuery]);
 
-  const solvedCount   = solvedProblems.length;
-  const totalCount    = problems.length;
+  const solvedCount = solvedProblems.length;
+  const totalCount = totalProblems || problems.length;
   const solvedPercent = totalCount ? Math.round((solvedCount / totalCount) * 100) : 0;
+
+  /* ── infinite scroll sentinel ── */
+  const observerRef = useRef(null);
+  const isFetchingRef = useRef(false);
+  const stateRef = useRef({ hasMore, currentPage, loading, loadingMore });
+
+  useEffect(() => {
+    stateRef.current = { hasMore, currentPage, loading, loadingMore };
+    if (!loading && !loadingMore) isFetchingRef.current = false;
+  }, [hasMore, currentPage, loading, loadingMore]);
+
+  const sentinelRef = useCallback((node) => {
+    if (observerRef.current) observerRef.current.disconnect();
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        const { hasMore: currentHasMore, currentPage: page, loading: isLoading, loadingMore: isLoadingMore } = stateRef.current;
+        if (entries[0].isIntersecting && currentHasMore && !isLoading && !isLoadingMore && !isFetchingRef.current) {
+          isFetchingRef.current = true;
+          dispatch(fetchProblems({ page: page + 1, limit: PAGE_LIMIT })).finally(() => {
+            isFetchingRef.current = false;
+          });
+        }
+      },
+      { rootMargin: '300px' }
+    );
+    if (node) observerRef.current.observe(node);
+  }, [dispatch]);
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  const barBlocks = 24;
+  const filledBlocks = Math.round((solvedPercent / 100) * barBlocks);
 
   return (
     <>
-      {/* ── Google Font import ── */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
-        .font-display { font-family: 'Syne', sans-serif; }
-        .font-body    { font-family: 'DM Sans', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@400;500;600;700&display=swap');
+        .font-mono-display { font-family: 'JetBrains Mono', monospace; }
+        .font-body { font-family: 'Inter', sans-serif; }
 
-        /* hero grid bg */
         .hero-grid {
           background-image:
             linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
             linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
           background-size: 48px 48px;
         }
-
-        /* noise overlay */
         .noise::after {
           content: '';
           position: fixed; inset: 0; pointer-events: none; z-index: 0;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
           opacity: 0.55;
         }
-
-        /* glow pulse */
-        @keyframes glow-pulse {
-          0%,100% { opacity: 0.35; }
-          50%      { opacity: 0.55; }
-        }
+        @keyframes glow-pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 0.55; } }
         .glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
 
-        /* stat ring animation */
-        @keyframes ring-fill {
-          from { stroke-dashoffset: 220; }
-          to   { stroke-dashoffset: var(--target); }
-        }
-        .ring-animate { animation: ring-fill 1.4s cubic-bezier(.4,0,.2,1) forwards; }
+        @keyframes caret-blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+        .caret { animation: caret-blink 1s step-end infinite; }
 
-        /* progress bar */
-        @keyframes bar-grow {
-          from { width: 0%; }
-        }
-        .bar-grow { animation: bar-grow 1.2s cubic-bezier(.4,0,.2,1) forwards; }
+        @keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .row-in { animation: row-in 0.35s ease forwards; }
 
-        /* shimmer on card hover */
-        .card-shimmer::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: linear-gradient(105deg, transparent 40%, rgba(249,115,22,0.04) 50%, transparent 60%);
-          opacity: 0; transition: opacity 0.3s;
-        }
-        .card-shimmer:hover::before { opacity: 1; }
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .spin-slow { animation: spin-slow 0.8s linear infinite; }
 
-        /* tag pill */
-        .tag-pill {
-          display: inline-flex; align-items: center; gap: 4px;
-          padding: 2px 8px; border-radius: 6px;
-          font-size: 9px; font-weight: 800;
-          letter-spacing: 0.08em; text-transform: uppercase;
-          border: 1px solid;
-        }
-
-        /* scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
@@ -169,184 +186,164 @@ function Homepage() {
 
       <div className="noise min-h-screen bg-[#050505] text-[#e5e5e5] font-body antialiased">
 
-        {/* ── ambient blobs ── */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="glow-pulse absolute top-[-15%] left-[-8%]  w-[500px] h-[500px] bg-orange-500/[0.06] blur-[130px] rounded-full" />
-          <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-blue-500/[0.05]   blur-[130px] rounded-full" />
-          <div className="absolute top-[35%] right-[20%]   w-[280px] h-[280px] bg-emerald-500/[0.03] blur-[100px] rounded-full" />
+          <div className="glow-pulse absolute top-[-15%] left-[-8%] w-[500px] h-[500px] bg-orange-500/[0.06] blur-[130px] rounded-full" />
+          <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-blue-500/[0.05] blur-[130px] rounded-full" />
         </div>
 
-        {/* ════════════════════════════════
-            NAV
-        ════════════════════════════════ */}
-       <Navbar></Navbar>
-        {/* ════════════════════════════════
-            HERO HEADER
-        ════════════════════════════════ */}
+        <Navbar></Navbar>
+
+        {/* ── terminal chrome hero ── */}
         <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
-          <div className="max-w-7xl mx-auto px-5 py-14 relative z-10">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.15em]">Live Arena</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-white/[0.03] border border-white/[0.07] rounded-full">
-                  <span className="text-[10px] font-semibold text-white/40">{totalCount} Challenges</span>
-                </div>
+          <div className="max-w-6xl mx-auto px-5 py-12 relative z-10">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45 }}
+              className="rounded-2xl border border-white/[0.08] bg-white/[0.015] overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.4)]"
+            >
+              {/* window bar */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/60" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+                <span className="ml-3 flex items-center gap-1.5 text-[11px] font-mono-display text-white/30">
+                  <TerminalSquare className="w-3 h-3" />
+                  ~/arena/problems
+                </span>
+                <span className="ml-auto flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                  <span className="text-[9px] font-mono-display font-bold text-orange-400 uppercase tracking-[0.15em]">live</span>
+                </span>
               </div>
-              <h1 className="font-display text-4xl md:text-5xl font-800 text-white tracking-tight leading-[1.1] mb-3">
-                Sharpen your<br />
-                <span className="text-orange-500">coding edge.</span>
-              </h1>
-              <p className="text-white/40 text-base max-w-md leading-relaxed">
-                Battle through curated challenges. Track progress. Climb the ranks.
-              </p>
+
+              {/* faux code */}
+              <div className="px-6 py-8 font-mono-display text-sm leading-relaxed">
+                <p className="text-white/25"><span className="text-orange-500/70">01</span>&nbsp;&nbsp;<span className="text-blue-400/70">class</span> <span className="text-emerald-400/80">Arena</span> <span className="text-blue-400/70">extends</span> <span className="text-white/60">You</span> {'{'}</p>
+                <p className="text-white/40 pl-6"><span className="text-orange-500/40">02</span>&nbsp;&nbsp;<span className="text-white/50">// {totalCount} challenges waiting for a solve</span></p>
+                <p className="pl-6"><span className="text-orange-500/40">03</span>&nbsp;&nbsp;<span className="text-white/80 text-2xl md:text-3xl font-bold">sharpen()<span className="text-orange-500 caret">|</span></span></p>
+                <p className="text-white/25"><span className="text-orange-500/70">04</span>&nbsp;&nbsp;{'}'}</p>
+              </div>
             </motion.div>
           </div>
-
-          {/* decorative corner lines */}
-          <div className="absolute top-4 right-4 w-24 h-24 border-r-2 border-t-2 border-white/[0.04] rounded-tr-2xl pointer-events-none" />
-          <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-white/[0.04] rounded-bl-xl pointer-events-none" />
         </div>
 
-        {/* ════════════════════════════════
-            MAIN CONTENT
-        ════════════════════════════════ */}
-        <div className="max-w-7xl mx-auto px-5 py-10 relative z-10">
+        <div className="max-w-6xl mx-auto px-5 py-10 relative z-10">
 
-          {/* ── STAT CARDS ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-            <StatCard
-              icon={<Trophy className="w-5 h-5" />}
-              label="Global Rank"
+          {/* ── stats: rank + solved only ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+            <StatReadout
+              icon={<Trophy className="w-4 h-4" />}
+              label="global_rank"
               value={`#${stats?.rank ?? '—'}`}
-              sub="Top coders"
-              accent="orange"
               delay={0}
             />
-            <StatCard
-              icon={<Target className="w-5 h-5" />}
-              label="Problems Solved"
-              value={`${solvedCount} / ${totalCount}`}
-              sub={`${solvedPercent}% complete`}
-              accent="blue"
-              progress={solvedPercent}
-              delay={0.08}
-            />
-            <StatCard
-              icon={<Zap className="w-5 h-5" />}
-              label="Daily Streak"
-              value={`${streak} days`}
-              sub="Keep it going"
-              accent="amber"
-              delay={0.16}
+            <StatReadout
+              icon={<Target className="w-4 h-4" />}
+              label="problems_solved"
+              value={`${solvedCount}/${totalCount}`}
+              barBlocks={barBlocks}
+              filledBlocks={filledBlocks}
+              percent={solvedPercent}
+              delay={0.06}
             />
           </div>
 
-          {/* ── FILTER BAR ── */}
+          {/* ── command bar: search + filters ── */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-8"
+            transition={{ delay: 0.15 }}
+            className="mb-6 rounded-xl border border-white/[0.08] bg-white/[0.015] overflow-hidden"
           >
-            {/* search */}
-            <div className="relative w-full lg:w-80 group">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/25 group-focus-within:text-orange-400 transition-colors" />
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+              <span className="font-mono-display text-orange-500/70 text-sm select-none">$</span>
+              <span className="font-mono-display text-white/30 text-sm select-none">find --title</span>
               <input
                 type="text"
-                placeholder="Search challenges…"
+                placeholder="type to search…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.05] transition-all placeholder:text-white/20 font-medium"
+                className="flex-1 bg-transparent font-mono-display text-sm text-white/80 focus:outline-none placeholder:text-white/15"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60 transition-colors text-xs">✕</button>
+                <button onClick={() => setSearchQuery('')} className="text-white/20 hover:text-white/60 transition-colors text-xs font-mono-display">
+                  clear
+                </button>
               )}
+              <span className="text-[10px] font-mono-display text-white/25 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.06]">
+                {filteredProblems.length} results
+              </span>
             </div>
 
-            {/* filters */}
-            <div className="flex flex-wrap items-center gap-2">
-              <DropdownFilter
-                icon={<Filter className="w-3.5 h-3.5" />}
-                value={filters.status}
-                onChange={(v) => setFilters({ ...filters, status: v })}
-                options={[
-                  { label: 'All Status', value: 'all' },
-                  { label: '✓ Solved', value: 'solved' },
-                  { label: '○ Unsolved', value: 'unsolved' },
-                ]}
-              />
-              <DropdownFilter
-                icon={<TrendingUp className="w-3.5 h-3.5" />}
-                value={filters.difficulty}
-                onChange={(v) => setFilters({ ...filters, difficulty: v })}
-                options={[
-                  { label: 'All Levels', value: 'all' },
-                  { label: '● Easy',     value: 'easy' },
-                  { label: '◆ Medium',   value: 'medium' },
-                  { label: '▲ Hard',     value: 'hard' },
-                ]}
-              />
-              <DropdownFilter
-                icon={<Star className="w-3.5 h-3.5" />}
-                value={filters.tag}
-                onChange={(v) => setFilters({ ...filters, tag: v })}
-                options={[
-                  { label: 'All Tags', value: 'all' },
-                  { label: 'Array',    value: 'array' },
-                  { label: 'Graph',    value: 'graph' },
-                  { label: 'DP',       value: 'dp' },
-                ]}
-              />
-
-              {/* result count pill */}
-              <div className="px-3 py-2 bg-white/[0.03] border border-white/[0.07] rounded-xl">
-                <span className="text-xs font-bold text-white/30">
-                  {filteredProblems.length}
-                  <span className="font-normal"> results</span>
-                </span>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
+              <FlagGroup label="--status" value={filters.status} options={STATUS_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
+              <FlagGroup label="--difficulty" value={filters.difficulty} options={DIFF_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, difficulty: v }))} />
+              <FlagGroup label="--tag" value={filters.tag} options={TAG_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, tag: v }))} />
             </div>
           </motion.div>
 
-          {/* ── COLUMN HEADERS ── */}
-          <div className="hidden md:grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 mb-3">
-            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.15em]">Challenge</span>
-            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.15em] w-20 text-center">Difficulty</span>
-            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.15em] w-20 text-center">Status</span>
-            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.15em] w-10 text-center">→</span>
+          {/* ── column headers ── */}
+          <div className="hidden md:grid grid-cols-[2rem_1fr_6rem_5rem_6rem_2rem] gap-4 px-4 mb-2">
+            <span className="text-[10px] font-mono-display text-white/20">#</span>
+            <span className="text-[10px] font-mono-display text-white/20">title</span>
+            <span className="text-[10px] font-mono-display text-white/20">tag</span>
+            <span className="text-[10px] font-mono-display text-white/20">level</span>
+            <span className="text-[10px] font-mono-display text-white/20">status</span>
+            <span></span>
           </div>
 
-          {/* ── PROBLEM LIST ── */}
-          <div className="space-y-2">
-            <AnimatePresence mode="popLayout">
-              {filteredProblems.length > 0 ? (
-                filteredProblems.map((problem, index) => (
-                  <ProblemCard
-                    key={problem._id}
-                    problem={problem}
-                    isSolved={solvedProblemIds.has(problem._id)}
-                    index={index}
-                  />
-                ))
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex flex-col items-center justify-center py-28 text-center"
-                >
-                  <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
-                    <Search className="w-7 h-7 text-white/15" />
-                  </div>
-                  <h3 className="font-display text-lg font-700 text-white/30 mb-1">No results found</h3>
-                  <p className="text-sm text-white/20">Try adjusting your filters or search query.</p>
-                </motion.div>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-28">
+              <Loader2 className="w-6 h-6 text-orange-500 spin-slow mb-3" />
+              <p className="text-sm font-mono-display text-white/25">loading_problems()…</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-28 text-center">
+              <p className="text-sm font-mono-display text-rose-400/70">// error: {error}</p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-xl border border-white/[0.07] bg-white/[0.01] overflow-hidden divide-y divide-white/[0.05]">
+                <AnimatePresence mode="popLayout">
+                  {filteredProblems.length > 0 ? (
+                    filteredProblems.map((problem, index) => (
+                      <ProblemRow
+                        key={problem._id}
+                        problem={problem}
+                        isSolved={solvedProblemIds.has(problem._id)}
+                        index={index}
+                      />
+                    ))
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex flex-col items-center justify-center py-24 text-center"
+                    >
+                      <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
+                        <Search className="w-6 h-6 text-white/15" />
+                      </div>
+                      <h3 className="font-mono-display text-sm font-bold text-white/30 mb-1">no_results_found()</h3>
+                      <p className="text-xs font-mono-display text-white/20">// adjust filters or search query</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {hasMore && <div ref={sentinelRef} className="h-4" />}
+
+              {loadingMore && (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-5 h-5 text-orange-500 spin-slow" />
+                </div>
               )}
-            </AnimatePresence>
-          </div>
 
+              {!hasMore && problems.length > 0 && (
+                <p className="text-center text-white/20 text-xs font-mono-display py-8">// end_of_file — you've reached the bottom</p>
+              )}
+            </>
+          )}
         </div>
       </div>
     </>
@@ -354,60 +351,27 @@ function Homepage() {
 }
 
 /* ══════════════════════════════════════════
-   STAT CARD
+   STAT READOUT (terminal-style, no rings)
 ══════════════════════════════════════════ */
-function StatCard({ icon, label, value, sub, accent, progress, delay }) {
-  const accentMap = {
-    orange: { text: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/15', glow: 'shadow-[0_0_30px_rgba(249,115,22,0.08)]', ring: '#f97316', track: 'rgba(249,115,22,0.12)' },
-    blue:   { text: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/15',   glow: 'shadow-[0_0_30px_rgba(59,130,246,0.08)]',  ring: '#3b82f6', track: 'rgba(59,130,246,0.12)' },
-    amber:  { text: 'text-amber-400',  bg: 'bg-amber-500/10',  border: 'border-amber-500/15',  glow: 'shadow-[0_0_30px_rgba(245,158,11,0.08)]', ring: '#f59e0b', track: 'rgba(245,158,11,0.12)' },
-  };
-  const a = accentMap[accent];
-
-  const circumference = 220;
-  const dashOffset    = progress != null ? circumference - (circumference * progress) / 100 : circumference;
-
+function StatReadout({ icon, label, value, delay, barBlocks, filledBlocks, percent }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.45 }}
-      className={cn(
-        'relative overflow-hidden rounded-2xl p-6 border bg-white/[0.02] transition-all duration-300 group hover:bg-white/[0.04]',
-        a.border, a.glow
-      )}
+      transition={{ delay, duration: 0.4 }}
+      className="rounded-xl border border-white/[0.08] bg-white/[0.015] px-5 py-4"
     >
-      {/* top-right icon area */}
-      <div className={cn('absolute top-4 right-4 w-9 h-9 rounded-xl flex items-center justify-center', a.bg, a.text)}>
+      <div className="flex items-center gap-2 mb-3 text-orange-400/70">
         {icon}
+        <span className="text-[10px] font-mono-display uppercase tracking-[0.15em] text-white/30">{label}</span>
       </div>
-
-      {/* progress ring (only for "solved") */}
-      {progress != null && (
-        <div className="absolute right-3 bottom-3 opacity-40 group-hover:opacity-70 transition-opacity">
-          <svg width="56" height="56" viewBox="0 0 80 80">
-            <circle cx="40" cy="40" r="35" fill="none" stroke={a.track} strokeWidth="6" />
-            <circle
-              cx="40" cy="40" r="35" fill="none"
-              stroke={a.ring} strokeWidth="6"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              style={{ '--target': dashOffset, strokeDashoffset: dashOffset }}
-              className="ring-animate"
-              transform="rotate(-90 40 40)"
-            />
-          </svg>
-        </div>
-      )}
-
-      <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2">{label}</p>
-      <h3 className={cn("font-display text-2xl font-800 tracking-tight mb-1", a.text)}>{value}</h3>
-      <p className="text-[11px] text-white/25 font-medium">{sub}</p>
-
-      {/* bottom progress bar (only for "solved") */}
-      {progress != null && (
-        <div className="mt-4 h-[2px] rounded-full overflow-hidden" style={{ background: a.track }}>
-          <div className="h-full rounded-full bar-grow" style={{ width: `${progress}%`, background: a.ring }} />
+      <div className="font-mono-display text-2xl font-bold text-white/90 mb-1">{value}</div>
+      {barBlocks != null && (
+        <div className="flex items-center gap-2">
+          <span className="font-mono-display text-[11px] text-white/20 select-none">
+            [{Array.from({ length: barBlocks }).map((_, i) => (i < filledBlocks ? '█' : '░')).join('')}]
+          </span>
+          <span className="font-mono-display text-[11px] text-orange-400/70">{percent}%</span>
         </div>
       )}
     </motion.div>
@@ -415,123 +379,90 @@ function StatCard({ icon, label, value, sub, accent, progress, delay }) {
 }
 
 /* ══════════════════════════════════════════
-   DROPDOWN FILTER
+   FLAG GROUP (filter pills styled as CLI flags)
 ══════════════════════════════════════════ */
-function DropdownFilter({ icon, value, onChange, options }) {
-  const active = value !== 'all';
+function FlagGroup({ label, value, options, onChange }) {
   return (
-    <div className={cn(
-      "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer",
-      active
-        ? "bg-orange-500/10 border-orange-500/25 text-orange-400"
-        : "bg-white/[0.03] border-white/[0.08] text-white/40 hover:border-white/15 hover:text-white/60"
-    )}>
-      <div className="flex-shrink-0">{icon}</div>
-      <select
-        className="bg-transparent text-xs font-semibold focus:outline-none appearance-none cursor-pointer pr-5 text-inherit"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-[#111] text-white">
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <ChevronRight className="w-3 h-3 absolute right-3 rotate-90 pointer-events-none opacity-50" />
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-[10px] font-mono-display text-white/20">{label}</span>
+      <div className="flex items-center gap-1">
+        {options.map((opt) => {
+          const active = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[10px] font-mono-display font-semibold transition-all border',
+                active
+                  ? 'bg-orange-500/12 border-orange-500/30 text-orange-400'
+                  : 'bg-white/[0.02] border-white/[0.06] text-white/35 hover:text-white/60 hover:border-white/15'
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 /* ══════════════════════════════════════════
-   PROBLEM CARD
+   PROBLEM ROW (code-editor line style)
 ══════════════════════════════════════════ */
-function ProblemCard({ problem, isSolved, index }) {
-  const diff = String(problem.difficulty || '').toLowerCase();
+function ProblemRow({ problem, isSolved, index }) {
+  const meta = diffMeta(problem.difficulty);
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 12 }}
       layout
-      transition={{ delay: index * 0.018, duration: 0.3 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ delay: (index % PAGE_LIMIT) * 0.015, duration: 0.25 }}
+      className="row-in"
     >
       <NavLink
         to={`/problem/${problem._id}`}
-        className="card-shimmer group relative flex items-center justify-between px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl hover:bg-white/[0.035] hover:border-white/[0.12] transition-all duration-250 overflow-hidden"
+        className="group relative grid grid-cols-[2rem_1fr] md:grid-cols-[2rem_1fr_6rem_5rem_6rem_2rem] items-center gap-4 px-4 py-3.5 hover:bg-white/[0.025] transition-colors duration-150"
       >
-        {/* solved accent line */}
         {isSolved && (
-          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-orange-400 to-orange-600 shadow-[3px_0_18px_rgba(249,115,22,0.35)]" />
+          <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-orange-500/70" />
         )}
 
-        {/* hover glow bg */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-orange-500/[0.025] to-transparent pointer-events-none" />
+        <span className="font-mono-display text-[11px] text-white/20 group-hover:text-orange-400/50 transition-colors">
+          {String(index + 1).padStart(2, '0')}
+        </span>
 
-        {/* ── LEFT: number + info ── */}
-        <div className="flex items-center gap-4 min-w-0">
-          {/* index number */}
-          <div className="hidden sm:flex w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] items-center justify-center flex-shrink-0 group-hover:border-orange-500/20 transition-colors">
-            <span className="text-[11px] font-black text-white/25 group-hover:text-orange-400/60 transition-colors">
-              {String(index + 1).padStart(2, '0')}
-            </span>
-          </div>
+        <span className="text-[14px] font-medium text-white/75 group-hover:text-white transition-colors truncate">
+          {problem.title}
+        </span>
 
-          <div className="min-w-0">
-            {/* title */}
-            <h4 className="text-[14px] font-semibold text-white/80 group-hover:text-white transition-colors truncate mb-1.5 flex items-center gap-2">
-              {problem.title}
-              {isSolved && <CheckCircle2 className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" strokeWidth={2.5} />}
-            </h4>
+        <span className="hidden md:block font-mono-display text-[11px] text-white/25 truncate">
+          {problem.tags ? `// ${Array.isArray(problem.tags) ? problem.tags.join(', ') : problem.tags}` : ''}
+        </span>
 
-            {/* pills row */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn("tag-pill", getDifficultyStyle(problem.difficulty))}>
-                {problem.difficulty}
-              </span>
-              {problem.tags && (
-                <span className="text-[10px] text-white/25 font-medium tracking-tight">
-                  #{problem.tags}
-                </span>
-              )}
-              <span className={cn(
-                "tag-pill",
-                isSolved
-                  ? "text-orange-400 border-orange-500/20 bg-orange-500/8"
-                  : "text-white/30 border-white/10 bg-white/[0.03]"
-              )}>
-                {isSolved ? '✓ Solved' : '○ Unsolved'}
-              </span>
-            </div>
-          </div>
-        </div>
+        <span className={cn('hidden md:inline-flex items-center gap-1.5 text-[10px] font-mono-display font-semibold', meta.text)}>
+          <span className={cn('w-1.5 h-1.5 rounded-full', meta.dot)} />
+          {meta.label}
+        </span>
 
-        {/* ── RIGHT ── */}
-        <div className="flex items-center gap-4 flex-shrink-0 ml-4">
-          {/* difficulty dot bar */}
-          <div className="hidden md:flex items-end gap-[3px] h-5">
-            {['easy', 'medium', 'hard'].map((d, i) => {
-              const heights = ['h-2', 'h-3.5', 'h-5'];
-              const colors = {
-                easy:   ['bg-emerald-400', 'bg-emerald-400/20', 'bg-emerald-400/20'],
-                medium: ['bg-emerald-400', 'bg-amber-400', 'bg-amber-400/20'],
-                hard:   ['bg-emerald-400', 'bg-amber-400', 'bg-rose-400'],
-              };
-              return (
-                <div
-                  key={d}
-                  className={cn('w-[3px] rounded-full transition-all duration-300', heights[i], colors[diff]?.[i] || 'bg-white/10')}
-                />
-              );
-            })}
-          </div>
+        <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-mono-display font-medium">
+          {isSolved ? (
+            <>
+              <CheckCircle2 className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
+              <span className="text-orange-400/80">solved</span>
+            </>
+          ) : (
+            <>
+              <Circle className="w-3 h-3 text-white/20" strokeWidth={2.5} />
+              <span className="text-white/25">open</span>
+            </>
+          )}
+        </span>
 
-          {/* arrow button */}
-          <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] transition-all duration-300">
-            <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black group-hover:translate-x-0.5 transition-all" />
-          </div>
-        </div>
+        <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all justify-self-end" />
       </NavLink>
     </motion.div>
   );

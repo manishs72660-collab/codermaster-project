@@ -19,7 +19,7 @@ function Admin() {
     },
     {
       id: 'update',
-      title: 'Update Problem',
+      title: 'Update and Delete Problem',
       description: 'Edit existing problems and their details',
       icon: Edit,
       route: '/admin/update',
@@ -27,17 +27,6 @@ function Admin() {
       accentBg: '#2a1f0a',
       accentBorder: '#3a2e0f',
       tag: 'EDIT',
-    },
-    {
-      id: 'delete',
-      title: 'Delete Problem',
-      description: 'Remove problems from the platform',
-      icon: Trash2,
-      route: '/admin/delete',
-      accent: '#ff4444',
-      accentBg: '#2a0f0f',
-      accentBorder: '#3a1a1a',
-      tag: 'REMOVE',
     },
     {
       id: 'makeadmin',

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const client = require("../config/redis");
 const User = require("../models/Userschema");
-const userAuth = require("../middleware/userAuth"); // protect it — must be logged in to see admin list
+const userAuth = require("../middleware/userauth"); 
 
 router.get("/admins", userAuth, async (req, res) => {
   try {

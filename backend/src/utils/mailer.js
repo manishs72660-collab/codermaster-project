@@ -150,6 +150,19 @@ const messageBlock = (message) => `
 </table>
 `;
 
+/* A larger, centered "code / password" display block — used for OTPs
+   and new temporary passwords so they're easy to read and copy. */
+const codeBlock = (label, value) => `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 20px 0;">
+  <tr>
+    <td align="center" style="padding:18px 16px; background-color:${BRAND.orangeDim}; border:1px solid #52300f; border-radius:12px;">
+      <p style="margin:0 0 8px 0; font-family:'Segoe UI', Helvetica, Arial, sans-serif; font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:${BRAND.orangeSoft};">${label}</p>
+      <p style="margin:0; font-family:Consolas, Menlo, monospace; font-size:26px; font-weight:700; letter-spacing:3px; color:${BRAND.text};">${value}</p>
+    </td>
+  </tr>
+</table>
+`;
+
 const badge = (text, tone = "orange") => {
   const tones = {
     orange: { bg: BRAND.orangeDim, border: "#52300f", color: BRAND.orangeSoft },
@@ -214,10 +227,10 @@ const sendCollegeApprovedEmail = async ({ toEmail, collegeName, collegeCode, tem
       ["College", `${collegeName}`],
       ["College Code", `${collegeCode}`],
       ["Login Email", `${toEmail}`],
-      ["Temporary Password", `<span style="font-family:Consolas, monospace; color:${BRAND.orangeSoft};">${tempPassword}</span>`],
     ])}
+    ${codeBlock("This is your password", tempPassword)}
     ${button("Log In to CodeMaster", loginUrl)}
-    ${paragraph(`For security, please log in and change your password as soon as possible.`)}
+    ${paragraph(`This is your password. Please keep it private and do not share it with anyone.`)}
   `;
 
   await transporter.sendMail({
@@ -229,16 +242,18 @@ Good news — ${collegeName} (code: ${collegeCode}) has been approved and regist
 
 Log in as the College Admin with:
   Email: ${toEmail}
-  Temporary password: ${tempPassword}
+  This is your password: ${tempPassword}
 
-Log in and change your password here: ${loginUrl}
+Please keep it private and do not share it with anyone.
+
+Log in here: ${loginUrl}
     `.trim(),
     html: baseLayout({
       preheader: `${collegeName} has been approved on CodeMaster`,
       eyebrow: "Registration Approved",
       title: "College Approved",
       bodyHtml,
-      footerNote: "Keep your temporary password private — change it after your first login.",
+      footerNote: "Keep this password private — do not share it with anyone.",
     }),
   });
 };
@@ -274,4 +289,8 @@ We're not able to approve this request right now${reason ? `: ${reason}` : "."}
   });
 };
 
-module.exports = { sendCollegeRequestNotification, sendCollegeApprovedEmail, sendCollegeRejectedEmail };
+module.exports = {
+  sendCollegeRequestNotification,
+  sendCollegeApprovedEmail,
+  sendCollegeRejectedEmail,
+};

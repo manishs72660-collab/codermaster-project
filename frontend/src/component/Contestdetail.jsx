@@ -5,7 +5,8 @@ import { motion } from 'motion/react';
 import {
   Trophy, Clock, Users, ChevronRight, Code2,
   LogOut, User as UserIcon, CalendarDays, Zap,
-  Lock, Timer, CheckCircle2, Crown, Medal, KeyRound, Copy, Check
+  Lock, Timer, CheckCircle2, Crown, Medal, KeyRound, Copy, Check,
+  AlertCircle, RefreshCw
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
@@ -32,6 +33,17 @@ const getDiffStyle = (d) => {
   if (diff === 'medium') return { text: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20' };
   if (diff === 'hard')   return { text: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20' };
   return { text: 'text-white/30', bg: 'bg-white/5', border: 'border-white/10' };
+};
+
+// Normalizes whatever shape the leaderboard endpoint returns into a plain array.
+// Your API currently returns a raw array, so the first branch is what fires —
+// the others are just safety nets in case the backend response shape ever changes.
+const normalizeLeaderboard = (data) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.leaderboard)) return data.leaderboard;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.result)) return data.result;
+  return null; // null = "unexpected shape", different from [] = "legitimately empty"
 };
 
 /* ─── countdown hook ─── */
@@ -74,6 +86,11 @@ export default function ContestDetail() {
   const [scrolled, setScrolled]           = useState(false);
   const [codeCopied, setCodeCopied]       = useState(false);
 
+  // leaderboard-specific request state so failures are visible instead of silent
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError]     = useState(null);
+  const [leaderboardRefetchKey, setLeaderboardRefetchKey] = useState(0);
+
   // ── compute status from state (safe when contest is null) ──
   const now        = new Date();
   const isUpcoming = contest ? now < new Date(contest.startTime) : false;
@@ -110,14 +127,51 @@ export default function ContestDetail() {
     }
   }, [contest, contestId]);
 
+  // ── LEADERBOARD FETCH ──
+  // Previously this failed silently on any error (auth, network, unexpected
+  // shape) leaving `leaderboard` stuck at []. Now every outcome is visible:
+  // loading / error / empty-but-successful / populated are all distinct states.
   useEffect(() => {
     if (!contest) return;
-    if (now > new Date(contest.endTime) && contest.isRegistered) {
-      axiosClient.get(`/contest/${contestId}/leaderboard`)
-        .then(({ data }) => setLeaderboard(Array.isArray(data) ? data : []))
-        .catch(() => {});
-    }
-  }, [contest, contestId]);
+    if (!(now > new Date(contest.endTime) && contest.isRegistered)) return;
+
+    let cancelled = false;
+    setLeaderboardLoading(true);
+    setLeaderboardError(null);
+
+    axiosClient.get(`/contest/${contestId}/leaderboard`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const normalized = normalizeLeaderboard(data);
+        if (normalized === null) {
+          console.error('Leaderboard: unexpected response shape', data);
+          setLeaderboardError('Received an unexpected response shape from the server.');
+          setLeaderboard([]);
+        } else {
+          setLeaderboard(normalized);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // Surface the real cause instead of swallowing it. Common culprits:
+        // - 401/403: axiosClient not sending the auth cookie/token that Postman has saved
+        // - CORS blocked (check the Network tab / console for a CORS error)
+        // - wrong path/base URL
+        const status = err?.response?.status;
+        const serverMsg = err?.response?.data?.message;
+        console.error('Leaderboard fetch failed:', status, serverMsg || err.message);
+        setLeaderboardError(
+          serverMsg ||
+          (status ? `Request failed with status ${status}` : 'Network error — request may have been blocked (check console/Network tab).')
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLeaderboardLoading(false);
+      });
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contest, contestId, leaderboardRefetchKey]);
 
   useEffect(() => {
     if (!contest?.isRegistered) return;
@@ -490,35 +544,60 @@ export default function ContestDetail() {
           {/* ══ LEADERBOARD TAB ══ */}
           {tab === 'leaderboard' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <div className="space-y-2">
-                {leaderboard.length === 0
-                  ? <div className="text-center py-16 text-white/20 text-sm">No rankings yet.</div>
-                  : leaderboard.map((entry, index) => (
-                      <div key={entry.user?._id || index} className="flex items-center gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display font-700 text-lg",
-                          index === 0 ? "bg-amber-500/15 border border-amber-500/30 text-amber-400" :
-                          index === 1 ? "bg-white/[0.06] border border-white/15 text-white/50" :
-                          index === 2 ? "bg-orange-500/10 border border-orange-500/20 text-orange-500/70" :
-                                        "bg-white/[0.03] border border-white/[0.06] text-white/25"
-                        )}>
-                          {index === 0 ? <Crown className="w-5 h-5" /> :
-                           index === 1 ? <Medal className="w-4 h-4" /> :
-                           index === 2 ? <Medal className="w-4 h-4" /> :
-                           entry.rank}
+              {leaderboardLoading && (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="w-8 h-8 border-2 border-white/10 border-t-orange-500 rounded-full animate-spin mb-4" />
+                  <span className="text-white/20 text-xs font-mono uppercase tracking-widest">Loading leaderboard…</span>
+                </div>
+              )}
+
+              {!leaderboardLoading && leaderboardError && (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-5">
+                    <AlertCircle className="w-7 h-7 text-rose-400" />
+                  </div>
+                  <h3 className="font-display text-lg font-700 text-white/60 mb-2">Couldn't load leaderboard</h3>
+                  <p className="text-sm text-white/30 mb-6 max-w-sm">{leaderboardError}</p>
+                  <button
+                    onClick={() => setLeaderboardRefetchKey((k) => k + 1)}
+                    className="flex items-center gap-2 bg-white/[0.06] hover:bg-white/10 border border-white/10 text-white/70 font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Retry
+                  </button>
+                </div>
+              )}
+
+              {!leaderboardLoading && !leaderboardError && (
+                <div className="space-y-2">
+                  {leaderboard.length === 0
+                    ? <div className="text-center py-16 text-white/20 text-sm">No rankings yet.</div>
+                    : leaderboard.map((entry, index) => (
+                        <div key={entry.user?._id || index} className="flex items-center gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl">
+                          <div className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display font-700 text-lg",
+                            index === 0 ? "bg-amber-500/15 border border-amber-500/30 text-amber-400" :
+                            index === 1 ? "bg-white/[0.06] border border-white/15 text-white/50" :
+                            index === 2 ? "bg-orange-500/10 border border-orange-500/20 text-orange-500/70" :
+                                          "bg-white/[0.03] border border-white/[0.06] text-white/25"
+                          )}>
+                            {index === 0 ? <Crown className="w-5 h-5" /> :
+                             index === 1 ? <Medal className="w-4 h-4" /> :
+                             index === 2 ? <Medal className="w-4 h-4" /> :
+                             entry.rank}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{entry.user?.firstName} {entry.user?.lastName}</p>
+                            <p className="text-[11px] text-white/25 font-mono">Last solved: {entry.lastSolvedAt ? new Date(entry.lastSolvedAt).toLocaleTimeString() : '—'}</p>
+                          </div>
+                          <div className="flex flex-col items-end">
+                            <span className="font-display text-xl font-700 text-orange-400">{entry.totalSolved}</span>
+                            <span className="text-[10px] text-white/25 uppercase font-mono tracking-widest">solved</span>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-white truncate">{entry.user?.firstName} {entry.user?.lastName}</p>
-                          <p className="text-[11px] text-white/25 font-mono">Last solved: {entry.lastSolvedAt ? new Date(entry.lastSolvedAt).toLocaleTimeString() : '—'}</p>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="font-display text-xl font-700 text-orange-400">{entry.totalSolved}</span>
-                          <span className="text-[10px] text-white/25 uppercase font-mono tracking-widest">solved</span>
-                        </div>
-                      </div>
-                    ))
-                }
-              </div>
+                      ))
+                  }
+                </div>
+              )}
             </motion.div>
           )}
 

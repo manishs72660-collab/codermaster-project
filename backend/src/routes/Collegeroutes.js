@@ -16,7 +16,7 @@ const {
 
 const usermiddleware = require("../middleware/userauth");
 const adminmiddleware = require("../middleware/adminmiddleware");
-const collegeScope = require("../middleware/collegeScope"); // tenant-isolation check: Admin, or that college's own admin
+const collegeScope = require("../middleware/Collegescope"); // tenant-isolation check: Admin, or that college's own admin
 
 // Platform-admin only.
 router.get("/", usermiddleware, adminmiddleware, getAllColleges);

@@ -1,14 +1,5 @@
-// Static batch config. Add/remove batches here — nothing else needs to change.
-// `image` should point at a bundled asset, e.g. import batch1 from '../assets/batches/batch1.png'
-// then reference it here, OR a path under /public if you'd rather not import it.
-//
-// Each batch has a `requirement` describing what unlocks it:
-//   { type: 'activeDays',     value: 10,  label: '10 days on CodeMaster' }
-//   { type: 'problemsSolved', value: 100, label: '100 problems on CodeMaster' }
-// A batch with `requirement: null` is a placeholder — always shown locked,
-// with a "coming soon" label, until you fill in its requirement.
 
-import fist from '../assets/fist.jpg';
+import first from '../assets/first.png';
 import batch1 from '../assets/batch1.jpg';
 import batch2 from '../assets/batch2.jpg';
 import batch3 from '../assets/batch3.jpg';
@@ -18,7 +9,7 @@ export const batches = [
   {
     id: 'batch-0',
     name: 'First Blood',
-    image: fist,
+    image: first,
     requirement: { type: 'problemsSolved', value: 1, label: '1 problem on CodeMaster' },
   },
   {

@@ -1,14 +1,15 @@
+import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axiosClient from '../utils/axiosClient';
 import { useNavigate } from 'react-router';
-
+import BackButton from './backbutton';
 const problemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().min(1, 'Description is required'),
   difficulty: z.enum(['easy', 'medium', 'hard']),
-  tags: z.enum(['array', 'linkedList', 'graph', 'dp']),
+  tags: z.enum(['array', 'linkedList', 'graph', 'dp', 'string']),
   visibleTestCases: z.array(
     z.object({
       input: z.string().min(1, 'Input is required'),
@@ -24,7 +25,7 @@ const problemSchema = z.object({
   ).min(1, 'At least one hidden test case required'),
   startCode: z.array(
     z.object({
-      language: z.enum(['c++', 'javascript']),
+      language: z.enum(['c++', 'java', 'javascript', 'python']),
       initialCode: z.string().min(1, 'Initial code is required')
     })
   ).min(1, 'At least one language required'),
@@ -32,7 +33,7 @@ const problemSchema = z.object({
   // ✅ NEW: driver boilerplate per language
   driverCode: z.array(
     z.object({
-      language: z.enum(['c++', 'javascript']),
+      language: z.enum(['c++', 'java', 'javascript', 'python']),
       code: z.string().min(1, 'Driver code is required')
     })
   ).min(1, 'At least one driver code required'),
@@ -40,7 +41,7 @@ const problemSchema = z.object({
   // ✅ CHANGED: solutionCode = function only (no I/O boilerplate)
   referenceSolution: z.array(
     z.object({
-      language: z.enum(['c++', 'javascript']),
+      language: z.enum(['c++', 'java', 'javascript', 'python']),
       solutionCode: z.string().min(1, 'Solution code is required')
     })
   ).min(1, 'At least one solution required')
@@ -48,17 +49,20 @@ const problemSchema = z.object({
 
 function AdminPanel() {
   const navigate = useNavigate();
+  const [submitStatus, setSubmitStatus] = useState(null); // { type: 'success' | 'error', message: string }
   const {
     register,
     control,
     handleSubmit,
-    formState: { errors }
+    formState: { errors, isSubmitting }
   } = useForm({
     resolver: zodResolver(problemSchema),
     defaultValues: {
       startCode: [
         { language: 'c++',        initialCode: 'int linearSearch(vector<int>& nums, int target) {\n    // Write your code here\n}' },
-        { language: 'javascript', initialCode: 'function linearSearch(nums, target) {\n  // Write your code here\n}' }
+        { language: 'java',       initialCode: 'static int linearSearch(int[] nums, int target) {\n    // Write your code here\n    return -1;\n}' },
+        { language: 'javascript', initialCode: 'function linearSearch(nums, target) {\n  // Write your code here\n}' },
+        { language: 'python',     initialCode: 'def linearSearch(nums, target):\n    # Write your code here\n    pass' }
       ],
       driverCode: [
         {
@@ -66,13 +70,23 @@ function AdminPanel() {
           code: 'int main() {\n    string line;\n    getline(cin, line);\n    vector<int> nums;\n    int num = 0; bool inNumber = false;\n    for (char c : line) {\n        if (isdigit(c)) { num = num*10+(c-\'0\'); inNumber=true; }\n        else if (inNumber) { nums.push_back(num); num=0; inNumber=false; }\n    }\n    if (inNumber) nums.push_back(num);\n    int target; cin >> target;\n    cout << linearSearch(nums, target);\n    return 0;\n}'
         },
         {
+          language: 'java',
+          code: 'Scanner sc = new Scanner(System.in);\nString line = sc.nextLine();\nString[] parts = line.replaceAll("[\\\\[\\\\]]", "").split(",");\nint[] nums = new int[parts.length];\nfor (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i].trim());\nint target = Integer.parseInt(sc.nextLine().trim());\nSystem.out.println(linearSearch(nums, target));'
+        },
+        {
           language: 'javascript',
           code: "const fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8').trim().split('\\n');\nconst nums = JSON.parse(input[0]);\nconst target = parseInt(input[1]);\nconsole.log(linearSearch(nums, target));"
+        },
+        {
+          language: 'python',
+          code: "import sys\ndata = sys.stdin.read().strip().split('\\n')\nnums = eval(data[0])\ntarget = int(data[1])\nprint(linearSearch(nums, target))"
         }
       ],
       referenceSolution: [
         { language: 'c++',        solutionCode: '' },
-        { language: 'javascript', solutionCode: '' }
+        { language: 'java',       solutionCode: '' },
+        { language: 'javascript', solutionCode: '' },
+        { language: 'python',     solutionCode: '' }
       ]
     }
   });
@@ -90,30 +104,98 @@ function AdminPanel() {
   } = useFieldArray({ control, name: 'hiddenTestCases' });
 
   const onSubmit = async (data) => {
+    setSubmitStatus(null);
     try {
-      await axiosClient.post('/problem/create', data);
-      alert('Problem created successfully!');
-      navigate('/');
+      const res = await axiosClient.post('/problem/create', data);
+      setSubmitStatus({
+        type: 'success',
+        message: res?.data?.message || `Problem "${data.title}" was created successfully.`
+      });
+      // Give the user a moment to see the success state before leaving the page
+      setTimeout(() => navigate('/'), 1200);
     } catch (error) {
       console.error("Submit error:", error.response?.data || error.message);
-      alert(`Error: ${error.response?.data?.message || error.message}`);
+      setSubmitStatus({
+        type: 'error',
+        message: error.response?.data?.message || error.message || 'Something went wrong while creating the problem.'
+      });
+      // Scroll up so the user actually sees the error banner
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const languages = [
     { value: 'c++',        label: 'C++' },
-    { value: 'javascript', label: 'JavaScript' }
+    { value: 'java',       label: 'Java' },
+    { value: 'javascript', label: 'JavaScript' },
+    { value: 'python',     label: 'Python' }
   ];
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       <div className="max-w-7xl mx-auto px-4 py-10">
+    <BackButton></BackButton>
         <div className="mb-10">
           <h1 className="text-4xl font-bold tracking-tight">Create New Problem</h1>
           <p className="text-white/50 mt-2">
             Add coding challenges, test cases, and reference solutions.
           </p>
         </div>
+
+        {/* ── Submission Status Banner ── */}
+        {submitStatus && (
+          <div
+            role="status"
+            className={`mb-6 flex items-start gap-3 rounded-2xl border px-5 py-4 ${
+              submitStatus.type === 'success'
+                ? 'bg-green-500/10 border-green-500/30 text-green-300'
+                : 'bg-red-500/10 border-red-500/30 text-red-300'
+            }`}
+          >
+            <div className="mt-0.5 shrink-0">
+              {submitStatus.type === 'success' ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.704 5.29a1 1 0 010 1.415l-7.5 7.5a1 1 0 01-1.415 0l-3.5-3.5a1 1 0 111.415-1.414L8.5 12.086l6.79-6.795a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 112 0v3a1 1 0 11-2 0V9zm1-5a1.25 1.25 0 100 2.5A1.25 1.25 0 0010 4z" clipRule="evenodd" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold">
+                {submitStatus.type === 'success' ? 'Problem created' : 'Problem creation failed'}
+              </p>
+              <p className="text-sm opacity-90 mt-0.5">{submitStatus.message}</p>
+              {submitStatus.type === 'success' && (
+                <p className="text-xs opacity-70 mt-1">Redirecting to the problem list…</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubmitStatus(null)}
+              className="text-white/40 hover:text-white/80 transition-colors"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* ── Loading overlay while request is in flight ── */}
+        {isSubmitting && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+            <div className="bg-[#111111] border border-white/10 rounded-3xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
+              <svg className="animate-spin h-10 w-10 text-orange-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              <p className="text-white/80 font-medium">Creating problem…</p>
+              <p className="text-white/40 text-sm">This can take a few seconds while test cases run.</p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
 
@@ -168,6 +250,7 @@ function AdminPanel() {
                     <option value="linkedList">Linked List</option>
                     <option value="graph">Graph</option>
                     <option value="dp">Dynamic Programming</option>
+                    <option value="string">String</option>
                   </select>
                 </div>
               </div>
@@ -329,9 +412,20 @@ function AdminPanel() {
 
           <button
             type="submit"
-            className="w-full bg-orange-500 hover:bg-orange-400 text-black font-bold py-4 rounded-2xl text-lg transition-colors shadow-lg"
+            disabled={isSubmitting}
+            className={`w-full font-bold py-4 rounded-2xl text-lg transition-colors shadow-lg flex items-center justify-center gap-3 ${
+              isSubmitting
+                ? 'bg-orange-500/50 text-black/60 cursor-not-allowed'
+                : 'bg-orange-500 hover:bg-orange-400 text-black'
+            }`}
           >
-            Create Problem
+            {isSubmitting && (
+              <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+            )}
+            {isSubmitting ? 'Creating Problem…' : 'Create Problem'}
           </button>
 
         </form>

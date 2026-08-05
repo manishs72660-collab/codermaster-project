@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router';
-import { Trophy, Plus, X, Search, KeyRound, Copy, Check, MessageCircle } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { Trophy, Plus, X, Search, KeyRound, Copy, Check, MessageCircle, Loader2 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
+import { fetchProblems } from '../problemslice';
+import BackButton from './backbutton';
+// Large limit so the admin picker effectively has "all" problems to choose
+// from in one page. Bump this (or wire up real pagination/infinite scroll
+// like Homepage does) if your problem bank grows past this.
+const PROBLEM_FETCH_LIMIT = 200;
 
 export default function AdminCreateContest() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  // Pull problems from the shared problemSlice instead of fetching locally.
+  // This means Homepage and AdminCreateContest reuse the same cached list
+  // (via `initialized`) instead of hitting the backend twice.
+  const {
+    problems: allProblems,
+    loading: problemsLoading,
+    error: problemsError,
+    initialized: problemsInitialized,
+  } = useSelector((state) => state.problem);
 
   const [form, setForm] = useState({
     title: '',
@@ -13,7 +31,6 @@ export default function AdminCreateContest() {
     endTime: '',
     isPublic: true,
   });
-  const [allProblems, setAllProblems]       = useState([]);
   const [selectedProblems, setSelectedProblems] = useState([]);
   const [problemSearch, setProblemSearch]   = useState('');
   const [submitting, setSubmitting]         = useState(false);
@@ -28,14 +45,16 @@ export default function AdminCreateContest() {
   const [createdContest, setCreatedContest] = useState(null);
   const [codeCopied, setCodeCopied]         = useState(false);
 
-  /* fetch all problems for picker */
+  /* fetch all problems for picker — only if the store doesn't already have them */
   useEffect(() => {
-    axiosClient.get('/problem/')
-      .then(({ data }) => setAllProblems(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, []);
+    if (!problemsInitialized) {
+      dispatch(fetchProblems({ page: 1, limit: PROBLEM_FETCH_LIMIT }));
+    }
+  }, [dispatch, problemsInitialized]);
 
-  const filteredProblems = allProblems.filter((p) =>
+  const problemsList = Array.isArray(allProblems) ? allProblems : [];
+
+  const filteredProblems = problemsList.filter((p) =>
     p.title?.toLowerCase().includes(problemSearch.toLowerCase()) &&
     !selectedProblems.find((sp) => sp._id === p._id)
   );
@@ -126,6 +145,7 @@ export default function AdminCreateContest() {
 
     return (
       <div style={{ minHeight: '100vh', background: '#0d1117', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+         <BackButton></BackButton>
         <div style={{ background: '#0f2a1a', border: '1px solid #1a3a2a', borderRadius: 16, padding: '40px 32px', textAlign: 'center', maxWidth: 420 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🏆</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: '#00b86b', marginBottom: 8 }}>Contest Created!</div>
@@ -224,7 +244,10 @@ export default function AdminCreateContest() {
         .adm-card-hdr-title { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #495366; }
         .adm-card-body { padding: 22px 20px; display: flex; flex-direction: column; gap: 16px; }
         .adm-field-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #495366; margin-bottom: 6px; }
-        .adm-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .adm-field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+        .adm-field-row > div { min-width: 0; }
+        input[type="datetime-local"] { min-width: 0; font-size: 12px !important; padding: 10px 8px !important; }
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
         .adm-submit-btn { width: 100%; padding: 11px; background: #c084fc; color: #0d1117; border: none; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .adm-submit-btn:hover:not(:disabled) { background: #d09cfa; transform: translateY(-1px); }
         .adm-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -234,6 +257,8 @@ export default function AdminCreateContest() {
         .prob-search { width: 100%; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; color: #e6edf3; fontFamily: "'JetBrains Mono', monospace"; fontSize: 12px; padding: '8px 12px 8px 36px'; outline: none; transition: border-color 0.15s; }
         .prob-search:focus { border-color: #c084fc; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #161b22; } ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .spin-slow { animation: spin-slow 0.8s linear infinite; }
         @media (max-width: 700px) { .adm-grid { grid-template-columns: 1fr; } .adm-field-row { grid-template-columns: 1fr; } }
       `}</style>
 
@@ -405,9 +430,18 @@ export default function AdminCreateContest() {
 
                   {/* list */}
                   <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {filteredProblems.length === 0 ? (
+                    {problemsLoading ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 0', color: '#495366' }}>
+                        <Loader2 className="spin-slow" size={14} />
+                        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>Loading problems…</span>
+                      </div>
+                    ) : problemsError ? (
+                      <div style={{ padding: '20px 0', textAlign: 'center', color: '#ff4444', fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>
+                        {problemsError}
+                      </div>
+                    ) : filteredProblems.length === 0 ? (
                       <div style={{ padding: '20px 0', textAlign: 'center', color: '#495366', fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>
-                        {allProblems.length === 0 ? 'Loading problems…' : 'No problems found'}
+                        {problemsList.length === 0 ? 'No problems available' : 'No problems found'}
                       </div>
                     ) : filteredProblems.map((p) => (
                       <div

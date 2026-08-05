@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const Contest = require('../models/Contest');
 const ContestSubmission = require('../models/ContestSubmission');
-const ContestRank = require('../models/ContestRank');
+const ContestRank = require('../models/Contestrank');
 const Problem = require('../models/problemschema');
 
 // ─── Reuse your existing Judge0 helpers from submit.js ───────────────────────

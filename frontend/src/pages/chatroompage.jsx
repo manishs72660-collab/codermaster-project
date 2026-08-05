@@ -4,8 +4,29 @@ import { useSelector } from "react-redux";
 import axiosClient from "../utils/axiosClient";
 import socket from "../utils/socket";
 
+// FIX: "/admins" is not a registered route (App.jsx mounts AdminListPage at
+// "/explore/talkadmin"). Navigating to a dead route after chat:end / chat:ended
+// left users on a blank page, which looked like "ending chat doesn't work".
+const ADMIN_LIST_ROUTE = "/explore/talkadmin";
+
+function MessageSkeleton() {
+  return (
+    <div className="space-y-3 px-1">
+      <div className="flex justify-start">
+        <div className="h-9 w-40 rounded-2xl rounded-bl-sm bg-neutral-800 animate-pulse" />
+      </div>
+      <div className="flex justify-end">
+        <div className="h-9 w-56 rounded-2xl rounded-br-sm bg-neutral-800 animate-pulse" />
+      </div>
+      <div className="flex justify-start">
+        <div className="h-9 w-28 rounded-2xl rounded-bl-sm bg-neutral-800 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
 function ChatRoomPage() {
-  const { roomName } = useParams(); // e.g. "chat-<chatRequestId>"
+  const { roomName } = useParams();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
 
@@ -13,24 +34,28 @@ function ChatRoomPage() {
   const [text, setText] = useState("");
   const [chatRequest, setChatRequest] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const bottomRef = useRef(null);
 
-  // roomName looks like "chat-<id>" -> extract the raw chatRequestId for API calls
   const chatRequestId = roomName?.replace("chat-", "");
-
+  
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
+    setLoadError(false);
 
     axiosClient
       .get(`/chat/chats/${chatRequestId}/messages`)
       .then((res) => {
         if (!isMounted) return;
         setChatRequest(res.data.chatRequest);
-        setMessages(res.data.messages);
+        setMessages(res.data.messages || []);
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
+        if (!isMounted) return;
+        setLoadError(true);
         setLoading(false);
       });
 
@@ -40,7 +65,7 @@ function ChatRoomPage() {
 
     const handleEnded = () => {
       alert("This chat has ended.");
-      navigate("/admins");
+      navigate(ADMIN_LIST_ROUTE);
     };
 
     socket.on("chat:message", handleMessage);
@@ -68,29 +93,49 @@ function ChatRoomPage() {
     setText("");
   };
 
+  const goBack = () => navigate(ADMIN_LIST_ROUTE);
+
   const endChat = () => {
     if (!chatRequest) return;
 
-    // FIX: was checking role === "admin" (lowercase, matches nothing in the
-    // schema). The person on the "admin side" of this chat is a "CollageAdmin",
-    // so recognize them directly by role rather than falling through to the
-    // populated chatRequest.adminId every time.
     const adminId =
       user.role === "CollageAdmin"
         ? user._id
         : chatRequest.adminId?._id || chatRequest.adminId;
 
     socket.emit("chat:end", { chatRequestId, roomName, adminId });
-    navigate("/admins");
+    navigate(ADMIN_LIST_ROUTE);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-neutral-400">
-          <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-          <span className="text-sm">Loading chat...</span>
+      <div className="min-h-screen bg-neutral-950 flex flex-col">
+        <div className="max-w-2xl w-full mx-auto flex flex-col h-screen">
+          <div className="flex items-center gap-3 px-4 py-4 border-b border-neutral-800 shrink-0">
+            <div className="h-9 w-9 rounded-full bg-neutral-800 animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-20 rounded bg-neutral-800 animate-pulse" />
+              <div className="h-3 w-14 rounded bg-neutral-800 animate-pulse" />
+            </div>
+          </div>
+          <div className="flex-1 px-4 py-6">
+            <MessageSkeleton />
+          </div>
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center gap-4 text-neutral-400">
+        <p className="text-sm">Couldn't load this chat. It may have ended or you don't have access to it.</p>
+        <button
+          onClick={goBack}
+          className="rounded-lg px-4 py-2 text-sm font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-100"
+        >
+          Back to admins
+        </button>
       </div>
     );
   }
@@ -98,9 +143,15 @@ function ChatRoomPage() {
   return (
     <div className="min-h-screen bg-neutral-950 flex flex-col">
       <div className="max-w-2xl w-full mx-auto flex flex-col h-screen">
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-neutral-800 shrink-0">
           <div className="flex items-center gap-3">
+            <button
+              onClick={goBack}
+              aria-label="Back"
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800 transition-colors"
+            >
+              &#8592;
+            </button>
             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-sm font-semibold text-white">
               {(chatRequest?.adminId?.firstName || "C")[0]?.toUpperCase() || "C"}
             </div>
@@ -117,7 +168,6 @@ function ChatRoomPage() {
           </button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-3">
           {messages.length === 0 && (
             <div className="h-full flex items-center justify-center">
@@ -147,7 +197,6 @@ function ChatRoomPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
         <div className="flex items-center gap-2 px-4 py-4 border-t border-neutral-800 shrink-0 bg-neutral-950">
           <input
             value={text}

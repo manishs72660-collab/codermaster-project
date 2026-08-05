@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import axios from 'axios';
 import axiosClient from '../utils/axiosClient';
-
+import BackButton from './backbutton';
 function AdminUpload() {
 
   const { problemId } = useParams();
@@ -171,7 +171,7 @@ function AdminUpload() {
     <div className="max-w-md mx-auto p-6">
 
       <div className="card bg-base-100 shadow-xl">
-
+       <BackButton></BackButton>
         <div className="card-body">
 
           <h2 className="card-title">

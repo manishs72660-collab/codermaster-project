@@ -7,8 +7,8 @@ import { loginUser } from '../authSlice';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Eye, EyeOff, Code2, LogIn, AlertCircle } from 'lucide-react';
-import AuthVisualPanel from '../component/AuthVisualPanel';
-import FormField from '../component/FormField';
+import AuthVisualPanel from '../component/Authvisualpanel';
+import FormField from '../component/Formfield';
 
 const loginSchema = z.object({
   emailId: z.string().email('Invalid email'),

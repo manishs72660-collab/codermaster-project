@@ -14,15 +14,15 @@ const submitroute = require("./routes/submitroute");
 const airoute = require("./routes/aichat");
 const videoRouter = require("./routes/videocreator");
 const duelRouter = require("./routes/duelroute");
-const contestRouter = require('./routes/contestroute');
+const contestRouter = require('./routes/Contestroute');
 const initializeSocket = require("./socket/index");
 const adminListRouter = require("./routes/onlineadmin");
 const chatrouter = require("./routes/chatroute");
 const postrouter = require("./routes/solutionpost");
 const collagerouter = require("./routes/Collegeroutes")
 const profileRouter = require("./routes/profileRoute");
-const communityRouter = require("./routes/communityroute");
-
+const communityRouter = require("./routes/Communityroute");
+const discussionRouter=require("./routes/Discussionrouter")
 const cors = require('cors');
 
 const app = express();
@@ -60,6 +60,7 @@ app.use("/solution", postrouter);
 app.use("/collage", collagerouter)
 app.use("/profile", profileRouter);
 app.use("/community", communityRouter);
+app.use("/discuss",discussionRouter);
 initializeSocket(io);
 
 const InitlizeConnection = async () => {

@@ -8,7 +8,6 @@ import { useEffect } from "react";
 import ProblemPage from "./pages/editor";
 import { fetchUserState } from "./userslice";
 import { fetchProblems } from "./problemslice";
-import BinarySearchVisualizer from "./pages/visu";
 import Admin from "./pages/admin";
 import AdminPanel from "./component/creat";
 import DSAVisualizer from "./pages/visu";
@@ -22,11 +21,11 @@ import AdminUpload from "./component/Adminupload";
 import ArenaChat from "./component/discord"
 import Updateproblem from "./component/updatepeoblem";
 import AdminUpdate from "./component/Adminupdate";
-import UserProfile from "./component/profile";
+// import UserProfile from "./component/profile";
 import DuelLobby from "./pages/DuelLobby";
 import DuelPage from "./pages/DuelPage";
 import DuelLeaderboard from "./pages/DuelLeaderboard";
-import SystemDesignLearning from "./systemdesign/SystemDesignLearning";
+//import SystemDesignLearning from "./systemdesign/SystemDesignLearning";
 import ContestDetail from "./component/Contestdetail";
 import AdminCreateContest from "./component/creatcontest";
 import AdminManageContests from "./component/managecontext";
@@ -38,11 +37,15 @@ import IncomingChatPopup from "./component/IncomingChatPopup";
 import socket from "./utils/socket";
 import ChatRoomPage from "./pages/chatroompage";
 // -- college feature --
-import ManageColleges from "./component/ManageColleges";
-import CollegeAdminDashboard from "./pages/CollegeAdminDashboard";
+import ManageColleges from "./component/Managecolleges";
+// import CollegeAdminDashboard from "./pages/CollegeadminDashboard";
+import CollegeAdminDashboard from "./pages/Collegeadmindashboard"
 import RegisterCollege from "./component/Registercollege";
-import CollegeRequests from "./pages/CollegeRequests";
-
+import CollegeRequests from "./pages/Collegerequests";
+import MakeAdmin from "./component/MakeAdmin";
+import RoadmapVisualizer from "./pages/roadmap";
+//frontend/src/pages/Collegeadmindashboard.jsx
+//frontend/src/pages/Collegerequests.jsx
 // NOTE: no "/discuss" route exists anywhere in this file. If clicking
 // "Community" sometimes lands you on a discuss view, that behavior is being
 // decided *inside* the Community page component (./pages/connect.jsx) —
@@ -107,7 +110,6 @@ function App(){
       <Route path="/duel" element={ <DuelLobby />} />
      <Route path="/duel/:roomCode" element={<DuelPage />} />
     <Route path="/duel/leaderboard" element={<DuelLeaderboard />} />
-    <Route path="/explore/system-design" element={<SystemDesignLearning></SystemDesignLearning>}></Route>
     <Route path="/contest/:contestId" element={<ContestDetail></ContestDetail>}></Route>
     <Route path="/admin/contest/create" element={<AdminCreateContest></AdminCreateContest>}></Route>
     <Route path="/admin/contest/manage" element={<AdminManageContests></AdminManageContests>}></Route>
@@ -116,6 +118,7 @@ function App(){
     <Route path="/explore/complexity" element={<TimeComplexityVisualizer></TimeComplexityVisualizer>}></Route>
     <Route path="/explore/talkadmin" element={<AdminListPage /> } />
     <Route path="/chat/:roomName" element={isAuthenticated ? <ChatRoomPage /> : <Navigate to="/login" />} />
+    <Route path="/admin/makeadmin" element={<MakeAdmin></MakeAdmin>}></Route>
     {/* -- college feature -- */}
     {/* Platform admin: browse every registered college + its admin details */}
     <Route path="/admin/colleges" element={isAuthenticated && user?.role === 'Admin' ? <ManageColleges /> : <Navigate to="/" />} />
@@ -129,6 +132,7 @@ function App(){
     <Route path="/collegeadmin" element={isAuthenticated && user?.role === 'CollageAdmin' ? <CollegeAdminDashboard /> : <Navigate to="/" />} />
     <Route path="/community" element={<Community />} />
 <Route path="/community/post/:id" element={<CommunityPostDetail />} />
+<Route path="/roadmap" element={<RoadmapVisualizer></RoadmapVisualizer>}></Route>
     </Routes>
   </>
   )

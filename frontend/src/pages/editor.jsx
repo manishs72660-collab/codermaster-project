@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { useSelector } from 'react-redux';
 import Editor from '@monaco-editor/react';
 import { NavLink, useParams } from 'react-router';
 import axiosClient from "../utils/axiosClient";
@@ -36,6 +37,9 @@ const useCountUp = (target, trigger, duration = 900) => {
 // ── Language display labels ──
 const langLabels = { javascript: 'JavaScript', cpp: 'C++', java: 'Java', python: 'Python' };
 
+// ── Roles allowed to view official/reference solutions ──
+const SOLUTION_ACCESS_ROLES = ['admin', 'collageadmin'];
+
 const ProblemPage = () => {
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
@@ -47,9 +51,34 @@ const ProblemPage = () => {
   const [activeRightTab, setActiveRightTab] = useState('code');
   const [showAiModal, setShowAiModal] = useState(false);
   const [showBoardModal, setShowBoardModal] = useState(false);
+  // Whiteboard theme toggle — defaults to 'light' (the board's normal, working appearance).
+  // 'dark' applies a CSS invert so background+ink both flip together and stay visible.
+  const [boardTheme, setBoardTheme] = useState('light');
   const editorRef = useRef(null);
   let { problemId } = useParams();
   const [editorHeight, setEditorHeight] = useState(420);
+
+  // ── CURRENT USER / ROLE ──
+  // NOTE: assumes an auth slice shaped like { auth: { user: { role: 'Admin' | 'User' | 'CollageAdmin' } } }.
+  // Adjust the selector path below if your store is shaped differently.
+  const { user } = useSelector((state) => state.auth) || {};
+  const userRole = user?.role;
+  const canViewOfficialSolutions = SOLUTION_ACCESS_ROLES.includes((userRole || '').toLowerCase());
+  // Any user who is admin/collageadmin can moderate (delete) other people's posts & messages.
+  const isPrivilegedRole = SOLUTION_ACCESS_ROLES.includes((userRole || '').toLowerCase());
+  const canDeletePost = (post) => !!post && (isPrivilegedRole || post.userId?._id === user?._id);
+  const canDeleteDiscussion = (msg) => !!msg && (isPrivilegedRole || msg.userId?._id === user?._id);
+
+  // ── PER-USER localStorage KEY ──
+  // BUGFIX: the old key was `code_${problemId}_${selectedLanguage}` — identical for every account on
+  // this browser. Logging out and into a different account would show the previous account's saved
+  // code. The user id is now baked into the key so each account gets its own isolated draft, and a
+  // user with no id yet (auth still loading) falls back to a distinct 'guest' bucket instead of
+  // colliding with a real account's key.
+  const getStorageKey = useCallback(
+    (lang = selectedLanguage) => `code_${user?._id || 'guest'}_${problemId}_${lang}`,
+    [user?._id, problemId, selectedLanguage]
+  );
 
   // ── NEW FEATURE STATE ──
   const [fontSize, setFontSize] = useState(13);
@@ -82,6 +111,22 @@ const ProblemPage = () => {
   const [selectedPost, setSelectedPost] = useState(null);
   const [loadingSinglePost, setLoadingSinglePost] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
+
+  // ── DISCUSSION (MESSAGE BOARD) STATE ── open to everyone, thoughts/doubts only, no solutions
+  const [discussionMsgs, setDiscussionMsgs] = useState([]);
+  const [discussionText, setDiscussionText] = useState('');
+  const [loadingDiscussion, setLoadingDiscussion] = useState(false);
+  const [discussionFetched, setDiscussionFetched] = useState(false);
+  const [postingDiscussion, setPostingDiscussion] = useState(false);
+  const [discussionError, setDiscussionError] = useState('');
+  const [deletingDiscussionId, setDeletingDiscussionId] = useState(null);
+
+  // ── DISCUSSION REPLIES (THREADED) STATE ──
+  const [openReplyId, setOpenReplyId] = useState(null);
+  const [repliesMap, setRepliesMap] = useState({}); // { [discussionId]: [reply, ...] }
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [postingReply, setPostingReply] = useState(false);
 
   // ── TIMER ── stops once the user submits their solution
   useEffect(() => {
@@ -173,6 +218,9 @@ const ProblemPage = () => {
   const { handleSubmit } = useForm();
 
   // ── FETCH PROBLEM ──
+  // BUGFIX: depends on user?._id now too, so if the auth user resolves/changes after this effect
+  // first runs (or someone switches accounts without leaving the page), the correct per-user saved
+  // draft is loaded instead of whatever the previous account left behind.
   useEffect(() => {
     const fetchProblem = async () => {
       setLoading(true);
@@ -183,7 +231,7 @@ const ProblemPage = () => {
                   (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
         )?.initialCode || '';
         setProblem(response.data);
-        const savedKey = `code_${problemId}_${selectedLanguage}`;
+        const savedKey = getStorageKey();
         const savedCode = localStorage.getItem(savedKey);
         setCode(savedCode !== null ? savedCode : initialCode);
         setLoading(false);
@@ -193,12 +241,14 @@ const ProblemPage = () => {
       }
     };
     fetchProblem();
-  }, [problemId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [problemId, user?._id]);
 
   // ── LANGUAGE SWITCH ──
+  // BUGFIX: also keyed by user?._id via getStorageKey, for the same reason as above.
   useEffect(() => {
     if (problem) {
-      const savedKey = `code_${problemId}_${selectedLanguage}`;
+      const savedKey = getStorageKey();
       const savedCode = localStorage.getItem(savedKey);
       if (savedCode !== null) {
         setCode(savedCode);
@@ -210,14 +260,15 @@ const ProblemPage = () => {
         setCode(initialCode);
       }
     }
-  }, [selectedLanguage, problem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLanguage, problem, user?._id]);
 
   // ── EDITOR CHANGE (auto-save with indicator) ──
   const handleEditorChange = (value) => {
     const newCode = value || '';
     setCode(newCode);
     setSaveStatus('saving');
-    const savedKey = `code_${problemId}_${selectedLanguage}`;
+    const savedKey = getStorageKey();
     localStorage.setItem(savedKey, newCode);
     setTimeout(() => setSaveStatus('saved'), 500);
     setTimeout(() => setSaveStatus(''), 2200);
@@ -242,7 +293,15 @@ const ProblemPage = () => {
       setLoading(false);
       setActiveRightTab('testcase');
     } catch (error) {
-      setRunResult({ success: false, error: 'Internal server error' });
+      // BUGFIX: surface the real error instead of a generic string, so the Test Results tab can show
+      // what actually went wrong (compile error, timeout, server message, etc.) rather than nothing
+      // useful. Falls back gracefully through the common places a backend error might live.
+      const backendMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Internal server error';
+      setRunResult({ success: false, error: backendMessage });
       setLoading(false);
       setActiveRightTab('testcase');
     }
@@ -262,7 +321,17 @@ const ProblemPage = () => {
       setLoading(false);
       setActiveRightTab('result');
     } catch (error) {
-      setSubmitResult(null);
+      // BUGFIX: previously set submitResult to null on failure, which rendered the generic
+      // "No submission yet" empty state — a failed submit looked identical to never having
+      // submitted at all. Now we keep a proper failed-verdict object with the real error message
+      // so the result tab can show what happened.
+      const backendMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Something went wrong while submitting. Please try again.';
+      setSubmitResult({ accepted: false, error: backendMessage, passedTestCases: 0, totalTestCases: 0 });
+      setSubmitCount(c => c + 1);
       setLoading(false);
       setActiveRightTab('result');
     }
@@ -276,7 +345,7 @@ const ProblemPage = () => {
               (sc.language.toLowerCase() === 'c++' && selectedLanguage === 'cpp')
     )?.initialCode || '';
     setCode(initialCode);
-    const savedKey = `code_${problemId}_${selectedLanguage}`;
+    const savedKey = getStorageKey();
     localStorage.removeItem(savedKey);
   };
 
@@ -342,8 +411,10 @@ const ProblemPage = () => {
     }
   };
 
+  // Community/user-submitted solutions now live under the "Solutions" tab, alongside the
+  // (locked) official reference solutions, so we fetch them when that tab is opened.
   useEffect(() => {
-    if (activeLeftTab === 'community' && problemId && !postsFetched) {
+    if (activeLeftTab === 'solutions' && problemId && !postsFetched) {
       fetchCommunityPosts();
     }
   }, [activeLeftTab, problemId]);
@@ -374,6 +445,103 @@ const ProblemPage = () => {
     }
   };
 
+  // ── DISCUSSION (MESSAGE BOARD) ──
+  const fetchDiscussion = async () => {
+    setLoadingDiscussion(true);
+    try {
+      const res = await axiosClient.post(`/discuss/posts/${problemId}`, {});
+      setDiscussionMsgs(res.data.discussions || []);
+      setDiscussionFetched(true);
+    } catch (err) {
+      console.error('Error fetching discussion:', err);
+      setDiscussionFetched(true);
+    } finally {
+      setLoadingDiscussion(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeLeftTab === 'community' && problemId && !discussionFetched) {
+      fetchDiscussion();
+    }
+  }, [activeLeftTab, problemId]);
+
+  const handlePostDiscussion = async () => {
+    const trimmed = discussionText.trim();
+    if (!trimmed) return;
+    setPostingDiscussion(true);
+    setDiscussionError('');
+    try {
+      const res = await axiosClient.post('/discuss/post', { problemId, message: trimmed });
+      const newMsg = res.data.discussion;
+      setDiscussionMsgs((prev) => (newMsg ? [newMsg, ...prev] : prev));
+      setDiscussionText('');
+    } catch (err) {
+      setDiscussionError(err?.response?.data?.message || 'Failed to post your message. Please try again.');
+    } finally {
+      setPostingDiscussion(false);
+    }
+  };
+
+  const handleDeleteDiscussion = async (discussionId) => {
+    setDeletingDiscussionId(discussionId);
+    try {
+      await axiosClient.post(`/discuss/delete/${discussionId}`, {});
+      setDiscussionMsgs((prev) => prev.filter((m) => m._id !== discussionId));
+      setRepliesMap((prev) => {
+        const next = { ...prev };
+        delete next[discussionId];
+        return next;
+      });
+      if (openReplyId === discussionId) setOpenReplyId(null);
+    } catch (err) {
+      console.error('Error deleting message:', err);
+    } finally {
+      setDeletingDiscussionId(null);
+    }
+  };
+
+  // ── DISCUSSION REPLIES (THREADED) ──
+  const toggleReplies = async (discussionId) => {
+    if (openReplyId === discussionId) {
+      setOpenReplyId(null);
+      return;
+    }
+    setOpenReplyId(discussionId);
+    setReplyText('');
+    if (!repliesMap[discussionId]) {
+      setLoadingReplies(true);
+      try {
+        const res = await axiosClient.post(`/discuss/replies/${discussionId}`, {});
+        setRepliesMap((prev) => ({ ...prev, [discussionId]: res.data.replies || [] }));
+      } catch (err) {
+        console.error('Error fetching replies:', err);
+        setRepliesMap((prev) => ({ ...prev, [discussionId]: [] }));
+      } finally {
+        setLoadingReplies(false);
+      }
+    }
+  };
+
+  const handlePostReply = async (discussionId) => {
+    const trimmed = replyText.trim();
+    if (!trimmed) return;
+    setPostingReply(true);
+    try {
+      const res = await axiosClient.post(`/discuss/reply/${discussionId}`, { message: trimmed });
+      const newReply = res.data.reply;
+      setRepliesMap((prev) => ({
+        ...prev,
+        [discussionId]: newReply ? [...(prev[discussionId] || []), newReply] : (prev[discussionId] || []),
+      }));
+      setReplyText('');
+    } catch (err) {
+      console.error('Error posting reply:', err);
+    } finally {
+      setPostingReply(false);
+    }
+  };
+
   // ── DIFFICULTY COLORS ──
   const diffMap = {
     easy:   { color: '#2dba6e', bg: 'rgba(45,186,110,0.1)',   border: 'rgba(45,186,110,0.22)' },
@@ -389,6 +557,14 @@ const ProblemPage = () => {
     : 0;
   const meterSegs = 20;
   const meterFilled = Math.round((submitPct / 100) * meterSegs);
+
+  // BUGFIX: small helper to turn a raw error into a short, human title vs. the full detail body,
+  // so the banner headline stays readable even when the backend returns a multi-line stack trace.
+  const errorTitleLine = (err) => {
+    if (!err) return '';
+    const first = String(err).split('\n')[0].trim();
+    return first.length > 140 ? first.slice(0, 140) + '…' : first;
+  };
 
   if (loading && !problem) {
     return (
@@ -824,6 +1000,44 @@ const ProblemPage = () => {
           display: flex; align-items: center; justify-content: center; font-size: 13px;
         }
 
+        /* BUGFIX v3: light is the default now (the board's normal, always-working look — a plain
+           white sheet, same as before any of this theming was added). Dark is opt-in via the toggle
+           button in the board modal header. When dark is selected we invert the whole board
+           (background AND ink together) with a CSS filter, since the component draws its own ink
+           color in JS and CSS alone can't recolor just the strokes — inverting everything together
+           keeps contrast intact instead of producing invisible dark-on-dark ink. Trade-off: any real
+           photos/images pasted into the board will look color-inverted in dark mode too; that's an
+           inherent limit of a CSS-only theme flip (CodeBoard's own source would need a real dark
+           mode prop to do this without touching images). */
+        .cm-board-dark-wrap {
+          height: 100%;
+          width: 100%;
+          overflow: hidden;
+          background: #ffffff;
+          transition: background 0.2s ease;
+        }
+        .cm-board-dark-wrap.dark {
+          background: var(--bg);
+        }
+        .cm-board-dark-wrap.dark > * {
+          filter: invert(1) hue-rotate(180deg);
+        }
+
+        /* Board theme toggle button */
+        .cm-board-theme-toggle {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: var(--s3); color: var(--mu);
+          border: 1px solid var(--b2); border-radius: var(--r);
+          cursor: pointer; padding: 6px 12px;
+          font-family: 'Sora', system-ui, sans-serif; font-size: 11px; font-weight: 700;
+          transition: all 0.14s;
+        }
+        .cm-board-theme-toggle:hover { color: var(--tx); border-color: var(--b1); }
+        .cm-board-theme-toggle .swatch {
+          width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+          border: 1px solid var(--b2);
+        }
+
         /* ── POST SOLUTION ── */
         .cm-post-solution-btn {
           display: inline-flex; align-items: center; gap: 7px;
@@ -880,6 +1094,89 @@ const ProblemPage = () => {
         /* Already posted banner */
         .cm-already-posted { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r2); background: rgba(45,186,110,0.07); border: 1px solid rgba(45,186,110,0.2); color: var(--gr); font-size: 12px; font-weight: 700; }
 
+        /* Locked reference-solutions box */
+        .cm-locked-box {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          text-align: center; gap: 8px; padding: 34px 20px;
+          background: var(--s2); border: 1px dashed var(--b2); border-radius: var(--r2);
+          margin-bottom: 4px;
+        }
+        .cm-locked-icon {
+          width: 42px; height: 42px; border-radius: 10px;
+          background: var(--as); border: 1px solid rgba(255,91,31,0.28);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 18px; color: var(--ac); margin-bottom: 4px;
+        }
+        .cm-locked-title { font-size: 13px; font-weight: 700; color: var(--tx); }
+        .cm-locked-sub { font-size: 11px; color: var(--di); font-family: 'JetBrains Mono', monospace; max-width: 260px; line-height: 1.6; }
+        .cm-locked-role-pill {
+          margin-top: 4px; font-size: 9px; font-weight: 700; color: var(--ac);
+          background: var(--as); border: 1px solid rgba(255,91,31,0.28);
+          padding: 2px 9px; border-radius: 20px; letter-spacing: 0.5px;
+          font-family: 'JetBrains Mono', monospace; text-transform: uppercase;
+        }
+
+        /* Discussion warning banner */
+        .cm-warning-banner {
+          display: flex; align-items: flex-start; gap: 9px;
+          background: rgba(255,193,7,0.08); border: 1px solid rgba(255,193,7,0.28);
+          color: #f2c14b; font-size: 12px; line-height: 1.65;
+          padding: 11px 14px; border-radius: var(--r2); margin-bottom: 18px;
+        }
+        .cm-warning-banner strong { color: #ffd873; }
+        .cm-warning-icon { flex-shrink: 0; font-size: 13px; margin-top: 1px; }
+
+        /* Discussion message box */
+        .cm-discuss-box {
+          background: var(--s2); border: 1px solid var(--b1); border-radius: var(--r2);
+          padding: 12px; margin-bottom: 18px; transition: border-color 0.14s;
+        }
+        .cm-discuss-box:focus-within { border-color: rgba(255,91,31,0.4); }
+        .cm-discuss-input {
+          width: 100%; min-height: 64px; resize: vertical;
+          background: none; border: none; outline: none;
+          color: var(--tx); font-family: 'Sora', system-ui, sans-serif; font-size: 12.5px; line-height: 1.6;
+        }
+        .cm-discuss-input::placeholder { color: var(--di); }
+        .cm-discuss-box-footer {
+          display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+          margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--b1);
+        }
+        .cm-discuss-error {
+          margin-right: auto; color: var(--rd); font-size: 10.5px;
+          font-family: 'JetBrains Mono', monospace;
+        }
+        .cm-discuss-count { font-size: 10px; color: var(--di); font-family: 'JetBrains Mono', monospace; }
+        .cm-discuss-send-btn {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: linear-gradient(135deg, var(--ac), #ff8a3d); color: #180800;
+          border: none; border-radius: var(--r); cursor: pointer;
+          font-family: 'Sora', system-ui, sans-serif; font-size: 11px; font-weight: 800;
+          padding: 6px 14px; transition: all 0.14s;
+        }
+        .cm-discuss-send-btn:hover:not(:disabled) { box-shadow: 0 4px 16px rgba(255,91,31,0.35); transform: translateY(-1px); }
+        .cm-discuss-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .cm-discuss-list { display: flex; flex-direction: column; gap: 4px; }
+        .cm-discuss-msg {
+          display: flex; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--b1);
+        }
+        .cm-discuss-msg:last-child { border-bottom: none; }
+        .cm-discuss-msg-body { flex: 1; min-width: 0; }
+        .cm-discuss-msg-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .cm-discuss-msg-text { font-size: 12.5px; line-height: 1.7; color: #cfd4dd; white-space: pre-wrap; word-break: break-word; }
+        .cm-discuss-reply-toggle {
+          display: inline-flex; align-items: center; gap: 4px; margin-top: 6px;
+          background: none; border: none; cursor: pointer;
+          color: var(--di); font-size: 10.5px; font-weight: 700;
+          font-family: 'JetBrains Mono', monospace; padding: 0;
+          transition: color 0.14s;
+        }
+        .cm-discuss-reply-toggle:hover { color: var(--mu); }
+        .cm-discuss-replies { margin-top: 10px; padding-left: 12px; border-left: 1px solid var(--b1); }
+        .cm-discuss-reply-item { margin-bottom: 10px; }
+        .cm-discuss-reply-text { font-size: 11.5px; line-height: 1.6; color: #cfd4dd; white-space: pre-wrap; word-break: break-word; }
+
         /* Community list */
         .cm-community-list { display: flex; flex-direction: column; gap: 8px; }
         .cm-community-card {
@@ -923,6 +1220,34 @@ const ProblemPage = () => {
 
         @keyframes cm-anim { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
         .cm-anim { animation: cm-anim 0.2s ease both; }
+
+        /* BUGFIX: dedicated error-detail box. Previously the raw error string (which can be a
+           multi-line compile error / stack trace) was crammed into the banner title and often
+           silently truncated by CSS ellipsis, so the user could see "Some test cases failed" or a
+           chopped first line and nothing else. This box always shows the complete message. */
+        .cm-error-detail {
+          background: rgba(240,79,79,0.06);
+          border: 1px solid rgba(240,79,79,0.25);
+          border-radius: var(--r2);
+          margin-bottom: 16px;
+          overflow: hidden;
+        }
+        .cm-error-detail-hdr {
+          display: flex; align-items: center; gap: 6px;
+          padding: 8px 14px;
+          background: rgba(240,79,79,0.1);
+          border-bottom: 1px solid rgba(240,79,79,0.2);
+          font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+          color: var(--rd); font-family: 'JetBrains Mono', monospace;
+        }
+        .cm-error-detail pre {
+          margin: 0; padding: 12px 14px;
+          font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.7;
+          color: #ffb0b0; white-space: pre-wrap; word-break: break-word;
+          max-height: 260px; overflow-y: auto;
+        }
+        .cm-error-detail pre::-webkit-scrollbar { width: 3px; }
+        .cm-error-detail pre::-webkit-scrollbar-thumb { background: rgba(240,79,79,0.4); border-radius: 2px; }
 
         /* ══════════════════════════════════════════════
            RUN RESULTS — redesigned test-run banner + cards
@@ -991,7 +1316,7 @@ const ProblemPage = () => {
         .cm-signal-bar.dim { background: var(--b2); }
 
         .cm-run-banner-text { flex: 1; min-width: 0; }
-        .cm-run-banner-title { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+        .cm-run-banner-title { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cm-run-banner.pass .cm-run-banner-title { color: var(--gr); }
         .cm-run-banner.fail .cm-run-banner-title { color: var(--rd); }
         .cm-run-banner-sub { font-size: 11px; color: var(--mu); font-family: 'JetBrains Mono', monospace; margin-top: 3px; }
@@ -1005,10 +1330,7 @@ const ProblemPage = () => {
         .cm-metric-card:nth-child(1) { animation-delay: 0.05s; }
         .cm-metric-card:nth-child(2) { animation-delay: 0.12s; }
         .cm-metric-icon-row { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
-        .cm-metric-chip {
-          width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center; font-size: 11px;
-        }
+        .cm-metric-chip { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; }
         .cm-metric-chip.time { background: rgba(255,91,31,0.16); color: var(--ac); }
         .cm-metric-chip.mem  { background: rgba(75,142,240,0.15); color: var(--bl); }
         .cm-metric-label { font-size: 9.5px; font-weight: 700; color: var(--di); letter-spacing: 1px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
@@ -1032,6 +1354,27 @@ const ProblemPage = () => {
         .cm-tc-dot { width: 7px; height: 7px; border-radius: 2px; }
         .cm-tc-dot.p { background: var(--gr); }
         .cm-tc-dot.f { background: var(--rd); }
+
+        /* Individual testcase cards + inline stderr block */
+        .cm-tc-list { display: flex; flex-direction: column; gap: 10px; }
+        .cm-tc-card {
+          background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r2);
+          padding: 12px 14px;
+        }
+        .cm-tc-card.fail { border-color: rgba(240,79,79,0.3); }
+        .cm-tc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .cm-tc-num { font-size: 11px; font-weight: 700; color: var(--mu); font-family: 'JetBrains Mono', monospace; }
+        .cm-tc-verdict { font-size: 10px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .cm-tc-verdict.p { color: var(--gr); }
+        .cm-tc-verdict.f { color: var(--rd); }
+        .cm-tc-row { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.8; color: var(--mu); word-break: break-word; }
+        .cm-tc-row span { color: var(--tx); }
+        .cm-tc-stderr {
+          margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--b1);
+          font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.7;
+          color: var(--rd); white-space: pre-wrap; word-break: break-word;
+        }
+        .cm-tc-stderr-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--rd); display: block; margin-bottom: 4px; }
 
         /* ══════════════════════════════════════════════
            SUBMISSION RESULT — redesigned hero (no ring/tick)
@@ -1211,7 +1554,7 @@ const ProblemPage = () => {
                 { id: 'description', icon: '≡', label: 'Description' },
                 { id: 'editorial',   icon: '✎', label: 'Editorial' },
                 { id: 'solutions',   icon: '◈', label: 'Solutions' },
-                { id: 'community',   icon: '☰', label: 'Community' },
+                { id: 'community',   icon: '💬', label: 'Discussion' },
                 { id: 'submissions', icon: '⊕', label: 'Submissions' },
               ].map(tab => (
                 <button
@@ -1265,36 +1608,44 @@ const ProblemPage = () => {
               </div>
             )}
 
+            {/* ── SOLUTIONS TAB — locked official solutions + community solutions ── */}
             {activeLeftTab === 'solutions' && problem && (
               <div className="cm-scroll cm-anim">
-                <div className="cm-section-title">Reference Solutions</div>
-                {problem.referenceSolution?.length > 0 ? (
-                  problem.referenceSolution.map((sol, i) => (
-                    <div key={i} className="cm-code-block">
-                      <div className="cm-code-block-hdr">
-                        <span style={{ fontSize: 12 }}>{problem.title}</span>
-                        <span className="cm-lang-badge">{sol.language}</span>
+                <div className="cm-section-title">Official Reference Solutions</div>
+
+                {canViewOfficialSolutions ? (
+                  problem.referenceSolution?.length > 0 ? (
+                    problem.referenceSolution.map((sol, i) => (
+                      <div key={i} className="cm-code-block">
+                        <div className="cm-code-block-hdr">
+                          <span style={{ fontSize: 12 }}>{problem.title}</span>
+                          <span className="cm-lang-badge">{sol.language}</span>
+                        </div>
+                        <pre><code>{sol.solutionCode || sol.completeCode}</code></pre>
                       </div>
-                      <pre><code>{sol.solutionCode || sol.completeCode}</code></pre>
+                    ))
+                  ) : (
+                    <div style={{ color: 'var(--mu)', fontSize: 12, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.8 }}>
+                      No reference solutions available for this problem.
                     </div>
-                  ))
+                  )
                 ) : (
-                  <div style={{ color: 'var(--mu)', fontSize: 12, fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.8 }}>
-                    Solutions unlock after solving the problem.
+                  <div className="cm-locked-box">
+                    <div className="cm-locked-icon">🔒</div>
+                    <div className="cm-locked-title">Reference solutions are locked</div>
+                    <div className="cm-locked-sub">These official solutions are restricted to protect the problem's integrity.</div>
+                    <span className="cm-locked-role-pill">Admin · CollageAdmin only</span>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* ── COMMUNITY SOLUTIONS TAB ── */}
-            {activeLeftTab === 'community' && (
-              <div className="cm-scroll cm-anim">
+                <div className="cm-hr" />
+
                 <div className="cm-section-title">Community Solutions</div>
 
                 {submitResult?.accepted && (
                   <div style={{ marginBottom: 16 }}>
                     {hasPosted ? (
-                      <div className="cm-already-posted">✓ You posted your solution for this problem</div>
+                      <div className="cm-already-posted"> You posted your solution for this problem</div>
                     ) : (
                       <button className="cm-post-solution-btn" onClick={openPostModal}>
                         ✎ Post Your Solution
@@ -1318,9 +1669,9 @@ const ProblemPage = () => {
                             <div className="cm-cc-avatar">
                               {post.userId?.profileImage
                                 ? <img src={post.userId.profileImage} alt="" />
-                                : (post.userId?.name?.[0]?.toUpperCase() || '?')}
+                                : (post.userId?.firstName?.[0]?.toUpperCase() || '?')}
                             </div>
-                            <span className="cm-cc-name">{post.userId?.name || 'Anonymous'}</span>
+                            <span className="cm-cc-name">{post.userId?.firstName || 'Anonymous'}</span>
                           </div>
                           <span className="cm-cc-dot">·</span>
                           <span className="cm-lang-badge" style={{ fontSize: 8, padding: '1px 6px' }}>{post.language}</span>
@@ -1337,6 +1688,132 @@ const ProblemPage = () => {
                     <div className="cm-empty-icon">☰</div>
                     <div className="cm-empty-title">No solutions posted yet</div>
                     <div className="cm-empty-sub">Be the first to share your approach</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── DISCUSSION TAB ── (formerly "Community"; now discussion-only, no solution posting) */}
+            {activeLeftTab === 'community' && (
+              <div className="cm-scroll cm-anim">
+                <div className="cm-section-title">Discussion</div>
+
+                <div className="cm-warning-banner">
+                  <span className="cm-warning-icon">⚠</span>
+                  <span>
+                    This section is for <strong>discussion only</strong> — hints, doubts, approach talk.
+                    Please don't post full solutions here. Head to the <strong>Solutions</strong> tab to share your accepted code with the community.
+                  </span>
+                </div>
+
+                {/* ── MESSAGE BOX — anyone can post a thought/doubt about this problem ── */}
+                <div className="cm-discuss-box">
+                  <textarea
+                    className="cm-discuss-input"
+                    placeholder="Share your thoughts, ask a doubt, or discuss an approach…"
+                    value={discussionText}
+                    onChange={(e) => setDiscussionText(e.target.value)}
+                    maxLength={1000}
+                  />
+                  <div className="cm-discuss-box-footer">
+                    {discussionError && <span className="cm-discuss-error">{discussionError}</span>}
+                    <span className="cm-discuss-count">{discussionText.length}/1000</span>
+                    <button
+                      className="cm-discuss-send-btn"
+                      onClick={handlePostDiscussion}
+                      disabled={postingDiscussion || !discussionText.trim()}
+                    >
+                      {postingDiscussion ? <span className="cm-spinner" /> : '➤'}
+                      {postingDiscussion ? 'Posting…' : 'Post'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── MESSAGE LIST ── */}
+                {loadingDiscussion ? (
+                  <div className="cm-empty" style={{ padding: '30px 0' }}>
+                    <span className="cm-spinner-light" style={{ width: 22, height: 22, borderWidth: 3 }} />
+                    <div className="cm-empty-sub" style={{ marginTop: 8 }}>Loading discussion…</div>
+                  </div>
+                ) : discussionMsgs.length > 0 ? (
+                  <div className="cm-discuss-list">
+                    {discussionMsgs.map((msg) => (
+                      <div key={msg._id} className="cm-discuss-msg">
+                        <div className="cm-cc-avatar" style={{ width: 26, height: 26, fontSize: 10 }}>
+                          {msg.userId?.profileImage
+                            ? <img src={msg.userId.profileImage} alt="" />
+                            : (msg.userId?.firstName?.[0]?.toUpperCase() || '?')}
+                        </div>
+                        <div className="cm-discuss-msg-body">
+                          <div className="cm-discuss-msg-head">
+                            <span className="cm-cc-name">{msg.userId?.firstName || 'Anonymous'}</span>
+                            <span className="cm-cc-dot">·</span>
+                            <span className="cm-cc-stat">{formatDate(msg.createdAt)}</span>
+                            {canDeleteDiscussion(msg) && (
+                              <button
+                                className="cm-btn-danger"
+                                style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: 10 }}
+                                onClick={() => handleDeleteDiscussion(msg._id)}
+                                disabled={deletingDiscussionId === msg._id}
+                                title="Delete message"
+                              >
+                                {deletingDiscussionId === msg._id ? <span className="cm-spinner-light" /> : '🗑'}
+                              </button>
+                            )}
+                          </div>
+                          <div className="cm-discuss-msg-text">{msg.message}</div>
+
+                          <button className="cm-discuss-reply-toggle" onClick={() => toggleReplies(msg._id)}>
+                            💬 {openReplyId === msg._id ? 'Hide replies' : 'Reply'}
+                            {repliesMap[msg._id]?.length ? ` (${repliesMap[msg._id].length})` : ''}
+                          </button>
+
+                          {openReplyId === msg._id && (
+                            <div className="cm-discuss-replies">
+                              {loadingReplies && !repliesMap[msg._id] ? (
+                                <span className="cm-spinner-light" />
+                              ) : (
+                                (repliesMap[msg._id] || []).map((r) => (
+                                  <div key={r._id} className="cm-discuss-reply-item">
+                                    <div className="cm-discuss-msg-head" style={{ marginBottom: 2 }}>
+                                      <span className="cm-cc-name">{r.userId?.firstName || 'Anonymous'}</span>
+                                      <span className="cm-cc-dot">·</span>
+                                      <span className="cm-cc-stat">{formatDate(r.createdAt)}</span>
+                                    </div>
+                                    <div className="cm-discuss-reply-text">{r.message}</div>
+                                  </div>
+                                ))
+                              )}
+                              <div className="cm-discuss-box" style={{ marginTop: 6, marginBottom: 0 }}>
+                                <textarea
+                                  className="cm-discuss-input"
+                                  style={{ minHeight: 40 }}
+                                  placeholder="Write a reply…"
+                                  value={replyText}
+                                  onChange={(e) => setReplyText(e.target.value)}
+                                  maxLength={1000}
+                                />
+                                <div className="cm-discuss-box-footer">
+                                  <button
+                                    className="cm-discuss-send-btn"
+                                    onClick={() => handlePostReply(msg._id)}
+                                    disabled={postingReply || !replyText.trim()}
+                                  >
+                                    {postingReply ? <span className="cm-spinner" /> : '➤'} Reply
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="cm-empty" style={{ padding: '30px 0' }}>
+                    <div className="cm-empty-icon">💬</div>
+                    <div className="cm-empty-title">No discussion yet</div>
+                    <div className="cm-empty-sub">Be the first to start the conversation</div>
                   </div>
                 )}
               </div>
@@ -1388,7 +1865,7 @@ const ProblemPage = () => {
                   <div className="cm-tool-row">
                     {/* Copy button with feedback */}
                     <button className={`cm-tbtn${copied ? ' active' : ''}`} onClick={handleCopyCode}>
-                      {copied ? '✓ Copied' : '⎘ Copy'}
+                      {copied ? ' Copied' : '⎘ Copy'}
                     </button>
                     {/* Font size controls */}
                     <button className="cm-tbtn" onClick={() => changeFontSize(-1)} title="Decrease font size">A−</button>
@@ -1511,8 +1988,11 @@ const ProblemPage = () => {
                           {runResult.success ? 'exec :: pass' : 'exec :: fail'}
                           <span className="cm-eyebrow-cursor" />
                         </div>
-                        <div className="cm-run-banner-title">
-                          {runResult.success ? 'All test cases passed' : (runResult.error || 'Some test cases failed')}
+                        {/* BUGFIX: title is now a short, non-truncated headline; the full error text
+                            (compile error / stack trace / server message) is shown in full below in
+                            the dedicated error-detail box instead of being cut off here. */}
+                        <div className="cm-run-banner-title" title={runResult.success ? undefined : runResult.error}>
+                          {runResult.success ? 'All test cases passed' : (errorTitleLine(runResult.error) || 'Some test cases failed')}
                         </div>
                         <div className="cm-run-banner-sub">
                           {runResult.testCases?.length
@@ -1521,6 +2001,18 @@ const ProblemPage = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* BUGFIX: full error detail — was previously missing entirely; only a truncated
+                        title existed. This shows the complete error/stack trace returned by the
+                        judge (compile errors, runtime exceptions, timeouts, etc.). */}
+                    {!runResult.success && runResult.error && (
+                      <div className="cm-error-detail">
+                        <div className="cm-error-detail-hdr">
+                          <span>⚠</span> Error Details
+                        </div>
+                        <pre>{runResult.error}</pre>
+                      </div>
+                    )}
 
                     {runResult.success && (
                       <div className="cm-metric-row">
@@ -1570,6 +2062,10 @@ const ProblemPage = () => {
                     <div className="cm-tc-list">
                       {runResult.testCases?.map((tc, i) => {
                         const passed = runResult.success ? true : tc.status_id === 3;
+                        // BUGFIX: show the per-case stderr/compile message when a case fails and the
+                        // judge provided one (e.g. runtime error on this specific input) — previously
+                        // this info was dropped entirely.
+                        const tcError = tc.stderr || tc.compile_output || tc.error_message;
                         return (
                           <div key={i} className={`cm-tc-card ${passed ? 'pass' : 'fail'}`}>
                             <div className="cm-tc-head">
@@ -1581,6 +2077,12 @@ const ProblemPage = () => {
                             <div className="cm-tc-row">Input: <span>{tc.stdin}</span></div>
                             <div className="cm-tc-row">Expected: <span>{tc.expected_output}</span></div>
                             <div className="cm-tc-row">Output: <span>{tc.stdout}</span></div>
+                            {!passed && tcError && (
+                              <div className="cm-tc-stderr">
+                                <span className="cm-tc-stderr-label">Error</span>
+                                {tcError}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -1648,8 +2150,9 @@ const ProblemPage = () => {
                             submission verdict
                             <span className="cm-eyebrow-cursor" />
                           </div>
+                          {/* BUGFIX: short headline only; full error text moved to the error-detail box below */}
                           <div className={`cm-verdict-heading ${submitResult.accepted ? 'ok' : 'no'}`}>
-                            {submitResult.accepted ? 'Accepted' : (submitResult.error || 'Wrong Answer')}
+                            {submitResult.accepted ? 'Accepted' : (errorTitleLine(submitResult.error) || 'Wrong Answer')}
                           </div>
                           <div className="cm-verdict-caption">
                             {submitResult.accepted
@@ -1673,6 +2176,19 @@ const ProblemPage = () => {
                         <span>{submitPct}%</span>
                       </div>
                     </div>
+
+                    {/* BUGFIX: full error detail box for failed submissions (compile error, runtime
+                        error, or the network/server error caught in handleSubmitCode). Previously a
+                        failed submit either showed nothing (network error → null result) or only the
+                        possibly-truncated headline. */}
+                    {!submitResult.accepted && submitResult.error && (
+                      <div className="cm-error-detail">
+                        <div className="cm-error-detail-hdr">
+                          <span>⚠</span> Error Details
+                        </div>
+                        <pre>{submitResult.error}</pre>
+                      </div>
+                    )}
 
                     {submitResult.accepted && (
                       <div className="cm-result-stats">
@@ -1703,7 +2219,7 @@ const ProblemPage = () => {
                     {submitResult.accepted && (
                       hasPosted ? (
                         <div className="cm-already-posted" style={{ marginBottom: 14 }}>
-                          ✓ Your solution has been posted to the community
+                           Your solution has been posted to the community
                         </div>
                       ) : (
                         <button className="cm-post-solution-btn" style={{ marginBottom: 14 }} onClick={openPostModal}>
@@ -1755,6 +2271,12 @@ const ProblemPage = () => {
         )}
 
         {/* ── WHITEBOARD MODAL ── */}
+        {/* BUGFIX: CodeBoard is now wrapped in a forced-dark container (see .cm-board-dark-wrap
+            above) so its background matches the rest of the dark editor UI instead of showing a
+            bright white canvas. If CodeBoard still renders white internally after this, it means
+            the component hardcodes its own background color/theme and needs a dark mode prop or
+            class added inside component/whiteboard itself — this wrapper covers everything that can
+            be styled from the outside. */}
         {showBoardModal && (
           <div className="cm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowBoardModal(false); }}>
             <div className="cm-board-modal">
@@ -1763,10 +2285,26 @@ const ProblemPage = () => {
                   <div className="cm-board-icon">◫</div>
                   <span className="cm-modal-label">Whiteboard</span>
                 </div>
-                <div className="cm-modal-close" onClick={() => setShowBoardModal(false)}>✕</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {/* Light/Dark toggle for the board surface only — doesn't touch app theme */}
+                  <button
+                    className="cm-board-theme-toggle"
+                    onClick={() => setBoardTheme(t => (t === 'light' ? 'dark' : 'light'))}
+                    title="Toggle board background"
+                  >
+                    <span
+                      className="swatch"
+                      style={{ background: boardTheme === 'light' ? '#ffffff' : '#000000' }}
+                    />
+                    {boardTheme === 'light' ? '☀ Light' : '☾ Dark'}
+                  </button>
+                  <div className="cm-modal-close" onClick={() => setShowBoardModal(false)}>✕</div>
+                </div>
               </div>
               <div className="cm-modal-body">
-                <CodeBoard />
+                <div className={`cm-board-dark-wrap${boardTheme === 'dark' ? ' dark' : ''}`}>
+                  <CodeBoard />
+                </div>
               </div>
             </div>
           </div>
@@ -1842,7 +2380,7 @@ const ProblemPage = () => {
                   <div className="cm-cc-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>
                     {selectedPost?.userId?.profileImage
                       ? <img src={selectedPost.userId.profileImage} alt="" />
-                      : (selectedPost?.userId?.name?.[0]?.toUpperCase() || '?')}
+                      : (selectedPost?.userId?.firstName?.[0]?.toUpperCase() || '?')}
                   </div>
                   <div>
                     <div className="cm-modal-label">{selectedPost?.userId?.firstName || 'Anonymous'}</div>
@@ -1863,15 +2401,16 @@ const ProblemPage = () => {
                     <div className="cm-pd-meta-row">
                       <span className="cm-lang-badge">{selectedPost.language}</span>
                       <span className="cm-cc-stat">👁 {selectedPost.views || 0} views</span>
-                      {selectedPost.userId?._id === problem?.userId && null}
-                      <button
-                        className="cm-btn-danger"
-                        style={{ marginLeft: 'auto' }}
-                        onClick={() => handleDeletePost(selectedPost._id)}
-                        disabled={deletingPost}
-                      >
-                        {deletingPost ? <span className="cm-spinner-light" /> : '🗑'} Delete
-                      </button>
+                      {canDeletePost(selectedPost) && (
+                        <button
+                          className="cm-btn-danger"
+                          style={{ marginLeft: 'auto' }}
+                          onClick={() => handleDeletePost(selectedPost._id)}
+                          disabled={deletingPost}
+                        >
+                          {deletingPost ? <span className="cm-spinner-light" /> : '🗑'} Delete
+                        </button>
+                      )}
                     </div>
                     {selectedPost.explanation && (
                       <div className="cm-pd-explanation">{selectedPost.explanation}</div>

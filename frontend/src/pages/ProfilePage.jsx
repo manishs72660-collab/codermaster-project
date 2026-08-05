@@ -6,7 +6,7 @@ import { Loader2, TriangleAlert, UserX } from 'lucide-react';
 import { fetchUserProfile, fetchHeatmap, fetchSkills, fetchRecentSubmissions } from '../profileSlice';
 import ProfileHeader from '../component/profile/ProfileHeader';
 import StatsCards from '../component/profile/StatsCards';
-import BatchesShowcase from '../component/profile/BatchesShowcase';
+import BatchesShowcase from '../component/profile/Batchesshowcase';
 import SubmissionHeatmap from '../component/profile/SubmissionHeatmap';
 import SkillsBreakdown from '../component/profile/SkillsBreakdown';
 import RecentSubmissions from '../component/profile/RecentSubmissions';

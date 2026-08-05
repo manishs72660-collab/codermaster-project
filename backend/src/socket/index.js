@@ -1,6 +1,6 @@
 const client = require("../config/redis");
-const ChatRequest = require("../models/ChatRequest");
-const Message = require("../models/Message");
+const ChatRequest = require("../models/chatrequest");
+const Message = require("../models/message");
 
 // tracks pending auto-expire timers so we can cancel them if admin responds in time
 const pendingTimeouts = {}; // { chatRequestId: timeoutHandle }
@@ -17,9 +17,6 @@ function initializeSocket(io) {
 
         await client.hSet("online_users", userId, socket.id);
 
-        // FIX: the people users request chats WITH are "CollageAdmin" accounts,
-        // not the platform-level "Admin". Was checking "Admin" here, so college
-        // admins never registered as online and never appeared in the admin list.
         if (role === "CollageAdmin") {
           await client.sAdd("online_admins", userId);
           io.emit("admin:status_update", { userId, status: "online" });
@@ -34,6 +31,14 @@ function initializeSocket(io) {
     // USER sends a chat request to a specific online admin
     socket.on("chat:request", async ({ userId, adminId }) => {
       try {
+        // FIX: block requesting a chat with yourself (e.g. a CollageAdmin
+        // somehow ends up targeting their own id). Server-side guard so this
+        // can't happen regardless of what the frontend sends.
+        if (userId === adminId) {
+          socket.emit("chat:request_failed", { reason: "You can't request a chat with yourself" });
+          return;
+        }
+
         const adminSocketId = await client.hGet("online_users", adminId);
         if (!adminSocketId) {
           socket.emit("chat:request_failed", { reason: "Admin is no longer online" });
@@ -85,19 +90,46 @@ function initializeSocket(io) {
 
         const userSocketId = await client.hGet("online_users", chatRequest.userId.toString());
 
+        // DIAGNOSTIC: tells us whether Redis has a stale socket id for the
+        // requester (userSocketId present but not found live), or whether
+        // Redis never had one to begin with (userSocketId missing). Remove
+        // once you've confirmed delivery is reliable.
+        const requesterSocket = userSocketId ? io.sockets.sockets.get(userSocketId) : null;
+        console.log(
+          "chat:respond -> requester userSocketId:",
+          userSocketId,
+          "| live socket found:",
+          !!requesterSocket
+        );
+
         if (accept) {
           chatRequest.status = "accepted";
           await chatRequest.save();
 
           const roomName = `chat-${chatRequest._id}`;
-          socket.join(roomName); // admin joins
-          if (userSocketId) {
-            io.sockets.sockets.get(userSocketId)?.join(roomName); // user joins
-          }
+          socket.join(roomName); // admin (acceptor) joins — this is always a live socket
+
+          // Best effort: also add the requester's socket to the room (for
+          // chat:message / chat:ended delivery going forward).
+          requesterSocket?.join(roomName);
 
           await client.set(`admin_busy:${chatRequest.adminId}`, roomName);
 
-          io.to(roomName).emit("chat:started", { chatRequestId, roomName });
+          const payload = { chatRequestId, roomName };
+
+          // Room emit covers the normal case.
+          io.to(roomName).emit("chat:started", payload);
+
+          // FIX: direct emit to the requester's known socket id as a
+          // fallback. If the join above silently failed (stale Redis entry,
+          // multi-instance deployment without a shared adapter, etc.), the
+          // room emit alone would never reach the requester and they'd be
+          // stuck waiting forever. This guarantees delivery whenever Redis
+          // has a currently-valid socket id for them, independent of
+          // whether the room join itself succeeded.
+          if (userSocketId) {
+            io.to(userSocketId).emit("chat:started", payload);
+          }
         } else {
           chatRequest.status = "declined";
           await chatRequest.save();
@@ -107,6 +139,20 @@ function initializeSocket(io) {
         }
       } catch (err) {
         console.error("chat:respond error:", err);
+      }
+    });
+
+    // NEW: lets a client (re)join a chat room's socket.io room on demand.
+    // Needed for ChatRoomModal — when a user reopens a past chat from
+    // "View All Chats" (possibly after a page refresh / new socket
+    // connection), their socket was never added to that room via
+    // chat:respond, so without this, live messages / chat:ended wouldn't
+    // reach them even though history still loads fine via the REST call.
+    socket.on("chat:join_room", async ({ roomName }) => {
+      try {
+        socket.join(roomName);
+      } catch (err) {
+        console.error("chat:join_room error:", err);
       }
     });
 
@@ -130,9 +176,13 @@ function initializeSocket(io) {
 
     // either side ends the chat
     socket.on("chat:end", async ({ chatRequestId, roomName, adminId }) => {
-      await ChatRequest.findByIdAndUpdate(chatRequestId, { status: "ended" });
-      await client.del(`admin_busy:${adminId}`);
-      io.to(roomName).emit("chat:ended");
+      try {
+        await ChatRequest.findByIdAndUpdate(chatRequestId, { status: "ended" });
+        await client.del(`admin_busy:${adminId}`);
+        io.to(roomName).emit("chat:ended");
+      } catch (err) {
+        console.error("chat:end error:", err);
+      }
     });
 
     // ================= existing duel/contest handlers (unchanged) =================
@@ -172,8 +222,6 @@ function initializeSocket(io) {
         if (socket.userId) {
           await client.hDel("online_users", socket.userId);
 
-          // FIX: was checking "admin" (lowercase) — didn't match "CollageAdmin"
-          // OR the "Admin" check used above, so cleanup never actually ran.
           if (socket.role === "CollageAdmin") {
             await client.sRem("online_admins", socket.userId);
             io.emit("admin:status_update", { userId: socket.userId, status: "offline" });

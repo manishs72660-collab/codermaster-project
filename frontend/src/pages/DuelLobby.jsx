@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useSelector } from 'react-redux';
 import axiosClient from '../utils/axiosClient';
-
+import BackButton from '../component/backbutton';
 const DuelLobby = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
@@ -247,6 +247,7 @@ const DuelLobby = () => {
 
         {/* ── TOP BAR ── */}
         <div className="hud-topbar">
+<BackButton></BackButton>
           <div className="hud-logo">
             <div className="hud-logo-icon">⚔</div>
             <span className="hud-logo-text">Coding Duels</span>

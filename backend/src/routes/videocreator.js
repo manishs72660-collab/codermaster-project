@@ -1,5 +1,5 @@
 const express = require('express');
-const adminMiddleware = require('../middleware/adminMiddleware');
+const adminMiddleware = require('../middleware/adminmiddleware');
 const videoRouter =  express.Router();
 const {generateUploadSignature,saveVideoMetadata,deleteVideo} = require("../controller/videosection")
 

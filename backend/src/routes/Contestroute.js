@@ -8,7 +8,7 @@ const {
     contestStarted,
     contestOngoing,
     isRegistered,
-} = require('../middleware/contestMiddleware');
+} = require('../middleware/Contestmiddleware');
 
 const {
     createContest,
@@ -23,7 +23,7 @@ const {
     contestSubmit,
     getLeaderboard,
     getMySubmissions,
-} = require('../controller/contestController');
+} = require('../controller/Contestcontroller');
 
 
 // ════════════════════════════════════════════════════

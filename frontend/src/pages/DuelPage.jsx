@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import Editor from '@monaco-editor/react';
 import axiosClient from '../utils/axiosClient';
 import socket from '../utils/socket';
-
+import Backbutton from "../component/backbutton"
 const DuelPage = () => {
   const { roomCode } = useParams();
   const navigate = useNavigate();
@@ -235,6 +235,7 @@ const DuelPage = () => {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Outfit', system-ui, sans-serif"
       }}>
+        <backbutton></backbutton>
         <div style={{
           background: '#161b22',
           border: `1px solid ${result.won ? 'rgba(63,185,80,0.3)' : 'rgba(248,81,73,0.3)'}`,

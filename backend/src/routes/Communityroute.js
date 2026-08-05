@@ -2,7 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const communityRouter = express.Router();
 
-const userAuth = require("../middleware/userAuth");
+const userAuth = require("../middleware/userauth");
 const User = require("../models/Userschema");
 const client = require("../config/redis");
 
