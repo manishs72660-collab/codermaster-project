@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import { Eye, EyeOff, Code2, UserPlus, School, Send, Loader2, CheckCircle2, X, AlertCircle } from 'lucide-react';
-import { registerUser } from '../authSlice';
+import { registerUser, googleSignIn } from '../authSlice';
 import AuthVisualPanel from '../component/Authvisualpanel';
 import FormField from '../component/Formfield';
 // Swap this import path if your axios wrapper lives somewhere else.
@@ -216,6 +216,18 @@ function RegisterCollegeModal({ open, onClose }) {
   );
 }
 
+// Simple inline Google "G" mark - no extra icon package needed.
+function GoogleIcon(props) {
+  return (
+    <svg viewBox="0 0 48 48" className="h-4 w-4" {...props}>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4.5 24 4.5 12.7 4.5 3.5 13.7 3.5 25S12.7 45.5 24 45.5 44.5 36.3 44.5 25c0-1.6-.2-3.1-.9-4.5z"/>
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.7 18.9 12.5 24 12.5c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4.5 24 4.5c-7.7 0-14.3 4.4-17.7 10.2z"/>
+      <path fill="#4CAF50" d="M24 45.5c5.5 0 10.4-1.9 14.2-5.1l-6.6-5.4c-2 1.4-4.6 2.3-7.6 2.3-5.3 0-9.7-3.1-11.3-7.6l-6.5 5C9.6 41 16.3 45.5 24 45.5z"/>
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.6 5.4C41.6 35.6 44.5 30.7 44.5 25c0-1.6-.2-3.1-.9-4.5z"/>
+    </svg>
+  );
+}
+
 function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showCollegeModal, setShowCollegeModal] = useState(false);
@@ -234,6 +246,7 @@ function Signup() {
   }, [isAuthenticated, navigate]);
 
   const onSubmit = (data) => dispatch(registerUser(data));
+  const handleGoogleSignIn = () => dispatch(googleSignIn());
 
   return (
     <div className="noise hero-grid relative flex min-h-screen bg-[#050505] font-body text-[#e5e5e5] antialiased">
@@ -281,7 +294,28 @@ function Signup() {
                 </motion.div>
               )}
 
-              <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4">
+              {/* Continue with Google */}
+              <motion.button
+                variants={itemVariants}
+                initial="hidden"
+                animate="show"
+                whileTap={{ scale: 0.98 }}
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className="font-code mt-6 flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <GoogleIcon />
+                Continue with Google
+              </motion.button>
+
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-white/[0.08]" />
+                <span className="font-code text-[11px] uppercase tracking-wide text-white/25">or</span>
+                <div className="h-px flex-1 bg-white/[0.08]" />
+              </div>
+
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <motion.div variants={itemVariants}>
                   <FormField
                     label="First name"
@@ -301,8 +335,8 @@ function Signup() {
 
                 <motion.div variants={itemVariants}>
                   <FormField
-                    label="College code "
-                    hint="Ask your college admin for this code"
+                    label="College code (optional)"
+                    hint="Ask your college admin for this code - leave blank if you don't have one"
                     {...register('collegeCode')}
                   />
                 </motion.div>

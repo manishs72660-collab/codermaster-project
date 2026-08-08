@@ -37,6 +37,22 @@ const contestRankSchema = new Schema({
             },
         }
     ],
+
+    // ─── Anti-cheat: tab switch / minimize tracking ────────────────────────
+    // Incremented once per hidden->visible cycle while the contest is live.
+    // 1st => warning, 2nd => strict warning, 3rd => disqualified.
+    violationCount: {
+        type: Number,
+        default: 0,
+    },
+    disqualified: {
+        type: Boolean,
+        default: false,
+    },
+    disqualifiedAt: {
+        type: Date,
+        default: null,
+    },
 }, { timestamps: true });
 
 contestRankSchema.index({ contestId: 1, userId: 1 }, { unique: true });

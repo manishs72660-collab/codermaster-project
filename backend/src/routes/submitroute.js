@@ -6,8 +6,8 @@ const {submitCode,Solvedprovlembyuser,userstate,runCode,userrank,streak,solvedun
 const submitCodeRateLimiter=require("../middleware/submitrate");
 
 
-submitroute.post("/submit/:id",userAuth,submitCode);
-submitroute.post("/runcode/:id",userAuth,runCode);
+submitroute.post("/submit/:id",userAuth,submitCodeRateLimiter,submitCode);
+submitroute.post("/runcode/:id",userAuth,submitCodeRateLimiter,runCode);
 submitroute.get("/solveproblem/:id",userAuth,submitCodeRateLimiter,Solvedprovlembyuser);
 submitroute.get("/userstate",userAuth,userstate);
 submitroute.get("/userrank",userAuth,userrank);

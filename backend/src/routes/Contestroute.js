@@ -23,6 +23,7 @@ const {
     contestSubmit,
     getLeaderboard,
     getMySubmissions,
+    reportViolation,
 } = require('../controller/Contestcontroller');
 
 
@@ -64,6 +65,10 @@ router.get('/:id/problem/:problemId', userAuth, contestExists, contestStarted, i
 
 // Submit code for a contest problem
 router.post('/:id/submit/:problemId', userAuth, contestExists, contestStarted, contestOngoing, isRegistered, contestSubmit);
+
+// Report a tab-switch / minimize violation (registered participants only,
+// tracked while the contest is live — see reportViolation for the gating).
+router.post('/:id/violation', userAuth, contestExists, isRegistered, reportViolation);
 
 // Get leaderboard
 router.get('/:id/leaderboard', userAuth, contestExists, contestStarted, getLeaderboard);

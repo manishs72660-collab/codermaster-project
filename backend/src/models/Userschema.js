@@ -36,12 +36,12 @@ const UserSchema = new Schema({
         default: "User",
     },
     collegeId: {
-        type: Schema.Types.ObjectId,
-        ref: "College",
-        required: function () {
-            return this.role === "User" || this.role === "CollageAdmin";
-        },
+    type: Schema.Types.ObjectId,
+    ref: "College",
+    required: function () {
+        return this.role === "CollageAdmin";
     },
+},
     problemsolve: {
         type: [String],
     },

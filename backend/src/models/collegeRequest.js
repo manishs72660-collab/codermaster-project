@@ -17,6 +17,20 @@ const collegeRequestSchema = new Schema(
     reviewedBy: { type: Schema.Types.ObjectId, ref: "User" },
     reviewedAt: Date,
     rejectionReason: String,
+
+    // ---- NEW: approval email delivery tracking ----------------------
+    // Lets the admin dashboard show whether the approval email actually
+    // reached the college admin, instead of assuming success just because
+    // the approve API call returned 200. See resendApprovalEmail in the
+    // controller for how these get set/used.
+    emailStatus: {
+      type: String,
+      enum: ["pending", "sent", "failed"],
+      default: "pending",
+    },
+    emailError: { type: String, default: null },
+    emailAttempts: { type: Number, default: 0 },
+    lastEmailAttemptAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

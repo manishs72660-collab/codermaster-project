@@ -12,9 +12,11 @@ import {
   Target,
   Loader2,
   TerminalSquare,
+  GraduationCap,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { fetchProblems } from '../problemslice';
+import { fetchUserProfile } from '../profileSlice';
 import { cn } from '../utils/cn';
 
 const PAGE_LIMIT = 20;
@@ -64,8 +66,9 @@ const tagMatches = (tags, filterTag) => {
 ══════════════════════════════════════════ */
 function Homepage() {
   const dispatch = useDispatch();
-  const { isAuthenticated } = useSelector((s) => s.auth);
+  const { isAuthenticated, user } = useSelector((s) => s.auth);
   const { stats } = useSelector((s) => s.userState);
+  const { data: profileData } = useSelector((s) => s.profile);
   const {
     problems,
     loading,
@@ -93,6 +96,16 @@ function Homepage() {
       .then(({ data }) => setSolvedProblems(Array.isArray(data) ? data : []))
       .catch(() => setSolvedProblems([]));
   }, [isAuthenticated]);
+
+  // Pull profile data (includes college info) once, for the logged-in user.
+  // Adjust `user._id` below if your auth slice stores the id under a
+  // different key (e.g. user.id).
+  useEffect(() => {
+    if (!isAuthenticated || !user?._id || profileData) return;
+    dispatch(fetchUserProfile(user._id));
+  }, [dispatch, isAuthenticated, user, profileData]);
+
+  const college = profileData?.college || null;
 
   const solvedProblemIds = useMemo(
     () => new Set(solvedProblems.map((sp) => sp.problemId?._id || sp.problemId || sp._id)),
@@ -179,6 +192,12 @@ function Homepage() {
         @keyframes spin-slow { to { transform: rotate(360deg); } }
         .spin-slow { animation: spin-slow 0.8s linear infinite; }
 
+        @keyframes badge-in { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
+        .badge-in { animation: badge-in 0.4s ease forwards; }
+
+        @keyframes shimmer-sweep { 0% { transform: translateX(-120%); } 100% { transform: translateX(220%); } }
+        .shimmer-sweep { animation: shimmer-sweep 3.2s ease-in-out infinite; }
+
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
@@ -192,6 +211,9 @@ function Homepage() {
         </div>
 
         <Navbar></Navbar>
+
+        {/* ── college spotlight billboard (only if user belongs to a college) ── */}
+        <CollegeSpotlight college={college} />
 
         {/* ── terminal chrome hero ── */}
         <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
@@ -211,9 +233,11 @@ function Homepage() {
                   <TerminalSquare className="w-3 h-3" />
                   ~/arena/problems
                 </span>
-                <span className="ml-auto flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-                  <span className="text-[9px] font-mono-display font-bold text-orange-400 uppercase tracking-[0.15em]">live</span>
+                <span className="ml-auto flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                    <span className="text-[9px] font-mono-display font-bold text-orange-400 uppercase tracking-[0.15em]">live</span>
+                  </span>
                 </span>
               </div>
 
@@ -347,6 +371,63 @@ function Homepage() {
         </div>
       </div>
     </>
+  );
+}
+
+/* ══════════════════════════════════════════
+   COLLEGE SPOTLIGHT — bold billboard banner,
+   rendered only when the user belongs to a college.
+   Uses the same dark-grid / noise language as the
+   hero, but scaled up and lit like an ad placement.
+══════════════════════════════════════════ */
+function CollegeSpotlight({ college }) {
+  if (!college?.name) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className="relative hero-grid border-b border-white/[0.06] overflow-hidden"
+    >
+      {/* ambient glow, centered behind the name */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="glow-pulse absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] h-[280px] bg-blue-500/[0.12] blur-[120px] rounded-full" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[160px] bg-orange-500/[0.05] blur-[100px] rounded-full" />
+      </div>
+
+      {/* corner frame ticks, like a billboard mount */}
+      <div className="absolute top-3 left-3 w-3 h-3 border-t border-l border-blue-400/25" />
+      <div className="absolute top-3 right-3 w-3 h-3 border-t border-r border-blue-400/25" />
+      <div className="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-blue-400/25" />
+      <div className="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-blue-400/25" />
+
+      <div className="max-w-6xl mx-auto px-5 py-9 md:py-11 relative z-10 flex flex-col items-center text-center gap-3">
+        <span className="badge-in inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-blue-500/25 bg-blue-500/[0.08]">
+          <GraduationCap className="w-3.5 h-3.5 text-blue-400" strokeWidth={2.5} />
+          <span className="text-[10px] font-mono-display font-bold text-blue-400 uppercase tracking-[0.25em]">
+            representing
+          </span>
+        </span>
+
+        <div className="relative">
+          <h2 className="font-mono-display font-extrabold uppercase tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 text-3xl sm:text-4xl md:text-5xl leading-[1.1] px-2 drop-shadow-[0_0_30px_rgba(96,165,250,0.15)]">
+            {college.name}
+          </h2>
+          {/* shimmer sweep across the name for that "advertisement" polish */}
+          <span
+            aria-hidden
+            className="shimmer-sweep pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg]"
+          />
+        </div>
+
+        <span className="w-20 h-[2px] bg-gradient-to-r from-transparent via-blue-400/70 to-transparent" />
+
+        <p className="text-[11px] font-mono-display text-white/25 tracking-wide">
+          // every solve here counts toward the campus leaderboard
+        </p>
+      </div>
+    </motion.div>
   );
 }
 

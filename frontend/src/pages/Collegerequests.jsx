@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router';
-import { CheckCircle2, XCircle, Clock, Building2, Mail, User, Inbox } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Building2, Mail, User, Inbox, RefreshCw, AlertTriangle } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 
 const TABS = [
@@ -41,14 +41,41 @@ function CollegeRequests() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // CHANGED: no longer assumes the email sent just because the HTTP call
+  // succeeded - reads the real emailStatus the backend now returns.
   const approve = async (id) => {
     setBusyId(id);
     try {
-      await axiosClient.post(`/collage/requests/${id}/approve`);
-      showToast('College approved — confirmation email sent.');
+      const res = await axiosClient.post(`/collage/requests/${id}/approve`);
+      if (res.data.emailStatus === 'sent') {
+        showToast('College approved — confirmation email sent.');
+      } else {
+        showToast(
+          'College approved, but the confirmation email failed to send. Use "Resend email" below.',
+          'error'
+        );
+      }
       await load(tab);
     } catch (err) {
       showToast(err?.response?.data?.message || 'Failed to approve', 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // NEW: resend handler for approved requests whose email previously failed.
+  const resendEmail = async (id) => {
+    setBusyId(id);
+    try {
+      const res = await axiosClient.post(`/collage/requests/${id}/resend-approval-email`);
+      if (res.data.emailStatus === 'sent') {
+        showToast('Email resent successfully.');
+      } else {
+        showToast(res.data.message || 'Resend failed again.', 'error');
+      }
+      await load(tab);
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Failed to resend email', 'error');
     } finally {
       setBusyId(null);
     }
@@ -157,6 +184,33 @@ function CollegeRequests() {
                   <p className="cr-rejection-reason">Reason: {r.rejectionReason}</p>
                 )}
 
+                {/* NEW: surfaces real email delivery status on approved cards,
+                    with a resend button when it failed. */}
+                {r.status === 'approved' && r.emailStatus === 'failed' && (
+                  <div className="cr-email-warning">
+                    <AlertTriangle size={13} />
+                    <span>
+                      Confirmation email failed to send
+                      {r.emailError ? `: ${r.emailError}` : ''}
+                    </span>
+                    <button
+                      className="cr-btn cr-btn-resend"
+                      disabled={busyId === r._id}
+                      onClick={() => resendEmail(r._id)}
+                    >
+                      <RefreshCw size={12} />
+                      {busyId === r._id ? 'Resending...' : 'Resend email'}
+                    </button>
+                  </div>
+                )}
+
+                {r.status === 'approved' && r.emailStatus === 'sent' && (
+                  <div className="cr-email-ok">
+                    <CheckCircle2 size={13} />
+                    <span>Confirmation email delivered</span>
+                  </div>
+                )}
+
                 {r.status === 'pending' && (
                   <>
                     {rejectingId === r._id ? (
@@ -263,6 +317,9 @@ const styles = `
   .cr-message { font-size: 13px; color: #c9d1d9; line-height: 1.6; margin-top: 12px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 10px 12px; }
   .cr-rejection-reason { font-size: 12.5px; color: #ff8080; margin-top: 10px; }
 
+  .cr-email-warning { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; background: #2a1f0a; border: 1px solid #3a2e0f; color: #ffb84d; font-size: 12.5px; border-radius: 6px; padding: 9px 12px; }
+  .cr-email-ok { display: flex; align-items: center; gap: 8px; margin-top: 12px; background: #0f2a1a; border: 1px solid #1a3a2a; color: #6fe0a3; font-size: 12.5px; border-radius: 6px; padding: 9px 12px; }
+
   .cr-actions { display: flex; gap: 8px; margin-top: 14px; }
   .cr-btn { display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; border-radius: 6px; padding: 8px 14px; cursor: pointer; border: 1px solid transparent; transition: opacity 0.15s; }
   .cr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -274,6 +331,8 @@ const styles = `
   .cr-btn-reject:hover:not(:disabled) { background: #f85149; }
   .cr-btn-ghost { background: transparent; color: #8b949e; border-color: #21262d; }
   .cr-btn-ghost:hover { color: #e6edf3; }
+  .cr-btn-resend { background: transparent; color: #ffb84d; border-color: #3a2e0f; margin-left: auto; }
+  .cr-btn-resend:hover:not(:disabled) { background: #3a2e0f; }
 
   .cr-reject-box { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
   .cr-reject-input { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 9px 12px; color: #e6edf3; font-size: 13px; outline: none; }
@@ -285,6 +344,7 @@ const styles = `
 
   @media (max-width: 560px) {
     .cr-meta-date { margin-left: 0; }
+    .cr-btn-resend { margin-left: 0; }
   }
 `;
 

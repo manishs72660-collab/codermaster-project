@@ -68,6 +68,58 @@ function useCountdown(targetDate) {
 }
 
 /* ══════════════════════════════════════════
+   ANTI-CHEAT VIOLATION MODAL
+   Shown after a tab-switch / minimize is reported to the server.
+   level: 'warning' | 'strict_warning' | 'disqualified'
+══════════════════════════════════════════ */
+function ViolationModal({ data, onClose }) {
+  if (!data) return null;
+  const isDQ = data.level === 'disqualified';
+  const isStrict = data.level === 'strict_warning';
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-5">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+        className={cn(
+          "max-w-sm w-full rounded-2xl border p-6 text-center",
+          isDQ ? "bg-rose-500/[0.06] border-rose-500/30" :
+          isStrict ? "bg-amber-500/[0.06] border-amber-500/30" :
+                     "bg-orange-500/[0.06] border-orange-500/30"
+        )}
+      >
+        <div className={cn(
+          "w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center",
+          isDQ ? "bg-rose-500/10 border border-rose-500/20" :
+          isStrict ? "bg-amber-500/10 border border-amber-500/20" :
+                     "bg-orange-500/10 border border-orange-500/20"
+        )}>
+          <AlertCircle className={cn(
+            "w-7 h-7",
+            isDQ ? "text-rose-400" : isStrict ? "text-amber-400" : "text-orange-400"
+          )} />
+        </div>
+        <h3 className="font-display text-lg font-700 text-white mb-2">
+          {isDQ ? 'Disqualified' : isStrict ? 'Strict Warning' : 'Warning'}
+        </h3>
+        <p className="text-sm text-white/50 mb-6 leading-relaxed">{data.message}</p>
+        <button
+          onClick={onClose}
+          className={cn(
+            "px-5 py-2.5 rounded-xl font-bold text-sm text-black transition-all",
+            isDQ ? "bg-rose-500 hover:bg-rose-400" :
+            isStrict ? "bg-amber-500 hover:bg-amber-400" :
+                       "bg-orange-500 hover:bg-orange-400"
+          )}
+        >
+          {isDQ ? 'I understand' : 'Got it'}
+        </button>
+      </motion.div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════ */
 export default function ContestDetail() {
@@ -90,6 +142,10 @@ export default function ContestDetail() {
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardError, setLeaderboardError]     = useState(null);
   const [leaderboardRefetchKey, setLeaderboardRefetchKey] = useState(0);
+
+  // ── Anti-cheat state ──
+  const [violationModal, setViolationModal] = useState(null); // { level, message, violationCount } | null
+  const [disqualified, setDisqualified]     = useState(false);
 
   // ── compute status from state (safe when contest is null) ──
   const now        = new Date();
@@ -179,6 +235,72 @@ export default function ContestDetail() {
       .then(({ data }) => setMySubmissions(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [contest, contestId]);
+
+  // ── Sync disqualified flag from the server the moment contest data loads,
+  // so a user who was disqualified in a previous tab/session sees it here
+  // immediately, without needing to trigger a new violation first.
+  useEffect(() => {
+    if (contest?.isDisqualified) setDisqualified(true);
+  }, [contest]);
+
+  // ── Anti-cheat: detect tab switch / minimize while the contest is live.
+  // Every time the tab goes hidden and then becomes visible again counts as
+  // one violation. Reported to the server, which owns the actual strike
+  // count and disqualification decision (never trust the client for that).
+  useEffect(() => {
+    if (!contest || !contest.isRegistered || disqualified) return;
+    if (!(now >= new Date(contest.startTime) && now <= new Date(contest.endTime))) return;
+
+    // `visibilitychange` reliably fires for tab switches, but minimizing
+    // the window (or alt-tabbing to another app while the browser window
+    // stays technically on-screen) doesn't flip document.hidden on every
+    // browser/OS. window `blur`/`focus` catches OS-level focus loss instead,
+    // which is what actually happens on minimize. We listen to both and use
+    // `left` as a single guard so a leave-and-return that fires both events
+    // (common on plain tab switches) only ever counts as one violation.
+    let left = false;
+
+    const markLeft = () => {
+      left = true;
+    };
+
+    const markReturned = async () => {
+      if (!left) return;
+      left = false;
+
+      try {
+        const { data } = await axiosClient.post(`/contest/${contestId}/violation`);
+        if (data.tracked) {
+          setViolationModal({
+            level: data.level,
+            message: data.message,
+            violationCount: data.violationCount,
+          });
+          if (data.disqualified) setDisqualified(true);
+        }
+      } catch (err) {
+        // Network hiccup reporting the violation — don't block the user's
+        // flow over this, the next hide/show cycle will try again.
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) markLeft();
+      else markReturned();
+    };
+    const handleBlur = () => markLeft();
+    const handleFocus = () => markReturned();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contest, contestId, disqualified]);
 
   // ── EARLY RETURNS after all hooks ──
   if (loading) {
@@ -334,9 +456,14 @@ export default function ContestDetail() {
                       <Lock className="w-3 h-3" /> Private
                     </span>
                   )}
-                  {contest.isRegistered && (
+                  {contest.isRegistered && !disqualified && (
                     <span className="flex items-center gap-1.5 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full uppercase tracking-widest">
                       <CheckCircle2 className="w-3 h-3" /> Registered
+                    </span>
+                  )}
+                  {disqualified && (
+                    <span className="flex items-center gap-1.5 text-[10px] font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-full uppercase tracking-widest">
+                      <AlertCircle className="w-3 h-3" /> Disqualified
                     </span>
                   )}
                 </div>
@@ -376,6 +503,16 @@ export default function ContestDetail() {
 
               <h1 className="font-display text-3xl md:text-4xl font-700 text-white tracking-tight mb-3">{contest.title}</h1>
               <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-2xl">{contest.description}</p>
+
+              {/* Disqualified banner — visible whenever this user has been disqualified */}
+              {disqualified && (
+                <div className="flex items-center gap-3 bg-rose-500/[0.06] border border-rose-500/20 rounded-xl px-4 py-3 mb-6 max-w-xl">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <p className="text-xs text-rose-300/80">
+                    You've been disqualified from this contest for repeatedly leaving the tab. You can no longer submit, and you're marked as disqualified on the leaderboard.
+                  </p>
+                </div>
+              )}
 
               {/* Join-code panel — visible only to the creator, so they can share it */}
               {isPrivate && isCreator && contest.joinCode && (
@@ -490,13 +627,17 @@ export default function ContestDetail() {
                     : problems.map((problem, index) => {
                         const isSolved = solvedIds.has(problem._id);
                         const diff = getDiffStyle(problem.difficulty);
+                        // Disqualified users can still view problems, but shouldn't
+                        // be nudged into the solve flow — the submit endpoint
+                        // rejects them anyway, so treat these as non-clickable.
+                        const canOpen = isOngoing && !disqualified;
                         return (
                           <motion.div key={problem._id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
                             <div
-                              onClick={() => isOngoing ? navigate(`/contest/${contestId}/problem/${problem._id}`) : null}
+                              onClick={() => canOpen ? navigate(`/contest/${contestId}/problem/${problem._id}`) : null}
                               className={cn(
                                 "group relative flex items-center justify-between px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl transition-all duration-250 overflow-hidden",
-                                isOngoing ? "cursor-pointer hover:bg-white/[0.035] hover:border-white/[0.12]" : "cursor-default opacity-70"
+                                canOpen ? "cursor-pointer hover:bg-white/[0.035] hover:border-white/[0.12]" : "cursor-default opacity-70"
                               )}
                             >
                               {isSolved && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-orange-400 to-orange-600 shadow-[3px_0_18px_rgba(249,115,22,0.35)]" />}
@@ -523,7 +664,7 @@ export default function ContestDetail() {
                               <div className="flex items-center gap-3 flex-shrink-0 ml-4">
                                 {isSolved ? (
                                   <span className="text-[10px] font-black text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">Solved</span>
-                                ) : isOngoing ? (
+                                ) : canOpen ? (
                                   <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] transition-all duration-300">
                                     <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black transition-all" />
                                   </div>
@@ -572,25 +713,41 @@ export default function ContestDetail() {
                   {leaderboard.length === 0
                     ? <div className="text-center py-16 text-white/20 text-sm">No rankings yet.</div>
                     : leaderboard.map((entry, index) => (
-                        <div key={entry.user?._id || index} className="flex items-center gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl">
+                        <div
+                          key={entry.user?._id || index}
+                          className={cn(
+                            "flex items-center gap-4 px-5 py-4 rounded-2xl border",
+                            entry.disqualified
+                              ? "bg-rose-500/[0.03] border-rose-500/20 opacity-60"
+                              : "bg-white/[0.015] border-white/[0.06]"
+                          )}
+                        >
                           <div className={cn(
                             "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display font-700 text-lg",
+                            entry.disqualified ? "bg-rose-500/10 border border-rose-500/20 text-rose-400" :
                             index === 0 ? "bg-amber-500/15 border border-amber-500/30 text-amber-400" :
                             index === 1 ? "bg-white/[0.06] border border-white/15 text-white/50" :
                             index === 2 ? "bg-orange-500/10 border border-orange-500/20 text-orange-500/70" :
                                           "bg-white/[0.03] border border-white/[0.06] text-white/25"
                           )}>
-                            {index === 0 ? <Crown className="w-5 h-5" /> :
+                            {entry.disqualified ? <AlertCircle className="w-4 h-4" /> :
+                             index === 0 ? <Crown className="w-5 h-5" /> :
                              index === 1 ? <Medal className="w-4 h-4" /> :
                              index === 2 ? <Medal className="w-4 h-4" /> :
                              entry.rank}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-white truncate">{entry.user?.firstName} {entry.user?.lastName}</p>
-                            <p className="text-[11px] text-white/25 font-mono">Last solved: {entry.lastSolvedAt ? new Date(entry.lastSolvedAt).toLocaleTimeString() : '—'}</p>
+                            <p className={cn("text-[11px] font-mono", entry.disqualified ? "text-rose-400/70" : "text-white/25")}>
+                              {entry.disqualified
+                                ? 'Disqualified — left the tab too many times'
+                                : `Last solved: ${entry.lastSolvedAt ? new Date(entry.lastSolvedAt).toLocaleTimeString() : '—'}`}
+                            </p>
                           </div>
                           <div className="flex flex-col items-end">
-                            <span className="font-display text-xl font-700 text-orange-400">{entry.totalSolved}</span>
+                            <span className={cn("font-display text-xl font-700", entry.disqualified ? "text-rose-400/70" : "text-orange-400")}>
+                              {entry.totalSolved}
+                            </span>
                             <span className="text-[10px] text-white/25 uppercase font-mono tracking-widest">solved</span>
                           </div>
                         </div>
@@ -637,6 +794,8 @@ export default function ContestDetail() {
           )}
         </div>
       </div>
+
+      <ViolationModal data={violationModal} onClose={() => setViolationModal(null)} />
     </>
   );
 }

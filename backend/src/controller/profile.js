@@ -13,7 +13,8 @@ const getUserProfile = async (req, res) => {
     }
 
     const user = await User.findById(userId)
-      .select("firstName lastName profileImage createdAt")
+      .select("firstName lastName profileImage createdAt collegeId role")
+      .populate("collegeId", "Collage_name")
       .lean();
 
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -88,6 +89,11 @@ const getUserProfile = async (req, res) => {
       location: user.profile?.location || "",
       socialLinks: user.profile?.socialLinks || {},
       joinedAt: user.createdAt,
+      role: user.role,
+      // NEW: college info, null-safe if user has no collegeId
+      college: user.collegeId
+        ? { id: user.collegeId._id, name: user.collegeId.Collage_name }
+        : null,
       stats: {
         total: stats.total,
         easy: stats.easy,

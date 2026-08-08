@@ -183,6 +183,20 @@ const getContestById = async (req, res) => {
             (p) => p.toString() === req.result?._id?.toString()
         );
 
+        // ── Anti-cheat: surface this user's disqualification status up front
+        // so the frontend knows immediately on page load, without waiting
+        // for a violation event to fire in this session/tab.
+        let isDisqualified = false;
+        let violationCount = 0;
+        if (isRegistered && req.result?._id) {
+            const rankEntry = await ContestRank.findOne({
+                contestId: contest._id,
+                userId: req.result._id,
+            }).select('disqualified violationCount');
+            isDisqualified = rankEntry?.disqualified || false;
+            violationCount = rankEntry?.violationCount || 0;
+        }
+
         // Never leak the join code to non-participants of a private contest.
         const contestObj = contest.toObject();
         const isCreator = contest.createdBy?._id?.toString() === req.result?._id?.toString();
@@ -194,6 +208,8 @@ const getContestById = async (req, res) => {
             ...contestObj,
             computedStatus,
             isRegistered,
+            isDisqualified,
+            violationCount,
             totalParticipants: contest.participants.length,
         });
     } catch (err) {
@@ -229,10 +245,12 @@ const registerForContest = async (req, res) => {
         contest.participants.push(userId);
         await contest.save();
 
+        // setDefaultsOnInsert ensures violationCount/disqualified are actually
+        // written on brand-new rank docs, not left undefined until first save.
         await ContestRank.findOneAndUpdate(
             { contestId: contest._id, userId },
             { contestId: contest._id, userId },
-            { upsert: true, new: true }
+            { upsert: true, new: true, setDefaultsOnInsert: true }
         );
 
         res.status(200).json({ message: 'Successfully registered for the contest!' });
@@ -275,7 +293,7 @@ const joinContestByCode = async (req, res) => {
         await ContestRank.findOneAndUpdate(
             { contestId: contest._id, userId },
             { contestId: contest._id, userId },
-            { upsert: true, new: true }
+            { upsert: true, new: true, setDefaultsOnInsert: true }
         );
 
         res.status(200).json({ message: 'Joined private contest successfully!', contestId: contest._id });
@@ -323,6 +341,84 @@ const getContestProblem = async (req, res) => {
 
 
 // ════════════════════════════════════════════════════════════════════
+//  ANTI-CHEAT: TAB SWITCH / MINIMIZE VIOLATIONS
+// ════════════════════════════════════════════════════════════════════
+
+// POST /contest/:id/violation
+// Called by the frontend once per hidden->visible cycle (tab switch or
+// window minimize) while the contest is ongoing.
+//   1st violation -> warning
+//   2nd violation -> strict warning
+//   3rd violation -> disqualified (blocks further submissions, flagged on leaderboard)
+const reportViolation = async (req, res) => {
+    try {
+        const contest = req.contest;
+        const userId = req.result._id;
+        const now = new Date();
+
+        // Only meaningful while the contest is actually running. Ignore
+        // stray events from before start / after end.
+        if (now < contest.startTime || now > contest.endTime) {
+            return res.status(200).json({ tracked: false, message: 'Contest not active' });
+        }
+
+        let rankEntry = await ContestRank.findOne({ contestId: contest._id, userId });
+        if (!rankEntry) {
+            rankEntry = new ContestRank({ contestId: contest._id, userId });
+        }
+
+        // Already disqualified — nothing more to track, just report status.
+        if (rankEntry.disqualified) {
+            return res.status(200).json({
+                tracked: false,
+                level: 'disqualified',
+                disqualified: true,
+                violationCount: rankEntry.violationCount,
+                message: 'You are already disqualified from this contest.',
+            });
+        }
+
+        rankEntry.violationCount += 1;
+
+        let level = 'warning';
+        let message = `Warning ${rankEntry.violationCount}/3: Leaving the contest tab is being tracked. Two more and you'll be disqualified.`;
+
+        if (rankEntry.violationCount === 2) {
+            level = 'strict_warning';
+            message = 'Strict warning (2/3): One more tab switch or minimize and you will be disqualified from this contest.';
+        } else if (rankEntry.violationCount >= 3) {
+            level = 'disqualified';
+            rankEntry.disqualified = true;
+            rankEntry.disqualifiedAt = now;
+            message = 'You have been disqualified from this contest for repeatedly leaving the tab.';
+        }
+
+        await rankEntry.save();
+
+        // Push a live leaderboard update the moment someone gets disqualified,
+        // same pattern used for accepted submissions in contestSubmit below.
+        if (rankEntry.disqualified) {
+            const io = req.app.get('io');
+            if (io) {
+                const leaderboard = await computeLeaderboard(contest._id);
+                io.to(`contest-${contest._id}`).emit('contest:leaderboard_update', leaderboard);
+            }
+        }
+
+        res.status(200).json({
+            tracked: true,
+            level,                          // 'warning' | 'strict_warning' | 'disqualified'
+            violationCount: rankEntry.violationCount,
+            disqualified: rankEntry.disqualified,
+            message,
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Internal Server Error', error: err.message });
+    }
+};
+
+
+// ════════════════════════════════════════════════════════════════════
 //  CONTEST SUBMISSION  (same judge as your submit.js, contest-aware)
 // ════════════════════════════════════════════════════════════════════
 
@@ -335,6 +431,15 @@ const contestSubmit = async (req, res) => {
 
         if (!code || !rawLanguage) {
             return res.status(400).json({ message: 'code and language are required' });
+        }
+
+        // ── Anti-cheat gate: disqualified users can no longer submit ────────
+        const rankEntry = await ContestRank.findOne({ contestId, userId }).select('disqualified');
+        if (rankEntry?.disqualified) {
+            return res.status(403).json({
+                message: 'You have been disqualified from this contest and can no longer submit.',
+                disqualified: true,
+            });
         }
 
         const language = rawLanguage === 'cpp' ? 'c++' : rawLanguage;
@@ -449,27 +554,34 @@ const getLeaderboard = async (req, res) => {
     }
 };
 
-// Internal helper: compute ranked leaderboard for a contest
+// Internal helper: compute ranked leaderboard for a contest.
+// Disqualified users are sorted to the bottom and given rank: null instead
+// of a numeric position, so they never occupy a real leaderboard slot.
 const computeLeaderboard = async (contestId) => {
     const ranks = await ContestRank.find({ contestId })
         .populate('userId', 'firstName lastName profileImage')
         .lean();
 
-    // Sort: most solved first → if tie, earlier lastSolvedAt wins
     ranks.sort((a, b) => {
+        if (!!a.disqualified !== !!b.disqualified) return a.disqualified ? 1 : -1;
         if (b.totalSolved !== a.totalSolved) return b.totalSolved - a.totalSolved;
         if (!a.lastSolvedAt) return 1;
         if (!b.lastSolvedAt) return -1;
         return new Date(a.lastSolvedAt) - new Date(b.lastSolvedAt);
     });
 
-    return ranks.map((r, index) => ({
-        rank: index + 1,
-        user: r.userId,
-        totalSolved: r.totalSolved,
-        lastSolvedAt: r.lastSolvedAt,
-        solvedProblems: r.solvedProblems,
-    }));
+    let rank = 0;
+    return ranks.map((r) => {
+        if (!r.disqualified) rank += 1;
+        return {
+            rank: r.disqualified ? null : rank,
+            user: r.userId,
+            totalSolved: r.totalSolved,
+            lastSolvedAt: r.lastSolvedAt,
+            solvedProblems: r.solvedProblems,
+            disqualified: !!r.disqualified,
+        };
+    });
 };
 
 // Internal helper: update rank entry when user gets AC
@@ -537,4 +649,5 @@ module.exports = {
     contestSubmit,
     getLeaderboard,
     getMySubmissions,
+    reportViolation,
 };

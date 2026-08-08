@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { useParams, useNavigate } from 'react-router';
 import axiosClient from '../utils/axiosClient';
-import { ChevronLeft, Code2 } from 'lucide-react';
 
 /* language metadata — color-coded per language so the pill + editor identity stays consistent */
 const LANGUAGES = [
@@ -12,6 +11,54 @@ const LANGUAGES = [
   { id: 'cpp',        label: 'C++',        short: 'C++',  monaco: 'cpp',        color: '#8b5cf6' },
 ];
 
+const REDIRECT_DELAY_MS = 1500;
+
+/* ─── Anti-cheat violation modal ───────────────────────────────────────────
+   level: 'warning' | 'strict_warning' | 'disqualified' */
+const ViolationModal = ({ data, onClose }) => {
+  if (!data) return null;
+  const isDQ = data.level === 'disqualified';
+  const isStrict = data.level === 'strict_warning';
+  const color = isDQ ? '#f04f4f' : isStrict ? '#ffa116' : '#4b8ef0';
+  const bg = isDQ ? 'rgba(240,79,79,0.08)' : isStrict ? 'rgba(255,161,22,0.08)' : 'rgba(75,142,240,0.08)';
+  const border = isDQ ? 'rgba(240,79,79,0.28)' : isStrict ? 'rgba(255,161,22,0.28)' : 'rgba(75,142,240,0.28)';
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(4,5,8,0.82)',
+      backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }}>
+      <div style={{
+        maxWidth: 380, width: '100%', borderRadius: 14, border: `1px solid ${border}`,
+        background: bg, padding: 28, textAlign: 'center', fontFamily: "'Outfit',system-ui,sans-serif",
+      }}>
+        <div style={{
+          width: 56, height: 56, margin: '0 auto 16px', borderRadius: '50%',
+          background: `${color}1a`, border: `1px solid ${border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color,
+        }}>
+          {isDQ ? '⛔' : '⚠'}
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 800, color, marginBottom: 8, letterSpacing: -0.3 }}>
+          {isDQ ? 'Disqualified' : isStrict ? 'Strict Warning' : 'Warning'}
+        </div>
+        <div style={{ fontSize: 12.5, color: '#8a93ac', lineHeight: 1.6, marginBottom: 22, fontFamily: "'JetBrains Mono',monospace" }}>
+          {data.message}
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: color, color: '#000', border: 'none', borderRadius: 8, cursor: 'pointer',
+            fontFamily: "'Outfit',system-ui,sans-serif", fontSize: 12.5, fontWeight: 800, padding: '9px 22px',
+          }}
+        >
+          {isDQ ? 'I understand' : 'Got it'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ContestProblemEditor = () => {
   const { contestId, problemId } = useParams();
   const navigate = useNavigate();
@@ -20,7 +67,8 @@ const ContestProblemEditor = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [code, setCode]                     = useState('');
   const [loading, setLoading]               = useState(false);
-  const [submitResult, setSubmitResult]     = useState(null);
+  const [submitting, setSubmitting]         = useState(false);
+  const [submitResult, setSubmitResult]     = useState(null); // { submitted: true } | { disqualified: true }
   const [runResult, setRunResult]           = useState(null);
   const [activeLeftTab, setActiveLeftTab]   = useState('description');
   const [activeRightTab, setActiveRightTab] = useState('code');
@@ -33,6 +81,13 @@ const ContestProblemEditor = () => {
   const [isFullscreen, setIsFullscreen]     = useState(false);
   const editorRef                           = useRef(null);
   const startTimeRef                        = useRef(Date.now());
+  const redirectTimerRef                    = useRef(null);
+
+  // ── Anti-cheat state ──
+  const [isRegistered, setIsRegistered]     = useState(false);
+  const [contestActive, setContestActive]   = useState(false); // now within [startTime, endTime]
+  const [disqualified, setDisqualified]     = useState(false);
+  const [violationModal, setViolationModal] = useState(null); // { level, message, violationCount } | null
 
   /* ── timer ── */
   useEffect(() => {
@@ -40,6 +95,11 @@ const ContestProblemEditor = () => {
       setElapsedTime(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  /* ── cleanup any pending redirect on unmount ── */
+  useEffect(() => () => {
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
   }, []);
 
   const formatTime = (s) => {
@@ -85,6 +145,21 @@ const ContestProblemEditor = () => {
       .finally(() => setLoading(false));
   }, [problemId, contestId]);
 
+  /* ── fetch contest state: registration, active window, and — importantly —
+     whether THIS user is already disqualified. This runs once on mount so a
+     disqualified user who reloads or deep-links into a problem sees the
+     locked state immediately, without needing to trigger a fresh violation
+     in this tab first. ── */
+  useEffect(() => {
+    axiosClient.get(`/contest/${contestId}`)
+      .then(({ data }) => {
+        setIsRegistered(!!data.isRegistered);
+        setContestActive(data.computedStatus === 'ongoing');
+        if (data.isDisqualified) setDisqualified(true);
+      })
+      .catch(() => {});
+  }, [contestId]);
+
   /* ── language switch ── */
   useEffect(() => {
     if (!problem) return;
@@ -120,7 +195,69 @@ const ContestProblemEditor = () => {
     window.addEventListener('mouseup', onUp);
   };
 
+  /* ── Anti-cheat: detect tab switch / minimize while the contest is live.
+     Mirrors the same hidden->visible tracking as the contest detail page.
+     This is the page people actually spend time on, so it matters most here.
+     The server owns the strike count and disqualification decision — this
+     effect only reports the event and reflects back whatever it says. ── */
+  useEffect(() => {
+    if (!isRegistered || !contestActive || disqualified) return;
+
+    // `visibilitychange` reliably fires for tab switches, but minimizing
+    // the window (or alt-tabbing to another app while the browser window
+    // stays technically on-screen) doesn't flip document.hidden on every
+    // browser/OS. window `blur`/`focus` catches OS-level focus loss instead,
+    // which is what actually happens on minimize. We listen to both and use
+    // `left` as a single guard so a leave-and-return that fires both events
+    // (common on plain tab switches) only ever counts as one violation.
+    let left = false;
+
+    const markLeft = () => {
+      left = true;
+    };
+
+    const markReturned = async () => {
+      if (!left) return;
+      left = false;
+
+      try {
+        const { data } = await axiosClient.post(`/contest/${contestId}/violation`);
+        if (data.tracked) {
+          setViolationModal({
+            level: data.level,
+            message: data.message,
+            violationCount: data.violationCount,
+          });
+          if (data.disqualified) setDisqualified(true);
+        }
+      } catch (err) {
+        // Network hiccup reporting the violation — the next hide/show cycle
+        // will try again, so don't interrupt the person's coding flow.
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) markLeft();
+      else markReturned();
+    };
+    const handleBlur = () => markLeft();
+    const handleFocus = () => markReturned();
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [contestId, isRegistered, contestActive, disqualified]);
+
   /* ── run (uses normal run endpoint — no contest restriction on run) ── */
+  /*    Run keeps the FULL detailed breakdown: overall pass/fail banner + */
+  /*    per-test-case input / expected / actual output. Running is left    */
+  /*    available even after disqualification — it's harmless practice,    */
+  /*    only submissions actually count and are blocked.                   */
   const handleRun = async () => {
     setLoading(true);
     setRunResult(null);
@@ -136,22 +273,45 @@ const ContestProblemEditor = () => {
     }
   };
 
-  /* ── submit (hits contest endpoint) ── */
+  /* ── submit (hits contest endpoint) ──                                  */
+  /*    Submit is intentionally simplified: whatever the server returns,   */
+  /*    we only ever surface a plain "submitted successfully" confirmation */
+  /*    — no pass/fail/wrong-answer detail — then auto-redirect back to    */
+  /*    the contest problem list after a short delay.                     */
+  /*    EXCEPTION: a disqualified user gets a distinct locked-out screen   */
+  /*    instead of the success screen — that's the one failure mode we    */
+  /*    can't swallow silently, since submit is guaranteed rejected.       */
   const handleSubmitCode = async () => {
-    setLoading(true);
+    if (disqualified) {
+      setActiveRightTab('result');
+      setSubmitResult({ disqualified: true });
+      return;
+    }
+
+    setSubmitting(true);
     setSubmitResult(null);
+    setActiveRightTab('result');
     try {
-      const { data } = await axiosClient.post(
-        `/contest/${contestId}/submit/${problemId}`,
-        { code, language: selectedLanguage }
-      );
-      setSubmitResult(data);
-      setActiveRightTab('result');
+      await axiosClient.post(`/contest/${contestId}/submit/${problemId}`, { code, language: selectedLanguage });
+      setSubmitResult({ submitted: true });
+      redirectTimerRef.current = setTimeout(() => {
+        navigate(`/contest/${contestId}`);
+      }, REDIRECT_DELAY_MS);
     } catch (err) {
-      setSubmitResult({ accepted: false, error: err?.response?.data?.message || 'Submission failed' });
-      setActiveRightTab('result');
+      if (err?.response?.status === 403 && err?.response?.data?.disqualified) {
+        // Server-side truth wins even if our local state was stale.
+        setDisqualified(true);
+        setSubmitResult({ disqualified: true });
+      } else {
+        /* everything else intentionally swallowed — submit view never
+           shows pass/fail/wrong-answer detail */
+        setSubmitResult({ submitted: true });
+        redirectTimerRef.current = setTimeout(() => {
+          navigate(`/contest/${contestId}`);
+        }, REDIRECT_DELAY_MS);
+      }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -184,7 +344,6 @@ const ContestProblemEditor = () => {
   };
 
   const getMonacoLang = (lang) => LANGUAGES.find((l) => l.id === lang)?.monaco || 'javascript';
-  const activeLang = LANGUAGES.find((l) => l.id === selectedLanguage) || LANGUAGES[0];
 
   /* ── difficulty colors ── */
   const diffMap = {
@@ -229,6 +388,7 @@ const ContestProblemEditor = () => {
         .cm-back-btn { display:inline-flex; align-items:center; gap:5px; background:var(--s3); color:var(--mu); border:1px solid var(--b1); border-radius:var(--r); cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:11px; font-weight:700; padding:6px 11px; transition:all 0.15s; text-decoration:none; }
         .cm-back-btn:hover { color:var(--tx); border-color:var(--b2); }
         .cm-contest-badge { display:inline-flex; align-items:center; gap:5px; background:rgba(139,92,246,0.1); color:#a78bfa; border:1px solid rgba(139,92,246,0.2); border-radius:20px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; padding:3px 10px; letter-spacing:0.5px; }
+        .cm-dq-badge { display:inline-flex; align-items:center; gap:5px; background:rgba(240,79,79,0.1); color:#f87171; border:1px solid rgba(240,79,79,0.25); border-radius:20px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; padding:3px 10px; letter-spacing:0.5px; }
         .cm-top-center { position:absolute; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; }
         .cm-prob-title { font-size:13px; font-weight:700; color:var(--tx); max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .cm-diff-pill { font-size:9px; font-weight:800; padding:2px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:0.6px; border:1px solid; font-family:'JetBrains Mono',monospace; }
@@ -244,7 +404,10 @@ const ContestProblemEditor = () => {
         .cm-btn-submit { display:inline-flex; align-items:center; gap:6px; background:var(--ac); color:#000; border:none; border-radius:var(--r); cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:12px; font-weight:800; padding:0 16px; height:34px; transition:all 0.15s; }
         .cm-btn-submit:hover:not(:disabled) { background:#ffb347; transform:translateY(-1px); box-shadow:0 6px 16px rgba(255,161,22,0.25); }
         .cm-btn-submit:disabled { opacity:0.35; cursor:not-allowed; }
+        .cm-btn-submit.dq { background:var(--s3); color:var(--rd); border:1px solid rgba(240,79,79,0.3); }
+        .cm-btn-submit.dq:hover:not(:disabled) { background:var(--s3); transform:none; box-shadow:none; }
         .cm-upload-icon { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-bottom:8px solid #000; flex-shrink:0; }
+        .cm-btn-submit.dq .cm-upload-icon { border-bottom-color: var(--rd); }
         .cm-spinner { width:11px; height:11px; border:2px solid rgba(0,0,0,0.2); border-top-color:#000; border-radius:50%; animation:cm-spin 0.65s linear infinite; flex-shrink:0; }
         .cm-spinner-light { width:11px; height:11px; border:2px solid rgba(255,255,255,0.15); border-top-color:var(--mu); border-radius:50%; animation:cm-spin 0.65s linear infinite; flex-shrink:0; }
         @keyframes cm-spin { to{transform:rotate(360deg);} }
@@ -275,6 +438,10 @@ const ContestProblemEditor = () => {
         .cm-ex-row { font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.8; color:var(--mu); }
         .cm-ex-row span { color:var(--tx); }
         .cm-ex-expl { font-size:10px; color:var(--di); margin-top:6px; padding-top:6px; border-top:1px solid var(--b1); font-family:'JetBrains Mono',monospace; font-style:italic; }
+
+        /* DISQUALIFIED STRIP */
+        .cm-dq-strip { display:flex; align-items:center; gap:8px; background:rgba(240,79,79,0.06); border-bottom:1px solid rgba(240,79,79,0.2); padding:8px 16px; flex-shrink:0; }
+        .cm-dq-strip-text { font-size:11px; color:#f8a8a8; font-family:'JetBrains Mono',monospace; }
 
         /* RIGHT */
         .cm-right { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; background:var(--bg); }
@@ -314,13 +481,6 @@ const ContestProblemEditor = () => {
         .cm-status-text { font-size:17px; font-weight:800; letter-spacing:-0.3px; }
         .cm-status-banner.ok  .cm-status-text { color:var(--gr); }
         .cm-status-banner.err .cm-status-text { color:var(--rd); }
-        .cm-stats { display:flex; gap:8px; margin-bottom:16px; }
-        .cm-stat-card { flex:1; background:var(--s1); border:1px solid var(--b1); border-radius:var(--r2); padding:12px 14px; }
-        .cm-stat-label { font-size:9px; color:var(--di); font-family:'JetBrains Mono',monospace; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:5px; }
-        .cm-stat-val { font-size:22px; font-weight:800; letter-spacing:-1px; line-height:1; }
-        .cm-stat-unit { font-size:10px; font-weight:400; color:var(--mu); margin-left:3px; }
-        .cm-pass-sum { background:var(--s1); border:1px solid var(--b1); border-radius:var(--r); padding:10px 14px; margin-bottom:14px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--mu); display:flex; align-items:center; gap:6px; }
-        .cm-pass-num { font-size:15px; font-weight:800; }
         .cm-tc-list { display:flex; flex-direction:column; gap:7px; }
         .cm-tc-card { background:var(--s1); border:1px solid var(--b1); border-left:2px solid var(--b2); border-radius:var(--r); padding:11px 13px; font-family:'JetBrains Mono',monospace; font-size:11px; transition:border-left-color 0.14s; }
         .cm-tc-card.pass { border-left-color:var(--gr); }
@@ -337,25 +497,28 @@ const ContestProblemEditor = () => {
         .cm-empty-title { font-size:13px; font-weight:600; color:var(--mu); }
         .cm-empty-sub { font-size:11px; color:var(--di); font-family:'JetBrains Mono',monospace; }
 
-        /* contest accepted banner */
-        .cm-contest-accepted {
-          background: linear-gradient(135deg, rgba(45,186,110,0.1), rgba(139,92,246,0.05));
-          border: 1px solid rgba(45,186,110,0.25);
-          border-radius: var(--r2); padding: 16px 18px; margin-bottom: 16px;
-          display: flex; align-items: center; gap: 12px;
+        /* SUBMIT SUCCESS — shown on a normal (non-disqualified) submit */
+        .cm-submit-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:18px; text-align:center; padding:40px; }
+        .cm-submit-icon-ring {
+          width:64px; height:64px; border-radius:50%;
+          background:rgba(45,186,110,0.1); border:1px solid rgba(45,186,110,0.28);
+          display:flex; align-items:center; justify-content:center; font-size:28px;
+          box-shadow:0 0 0 8px rgba(45,186,110,0.05);
         }
-        .cm-contest-accepted-icon { font-size: 24px; }
-        .cm-contest-accepted-title { font-size: 16px; font-weight: 800; color: var(--gr); margin-bottom: 2px; }
-        .cm-contest-accepted-sub { font-size: 11px; color: var(--mu); font-family: 'JetBrains Mono', monospace; }
-        .cm-back-to-contest {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: rgba(45,186,110,0.12); color: var(--gr);
-          border: 1px solid rgba(45,186,110,0.25); border-radius: var(--r);
-          cursor: pointer; font-size: 12px; font-weight: 700;
-          padding: 8px 14px; margin-top: 12px; transition: all 0.15s;
-          font-family: 'Outfit', system-ui, sans-serif;
+        .cm-submit-icon-ring.dq {
+          background:rgba(240,79,79,0.1); border-color:rgba(240,79,79,0.28);
+          box-shadow:0 0 0 8px rgba(240,79,79,0.05);
         }
-        .cm-back-to-contest:hover { background: rgba(45,186,110,0.2); }
+        .cm-submit-title { font-size:17px; font-weight:800; color:var(--gr); letter-spacing:-0.3px; }
+        .cm-submit-title.dq { color:var(--rd); }
+        .cm-submit-sub { font-size:11.5px; color:var(--mu); font-family:'JetBrains Mono',monospace; }
+        .cm-submit-redirect { display:flex; align-items:center; gap:8px; font-size:10.5px; color:var(--di); font-family:'JetBrains Mono',monospace; letter-spacing:0.3px; }
+        .cm-submit-dot { width:5px; height:5px; border-radius:50%; background:var(--gr); animation:pulse 1s ease-in-out infinite; }
+        .cm-submit-back-btn { display:inline-flex; align-items:center; gap:6px; background:var(--s3); color:var(--tx); border:1px solid var(--b2); border-radius:var(--r); cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:12px; font-weight:700; padding:8px 16px; margin-top:4px; }
+        .cm-submit-back-btn:hover { border-color:rgba(240,79,79,0.35); color:var(--rd); }
+        .cm-submitting { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; }
+        .cm-submitting-text { font-size:12px; color:var(--mu); font-family:'JetBrains Mono',monospace; letter-spacing:0.3px; }
+        .cm-spinner-big { width:30px; height:30px; border:2.5px solid var(--b2); border-top-color:var(--ac); border-radius:50%; animation:cm-spin 0.7s linear infinite; }
       `}</style>
 
       <div className={`cm-root${isFullscreen ? ' is-fullscreen' : ''}`}>
@@ -377,6 +540,7 @@ const ContestProblemEditor = () => {
                   {problem.difficulty.charAt(0).toUpperCase() + problem.difficulty.slice(1)}
                 </span>
               )}
+              {disqualified && <span className="cm-dq-badge">⛔ Disqualified</span>}
               <div className="cm-timer">
                 <div className="cm-timer-dot" />
                 {formatTime(elapsedTime)}
@@ -392,12 +556,27 @@ const ContestProblemEditor = () => {
             <button className="cm-run-icon-btn" onClick={handleRun} disabled={loading} title="Run (Ctrl+Enter)">
               {loading ? <span className="cm-spinner-light" /> : <div className="cm-play-icon" />}
             </button>
-            <button className="cm-btn-submit" onClick={handleSubmitCode} disabled={loading}>
-              {loading ? <span className="cm-spinner" /> : <div className="cm-upload-icon" />}
-              Submit
+            <button
+              className={`cm-btn-submit${disqualified ? ' dq' : ''}`}
+              onClick={handleSubmitCode}
+              disabled={submitting}
+              title={disqualified ? 'You are disqualified and can no longer submit' : undefined}
+            >
+              {submitting ? <span className="cm-spinner" /> : <div className="cm-upload-icon" />}
+              {disqualified ? 'Disqualified' : 'Submit'}
             </button>
           </div>
         </div>
+
+        {/* ── DISQUALIFIED STRIP ── */}
+        {disqualified && (
+          <div className="cm-dq-strip">
+            <span style={{ fontSize: 13 }}>⛔</span>
+            <span className="cm-dq-strip-text">
+              You've been disqualified from this contest for repeatedly leaving the tab. You can still run code, but submissions are locked.
+            </span>
+          </div>
+        )}
 
         {/* ── BODY ── */}
         <div className="cm-body">
@@ -449,7 +628,6 @@ const ContestProblemEditor = () => {
             {activeLeftTab === 'submissions' && (
               <div className="cm-scroll">
                 <div className="cm-section-title">My Contest Submissions</div>
-                {/* inline mini submissions for this problem in this contest */}
                 <div style={{ color: 'var(--mu)', fontSize: 12, fontFamily: "'JetBrains Mono',monospace" }}>
                   Submit your solution and results will appear here.
                 </div>
@@ -551,16 +729,22 @@ const ContestProblemEditor = () => {
                     <button className="cm-run-icon-btn" onClick={handleRun} disabled={loading} title="Run">
                       {loading ? <span className="cm-spinner-light" /> : <div className="cm-play-icon" />}
                     </button>
-                    <button className="cm-btn-submit" onClick={handleSubmitCode} disabled={loading} style={{ height: 32, fontSize: 11, padding: '0 14px' }}>
-                      {loading ? <span className="cm-spinner" /> : <div className="cm-upload-icon" />}
-                      Submit
+                    <button
+                      className={`cm-btn-submit${disqualified ? ' dq' : ''}`}
+                      onClick={handleSubmitCode}
+                      disabled={submitting}
+                      style={{ height: 32, fontSize: 11, padding: '0 14px' }}
+                      title={disqualified ? 'You are disqualified and can no longer submit' : undefined}
+                    >
+                      {submitting ? <span className="cm-spinner" /> : <div className="cm-upload-icon" />}
+                      {disqualified ? 'Disqualified' : 'Submit'}
                     </button>
                   </div>
                 </div>
               </>
             )}
 
-            {/* ── TESTCASE TAB ── */}
+            {/* ── TESTCASE TAB (Run) — full detail kept ── */}
             {activeRightTab === 'testcase' && (
               <div className="cm-panel">
                 <div className="cm-section-title">Test Results</div>
@@ -597,39 +781,39 @@ const ContestProblemEditor = () => {
               </div>
             )}
 
-            {/* ── RESULT TAB ── */}
+            {/* ── RESULT TAB (Submit) ── */}
             {activeRightTab === 'result' && (
-              <div className="cm-panel">
-                <div className="cm-section-title">Submission Result</div>
-                {submitResult ? (
-                  <>
-                    {submitResult.accepted ? (
-                      <div className="cm-contest-accepted">
-                        <div className="cm-contest-accepted-icon">🏆</div>
-                        <div>
-                          <div className="cm-contest-accepted-title">✓ Accepted!</div>
-                          <div className="cm-contest-accepted-sub">
-                            {submitResult.passedTestCases}/{submitResult.totalTestCases} tests · {submitResult.runtime?.toFixed(3)}s · {submitResult.memory} KB
-                          </div>
-                          <button className="cm-back-to-contest" onClick={() => navigate(`/contest/${contestId}`)}>
-                            ← Back to Contest
-                          </button>
-                        </div>
+              <div className="cm-panel" style={{ height: '100%' }}>
+                {submitting ? (
+                  <div className="cm-submitting">
+                    <div className="cm-spinner-big" />
+                    <div className="cm-submitting-text">Submitting your code…</div>
+                  </div>
+                ) : submitResult?.disqualified ? (
+                  <div className="cm-submit-wrap">
+                    <div className="cm-submit-icon-ring dq">⛔</div>
+                    <div>
+                      <div className="cm-submit-title dq">Submission Blocked</div>
+                      <div className="cm-submit-sub" style={{ marginTop: 6 }}>
+                        You've been disqualified from this contest and can no longer submit.
                       </div>
-                    ) : (
-                      <div className="cm-status-banner err">
-                        <div className="cm-status-dot" style={{ background: 'var(--rd)', boxShadow: '0 0 10px rgba(240,79,79,0.5)' }} />
-                        <span className="cm-status-text">✗ {submitResult.error || 'Wrong Answer'}</span>
-                      </div>
-                    )}
-                    <div className="cm-pass-sum">
-                      <span>Tests passed:</span>
-                      <span className="cm-pass-num" style={{ color: submitResult.accepted ? 'var(--gr)' : 'var(--rd)' }}>
-                        {submitResult.passedTestCases}
-                      </span>
-                      <span>/ {submitResult.totalTestCases}</span>
                     </div>
-                  </>
+                    <button className="cm-submit-back-btn" onClick={() => navigate(`/contest/${contestId}`)}>
+                      ← Back to contest
+                    </button>
+                  </div>
+                ) : submitResult?.submitted ? (
+                  <div className="cm-submit-wrap">
+                    <div className="cm-submit-icon-ring">✓</div>
+                    <div>
+                      <div className="cm-submit-title">Code Submitted Successfully!</div>
+                      <div className="cm-submit-sub" style={{ marginTop: 6 }}>Your solution has been recorded for this contest.</div>
+                    </div>
+                    <div className="cm-submit-redirect">
+                      <span className="cm-submit-dot" />
+                      Redirecting to contest…
+                    </div>
+                  </div>
                 ) : (
                   <div className="cm-empty">
                     <div className="cm-empty-icon">↑</div>
@@ -642,6 +826,8 @@ const ContestProblemEditor = () => {
           </div>
         </div>
       </div>
+
+      <ViolationModal data={violationModal} onClose={() => setViolationModal(null)} />
     </>
   );
 };

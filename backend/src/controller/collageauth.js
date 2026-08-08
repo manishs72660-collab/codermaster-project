@@ -3,6 +3,12 @@ const User = require("../models/Userschema");
 const Submission = require("../models/Submission");
 const client = require("../config/redis");
 const { createAccount, publicUser, normalizeEmail } = require("./auth");
+const bcrypt = require("bcrypt");
+// ^ If your project uses "bcryptjs" instead of "bcrypt", change the
+//   require above to: const bcrypt = require("bcryptjs");
+//   Check your User model's pre-save hook / auth.js to confirm which one
+//   is used for hashing signup passwords, and match it here so resend's
+//   password hash is compatible with your login comparison.
 const crypto = require("crypto");
 const CollegeRequest = require("../models/collegeRequest");
 const {
@@ -240,6 +246,7 @@ const makeStudentCollegeAdmin = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
 // ---- college registration requests (public → admin review) --------------
 
 // PUBLIC — no auth. This is what the Signup page's "Register your college"
@@ -303,9 +310,39 @@ const getCollegeRequests = async (req, res) => {
   }
 };
 
+// Shared helper: sends the approval email, AWAITS the result (no more
+// fire-and-forget), and persists whether it actually succeeded so the
+// admin dashboard can show real status and offer a resend.
+const sendApprovalEmailAndRecordStatus = async (request, college, tempPassword) => {
+  request.emailAttempts = (request.emailAttempts || 0) + 1;
+  request.lastEmailAttemptAt = new Date();
+  try {
+    await sendCollegeApprovedEmail({
+      toEmail: request.adminEmail,
+      collegeName: college.Collage_name,
+      collegeCode: college.collegeCode,
+      tempPassword,
+      loginUrl: `${process.env.FRONTEND_URL}/login`,
+    });
+    request.emailStatus = "sent";
+    request.emailError = null;
+  } catch (err) {
+    console.error("Failed to send approval email:", err);
+    request.emailStatus = "failed";
+    request.emailError = err.message || "Unknown error";
+  }
+  await request.save();
+};
+
 // Platform-admin only. Creates the college + admin account for real (reuses
 // the exact same helper the direct "Register College" admin form uses),
 // generates a temp password, and emails the requester their login.
+//
+// CHANGED: the email send is now awaited and its outcome persisted on the
+// request (emailStatus/emailError) instead of being fire-and-forget with
+// only a console.error. The API response also now includes emailStatus so
+// the frontend can tell the platform admin the truth instead of always
+// claiming "confirmation email sent".
 const approveCollegeRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
@@ -333,17 +370,66 @@ const approveCollegeRequest = async (req, res) => {
     request.reviewedAt = new Date();
     await request.save();
 
-    sendCollegeApprovedEmail({
-      toEmail: request.adminEmail,
-      collegeName: college.Collage_name,
-      collegeCode: college.collegeCode,
-      tempPassword,
-      loginUrl: `${process.env.FRONTEND_URL}/login`,
-    }).catch((err) => console.error("Failed to send approval email:", err));
+    await sendApprovalEmailAndRecordStatus(request, college, tempPassword);
 
-    res.status(200).json({ success: true, message: "College approved and registered", college });
+    res.status(200).json({
+      success: true,
+      message:
+        request.emailStatus === "sent"
+          ? "College approved and registered"
+          : "College approved and registered, but the confirmation email failed to send. You can resend it from this page.",
+      college,
+      emailStatus: request.emailStatus,
+      emailError: request.emailError,
+    });
   } catch (err) {
     res.status(err.statusCode || 500).json({ success: false, message: err.message });
+  }
+};
+
+// Platform-admin only. Re-sends the approval email for a request whose
+// college/admin account already exists (e.g. emailStatus === "failed").
+// Does NOT recreate the college. Generates a FRESH temp password and
+// updates the admin account's password directly with bcrypt, rather than
+// storing/reusing the original one - avoids keeping a recoverable
+// plaintext password anywhere in the CollegeRequest collection.
+const resendApprovalEmail = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const request = await CollegeRequest.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+    if (request.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Can only resend the email for an already-approved request",
+      });
+    }
+
+    const college = await College.findOne({ collegeCode: request.collegeCode }).populate("adminId");
+    if (!college || !college.adminId) {
+      return res.status(404).json({ success: false, message: "College or admin account not found" });
+    }
+
+    const newTempPassword = crypto.randomBytes(6).toString("hex");
+    // Matches createAccount()'s hashing in auth.js: bcrypt.hash(password, 10)
+    college.adminId.password = await bcrypt.hash(newTempPassword, 10);
+    await college.adminId.save();
+
+    await sendApprovalEmailAndRecordStatus(request, college, newTempPassword);
+
+    res.status(200).json({
+      success: true,
+      message:
+        request.emailStatus === "sent"
+          ? "Email resent with a new password"
+          : "Resend failed again - see emailError",
+      emailStatus: request.emailStatus,
+      emailError: request.emailError,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -388,5 +474,6 @@ module.exports = {
   requestCollege,
   getCollegeRequests,
   approveCollegeRequest,
+  resendApprovalEmail,
   rejectCollegeRequest,
 };

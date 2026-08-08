@@ -11,6 +11,7 @@ const {
   requestCollege,
   getCollegeRequests,
   approveCollegeRequest,
+  resendApprovalEmail,
   rejectCollegeRequest,
 } = require("../controller/collageauth");
 
@@ -33,8 +34,18 @@ router.post("/request", requestCollege);
 // Platform-admin only. Review queue for pending/approved/rejected requests.
 router.get("/requests", usermiddleware, adminmiddleware, getCollegeRequests);
 // Platform-admin only. Creates the real College + CollageAdmin account and
-// emails the requester their temp login.
+// emails the requester their temp login. Now awaits the email send and
+// records emailStatus/emailError on the request instead of firing-and-forgetting.
 router.post("/requests/:requestId/approve", usermiddleware, adminmiddleware, approveCollegeRequest);
+// NEW - Platform-admin only. Re-sends the approval email for a request
+// that's already approved but whose email failed (emailStatus === "failed").
+// Generates a fresh temp password, updates the admin account, and retries.
+router.post(
+  "/requests/:requestId/resend-approval-email",
+  usermiddleware,
+  adminmiddleware,
+  resendApprovalEmail
+);
 // Platform-admin only. Marks the request rejected and emails the requester.
 router.post("/requests/:requestId/reject", usermiddleware, adminmiddleware, rejectCollegeRequest);
 
