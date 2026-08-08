@@ -8,15 +8,44 @@ import {
   GraduationCap,
   ShieldCheck,
   ChevronDown,
+  Trophy,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { logoutUser } from '../authSlice';
+import { fetchUserProfile } from '../profileSlice';
 
 function Navbar() {
   const dispatch = useDispatch();
   const { user } = useSelector((s) => s.auth);
+  // NOTE: college membership does NOT reliably live on state.auth.user -
+  // Homepage.jsx learns about it via a separate fetchUserProfile() call
+  // into the `profile` slice (profileData.college), not user.collegeId.
+  // Mirror that here rather than trusting user.collegeId, which is why the
+  // Leaderboard link wasn't showing before even though role was correct.
+  const { data: profileData } = useSelector((s) => s.profile);
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Fetch profile (once) if it isn't already loaded - Navbar can mount on
+  // pages the user reaches before ever visiting Homepage, so we can't rely
+  // on Homepage having already populated this.
+  useEffect(() => {
+    if (!user?._id || profileData) return;
+    dispatch(fetchUserProfile(user._id));
+  }, [dispatch, user, profileData]);
+
+  // "Belongs to a college" gate for the Leaderboard link/menu-item below.
+  // Mirrors Homepage.jsx's CollegeSpotlight check EXACTLY:
+  //   const college = profileData?.college || null;
+  //   if (!college?.name) return null;
+  // i.e. it's not enough for `college` to be a truthy object (the backend
+  // may return `{}` when there's no college) - it must actually have a
+  // `name`. OPEN TO ALL COLLEGE MEMBERS now (students + CollageAdmin), not
+  // just CollageAdmin - per product decision. Platform Admin never has a
+  // collegeId so this naturally stays hidden for them; they browse
+  // leaderboards via /admin/colleges/:id instead.
+  const college = profileData?.college || null;
+  const inCollege = !!college?.name;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -116,6 +145,19 @@ function Navbar() {
               >
                 <GraduationCap className="w-3.5 h-3.5" />
                 College Admin
+              </NavLink>
+            )}
+
+            {/* Only shown when the logged-in user is a CollageAdmin tied to a
+                college - regular students and platform Admin never see this. */}
+            {inCollege && (
+              <NavLink
+                to="/collegeadmin/leaderboard"
+                end
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-medium text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/[0.08] rounded-lg transition-all"
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                Leaderboard
               </NavLink>
             )}
           </div>
@@ -234,6 +276,15 @@ function Navbar() {
                       className="flex items-center gap-2.5 px-3 py-2 text-sm text-sky-400 hover:bg-sky-500/10 rounded-xl transition-colors"
                     >
                       <GraduationCap className="w-3.5 h-3.5" /> College Admin
+                    </NavLink>
+                  )}
+                  {inCollege && (
+                    <NavLink
+                      to="/collegeadmin/leaderboard"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-sm text-amber-400 hover:bg-amber-500/10 rounded-xl transition-colors"
+                    >
+                      <Trophy className="w-3.5 h-3.5" /> College Leaderboard
                     </NavLink>
                   )}
 

@@ -1,6 +1,7 @@
 const College = require("../models/collagescheam");
 const User = require("../models/Userschema");
 const Submission = require("../models/Submission");
+const userProblem = require("../models/Userdetail"); // same model getUserProfile uses for solved-count aggregation
 const client = require("../config/redis");
 const { createAccount, publicUser, normalizeEmail } = require("./auth");
 const bcrypt = require("bcrypt");
@@ -247,6 +248,94 @@ const makeStudentCollegeAdmin = async (req, res) => {
   }
 };
 
+// GET /collage/:collegeId/leaderboard
+// Ranks every member of a single college (students + any co-admins) by
+// TOTAL PROBLEMS SOLVED (accepted submissions), ties broken by who joined
+// earlier. Access is enforced upstream by collegeMemberScope: platform
+// Admin can view any college's board; everyone else can only view their
+// own college's board (via req.result.collegeId matching :collegeId) - a
+// student or admin from College A can never pull College B's leaderboard.
+//
+// Reputation is no longer used here - it's an unused/always-zero field on
+// the User schema in this codebase (nothing increments it), so sorting by
+// it was effectively meaningless. totalSolved is computed the same way
+// getUserProfile() does: distinct (userId, problemId) pairs from the
+// Userdetail collection where status === "accepted".
+//
+// NOTE: because the sort key (totalSolved) is computed, not stored, we
+// can't sort+paginate at the DB level like before - we pull every matching
+// user in the college, rank them all in memory, then slice the requested
+// page out of that ranked list.
+const getCollegeLeaderboard = async (req, res) => {
+  try {
+    const { collegeId } = req.params;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+
+    const filter = { collegeId, role: { $in: ["User", "CollageAdmin"] } };
+
+    const [allStudents, college] = await Promise.all([
+      User.find(filter)
+        .select("firstName lastName profileImage role createdAt")
+        .lean(),
+      College.findById(collegeId).select("Collage_name collegeCode"),
+    ]);
+
+    if (!college) {
+      return res.status(404).json({ success: false, message: "College not found" });
+    }
+
+    const total = allStudents.length;
+    const studentIds = allStudents.map((u) => u._id);
+
+    const solvedAgg = studentIds.length
+      ? await userProblem.aggregate([
+          { $match: { userId: { $in: studentIds }, status: "accepted" } },
+          // distinct (userId, problemId) first, same as getUserProfile,
+          // so re-submitting an already-solved problem doesn't inflate the count
+          { $group: { _id: { userId: "$userId", problemId: "$problemId" } } },
+          { $group: { _id: "$_id.userId", solvedCount: { $sum: 1 } } },
+        ])
+      : [];
+    const solvedMap = new Map(solvedAgg.map((s) => [String(s._id), s.solvedCount]));
+
+    const ranked = allStudents
+      .map((u) => ({
+        userId: u._id,
+        name: `${u.firstName} ${u.lastName || ""}`.trim(),
+        profileImage: u.profileImage,
+        totalSolved: solvedMap.get(String(u._id)) || 0,
+        role: u.role,
+        createdAt: u.createdAt,
+      }))
+      .sort((a, b) => {
+        if (b.totalSolved !== a.totalSolved) return b.totalSolved - a.totalSolved;
+        return new Date(a.createdAt) - new Date(b.createdAt); // earlier join wins ties
+      });
+
+    const startIdx = (page - 1) * limit;
+    const leaderboard = ranked.slice(startIdx, startIdx + limit).map((entry, idx) => ({
+      rank: startIdx + idx + 1,
+      userId: entry.userId,
+      name: entry.name,
+      profileImage: entry.profileImage,
+      totalSolved: entry.totalSolved,
+      role: entry.role,
+    }));
+
+    res.status(200).json({
+      success: true,
+      college: { name: college.Collage_name, code: college.collegeCode },
+      leaderboard,
+      page,
+      totalPages: Math.ceil(total / limit) || 1,
+      totalStudents: total,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ---- college registration requests (public → admin review) --------------
 
 // PUBLIC — no auth. This is what the Signup page's "Register your college"
@@ -471,6 +560,7 @@ module.exports = {
   deleteCollege,
   getCollegeStudents,
   makeStudentCollegeAdmin,
+  getCollegeLeaderboard,
   requestCollege,
   getCollegeRequests,
   approveCollegeRequest,

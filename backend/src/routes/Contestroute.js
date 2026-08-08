@@ -4,6 +4,7 @@ const router = express.Router();
 const userAuth = require('../middleware/userauth');
 const {
     isAdmin,
+    isContestOwner,
     contestExists,
     contestStarted,
     contestOngoing,
@@ -31,10 +32,16 @@ const {
 //  STATIC ROUTES FIRST  (must come before /:id routes)
 // ════════════════════════════════════════════════════
 
-// List all public contests
+// List contests. Scoped server-side by role/college in the controller:
+//   - Admin sees everything
+//   - CollageAdmin sees their college's contests + global ones (this is
+//     also what the College Admin "Manage Contests" page calls)
+//   - regular User sees their college's contests + global ones
 router.get('/all', userAuth, getAllContests);
 
-// Create a new contest (Admin only) — pass isPublic: false to make it private
+// Create a new contest — isAdmin already lets Admin OR CollageAdmin through.
+// A CollageAdmin's contest is auto-scoped to their own college inside the
+// controller. Pass isPublic: false to make it private.
 router.post('/create', userAuth, isAdmin, createContest);
 
 // Join a PRIVATE contest using its invite code
@@ -51,11 +58,13 @@ router.get('/:id', userAuth, contestExists, getContestById);
 // Register for a PUBLIC contest (private contests are rejected — use /contest/join)
 router.post('/:id/register', userAuth, contestExists, registerForContest);
 
-// Update a contest (Admin only)
-router.put('/:id/update', userAuth, isAdmin, contestExists, updateContest);
+// Update a contest. contestExists must run first so isContestOwner has
+// req.contest to check ownership against: Admin can edit any contest,
+// CollageAdmin only contests they personally created.
+router.put('/:id/update', userAuth, contestExists, isContestOwner, updateContest);
 
-// Delete a contest (Admin only)
-router.delete('/:id/delete', userAuth, isAdmin, contestExists, deleteContest);
+// Delete a contest — same ownership rule as update.
+router.delete('/:id/delete', userAuth, contestExists, isContestOwner, deleteContest);
 
 // Get all problems of a contest
 router.get('/:id/problems', userAuth, contestExists, contestStarted, isRegistered, getContestProblems);
@@ -70,7 +79,7 @@ router.post('/:id/submit/:problemId', userAuth, contestExists, contestStarted, c
 // tracked while the contest is live — see reportViolation for the gating).
 router.post('/:id/violation', userAuth, contestExists, isRegistered, reportViolation);
 
-// Get leaderboard
+// Get leaderboard (per-contest)
 router.get('/:id/leaderboard', userAuth, contestExists, contestStarted, getLeaderboard);
 
 // Get my own submissions in a contest

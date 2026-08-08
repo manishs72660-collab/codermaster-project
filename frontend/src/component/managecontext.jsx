@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { Trash2, Edit, Trophy, Clock, Users, X, Check, Plus, Search, Lock } from 'lucide-react';
+import { Trash2, Edit, Trophy, Clock, Users, X, Check, Plus, Search, Lock, Building2, Eye } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { fetchProblems } from '../problemslice';
 
@@ -44,6 +44,15 @@ export default function AdminManageContests() {
     initialized: problemsInitialized,
   } = useSelector((state) => state.problem);
 
+  // Current user - drives what this shared page shows/allows:
+  //   - Admin: sees every contest, every college, can edit/delete all of them.
+  //   - CollageAdmin: backend's /contest/all already scopes the list down to
+  //     their own college + global contests; here we additionally hide
+  //     Edit/Delete on any row they didn't personally create (contest.isOwner)
+  //     so they can't touch a co-admin's contest even within their own college.
+  const { user } = useSelector((state) => state.auth);
+  const isPlatformAdmin = user?.role === 'Admin';
+
   const allProblems = Array.isArray(allProblemsRaw) ? allProblemsRaw : [];
 
   const [contests, setContests]         = useState([]);
@@ -64,10 +73,9 @@ export default function AdminManageContests() {
     }
   }, [dispatch, problemsInitialized]);
 
-  // NOTE: this requires the backend fix to getAllContests — it must return
-  // BOTH public and private contests (previously it filtered to
-  // isPublic: true only, which silently hid every private contest from
-  // this page, making them impossible to edit or delete).
+  // Backend scopes this response by role: Admin gets everything, CollageAdmin
+  // gets their own college's contests + global ones, each row flagged with
+  // isOwner + collegeId (populated with { Collage_name, collegeCode }).
   const fetchContests = () => {
     setLoading(true);
     axiosClient.get('/contest/all')
@@ -127,8 +135,8 @@ export default function AdminManageContests() {
     try {
       await axiosClient.delete(`/contest/${id}/delete`);
       setContests((prev) => prev.filter((c) => c._id !== id));
-    } catch {
-      alert('Delete failed.');
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Delete failed.');
     } finally {
       setDeleting(null);
     }
@@ -190,7 +198,9 @@ export default function AdminManageContests() {
           <span className="adm-logo-text">CodeMaster</span>
           <div className="adm-topbar-sep" />
           <span className="adm-topbar-crumb">
-            <NavLink to="/admin" style={{ color: '#8b949e', textDecoration: 'none' }}>Admin</NavLink>
+            <NavLink to={isPlatformAdmin ? '/admin' : '/collegeadmin'} style={{ color: '#8b949e', textDecoration: 'none' }}>
+              {isPlatformAdmin ? 'Admin' : 'College Admin'}
+            </NavLink>
             {' / '}<span>Manage Contests</span>
           </span>
         </div>
@@ -203,7 +213,11 @@ export default function AdminManageContests() {
               <Plus size={14} /> Create New
             </button>
           </div>
-          <p className="adm-sub">Edit, update, or delete existing contests — public and private.</p>
+          <p className="adm-sub">
+            {isPlatformAdmin
+              ? 'Every contest across every college, plus global ones. You can edit or delete any of them.'
+              : 'Your college\'s contests, plus global ones. You can edit or delete the ones you created.'}
+          </p>
 
           <div className="adm-divider" />
 
@@ -225,6 +239,9 @@ export default function AdminManageContests() {
                 const st = statusLabel(contest);
                 const isEditing = editingId === contest._id;
                 const isPrivate = contest.isPublic === false;
+                // Admin can manage anything; CollageAdmin only what they created.
+                const canManage = isPlatformAdmin || contest.isOwner === true;
+                const collegeName = contest.collegeId?.Collage_name;
 
                 return (
                   <div key={contest._id} style={{ background: '#161b22', border: `1px solid ${isEditing ? '#2e1a4a' : '#21262d'}`, borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s' }}>
@@ -252,6 +269,33 @@ export default function AdminManageContests() {
                               {isPrivate && <Lock size={9} />}
                               {isPrivate ? 'Private' : 'Public'}
                             </span>
+                            {/* College badge - only really informative on the platform Admin's
+                                view since a CollageAdmin already knows it's their own college,
+                                but shown either way for consistency. Global contests (collegeId
+                                null) get a distinct grey badge instead. */}
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              fontSize: 9, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700,
+                              textTransform: 'uppercase', letterSpacing: '0.1em',
+                              color: collegeName ? '#4493f8' : '#495366',
+                              background: collegeName ? '#0d1a2e' : '#0d1117',
+                              border: `1px solid ${collegeName ? '#1c2a3a' : '#21262d'}`,
+                              borderRadius: 4, padding: '2px 7px', flexShrink: 0,
+                            }}>
+                              <Building2 size={9} />
+                              {collegeName || 'Global'}
+                            </span>
+                            {!canManage && (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                fontSize: 9, fontFamily: "'JetBrains Mono',monospace", fontWeight: 700,
+                                textTransform: 'uppercase', letterSpacing: '0.1em',
+                                color: '#8b949e', background: '#161b22', border: '1px solid #21262d',
+                                borderRadius: 4, padding: '2px 7px', flexShrink: 0,
+                              }}>
+                                <Eye size={9} /> View only
+                              </span>
+                            )}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 11, color: '#8b949e', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -267,9 +311,13 @@ export default function AdminManageContests() {
                         </div>
                       </div>
 
-                      {/* actions */}
+                      {/* actions — Edit/Delete only rendered when canManage is true.
+                          A contest this user can't manage (e.g. another college
+                          admin's contest, or another college's contest visible
+                          via a global listing) just shows the "View only" badge
+                          above instead of action buttons. */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        {isEditing ? (
+                        {!canManage ? null : isEditing ? (
                           <>
                             <button onClick={cancelEdit} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: '1px solid #21262d', borderRadius: 7, color: '#8b949e', fontFamily: "'JetBrains Mono',monospace", fontSize: 11, fontWeight: 700, padding: '6px 12px', cursor: 'pointer' }}>
                               <X size={12} /> Cancel
@@ -298,7 +346,7 @@ export default function AdminManageContests() {
                     </div>
 
                     {/* ── EDIT FORM (expanded) ── */}
-                    {isEditing && (
+                    {isEditing && canManage && (
                       <div style={{ borderTop: '1px solid #21262d', padding: '20px', background: '#0d1117' }}>
                         {error && (
                           <div style={{ background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.2)', borderRadius: 8, padding: '10px 14px', fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: '#ff4444', marginBottom: 16 }}>

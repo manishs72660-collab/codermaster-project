@@ -1,10 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useSelector } from 'react-redux';
+import Editor from '@monaco-editor/react';
 import axiosClient from '../utils/axiosClient';
 import socket from '../utils/socket';
 import Backbutton from '../component/backbutton';
 import DuelChatPanel from '../component/DuelChatPanel';
+
+const LANGUAGES = {
+  javascript: 'javascript',
+  python: 'python',
+  java: 'java',
+  cpp: 'cpp',
+  'c++': 'cpp'
+};
 
 // Watch-only view of a duel: no submissions, no editor — just both players'
 // live progress, the problem being fought over, and a chat you can join
@@ -23,6 +32,7 @@ const DuelSpectate = () => {
   const [progress, setProgress] = useState({}); // { [userId]: { passed, total } }
   const [winnerId, setWinnerId] = useState(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
+  const [liveCode, setLiveCode] = useState({}); // ✅ NEW: { [userId]: { code, language } }
 
   const timerRef = useRef(null);
 
@@ -49,19 +59,29 @@ const DuelSpectate = () => {
         setWinnerId(roomData.winnerId?._id || roomData.winnerId || null);
 
         const initialProgress = {};
+        const initialCode = {}; // ✅ NEW
         if (roomData.player1) {
-          initialProgress[roomData.player1.userId._id] = {
+          const pid1 = roomData.player1.userId._id;
+          initialProgress[pid1] = {
             passed: roomData.player1.testCasesPassed || 0,
             total: roomData.player1.totalTestCases || roomData.problemId?.hiddenTestCases?.length || 0
           };
+          if (roomData.player1.code) {
+            initialCode[pid1] = { code: roomData.player1.code, language: roomData.player1.language || 'javascript' };
+          }
         }
         if (roomData.player2) {
-          initialProgress[roomData.player2.userId._id] = {
+          const pid2 = roomData.player2.userId._id;
+          initialProgress[pid2] = {
             passed: roomData.player2.testCasesPassed || 0,
             total: roomData.player2.totalTestCases || roomData.problemId?.hiddenTestCases?.length || 0
           };
+          if (roomData.player2.code) {
+            initialCode[pid2] = { code: roomData.player2.code, language: roomData.player2.language || 'javascript' };
+          }
         }
         setProgress(initialProgress);
+        setLiveCode(initialCode); // ✅ NEW
 
         if (roomData.status === 'active' && roomData.startedAt) {
           startTimer(roomData.timeLimit, roomData.startedAt);
@@ -97,12 +117,18 @@ const DuelSpectate = () => {
 
     socket.on('duel:spectator_count', ({ count }) => setSpectatorCount(count));
 
+    // ✅ NEW: live code stream — updates whichever player's editor changed
+    socket.on('duel:opponent_code_update', ({ userId, code, language }) => {
+      setLiveCode((prev) => ({ ...prev, [userId]: { code, language } }));
+    });
+
     return () => {
       socket.emit('duel:spectate_leave', { roomCode, userId: user?._id });
       socket.off('duel:start');
       socket.off('duel:opponent_progress');
       socket.off('duel:finished');
       socket.off('duel:spectator_count');
+      socket.off('duel:opponent_code_update'); // ✅ NEW
       socket.disconnect();
       clearInterval(timerRef.current);
       cancelled = true;
@@ -254,6 +280,62 @@ const DuelSpectate = () => {
             fontSize: 13, color: '#3fb950', fontFamily: "'JetBrains Mono', monospace", fontWeight: 700
           }}>
             🏆 {[player1, player2].find(p => (p?.userId?._id || p?.userId)?.toString() === winnerId?.toString())?.userId?.firstName || 'A player'} won this duel
+          </div>
+        )}
+
+        {/* ✅ NEW: live dual-editor view — both players' code, updating in real time */}
+        {status !== 'waiting' && (
+          <div style={{
+            display: 'flex', gap: 16, marginBottom: 24,
+            border: '1px solid #21262d', borderRadius: 14, overflow: 'hidden', height: 420
+          }}>
+            {[
+              { player: player1, color: '#ffa116', label: 'Player 1' },
+              { player: player2, color: '#388bfd', label: 'Player 2' }
+            ].map(({ player, color, label }, i) => {
+              const pid = player?.userId?._id || player?.userId;
+              const entry = pid ? liveCode[pid] : null;
+              return (
+                <div key={i} style={{
+                  flex: 1, display: 'flex', flexDirection: 'column',
+                  borderRight: i === 0 ? '1px solid #21262d' : 'none', overflow: 'hidden'
+                }}>
+                  <div style={{
+                    padding: '10px 16px', background: '#161b22', borderBottom: '1px solid #21262d',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color }}>
+                      {player?.userId?.firstName || label}
+                    </span>
+                    <span style={{ fontSize: 10, color: '#7d8590', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>
+                      {entry?.language || '—'}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, background: '#0e1117' }}>
+                    {entry ? (
+                      <Editor
+                        height="100%"
+                        language={LANGUAGES[entry.language?.toLowerCase()] || 'javascript'}
+                        value={entry.code}
+                        theme="vs-dark"
+                        options={{
+                          readOnly: true, fontSize: 12, minimap: { enabled: false },
+                          scrollBeyondLastLine: false, automaticLayout: true,
+                          fontFamily: "'JetBrains Mono', monospace"
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#484f58', fontSize: 12, fontFamily: "'JetBrains Mono', monospace"
+                      }}>
+                        Waiting for code...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

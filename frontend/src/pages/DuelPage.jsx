@@ -5,7 +5,7 @@ import Editor from '@monaco-editor/react';
 import axiosClient from '../utils/axiosClient';
 import socket from '../utils/socket';
 import Backbutton from "../component/backbutton"
-import DuelChatPanel from "../component/Duelchatpanel"
+import DuelChatPanel from "../component/DuelChatPanel"
 
 // ✅ NEW: 4 languages, each with its display label, icon, and Monaco language id
 const LANGUAGES = [
@@ -42,9 +42,15 @@ const DuelPage = () => {
   // ✅ NEW: how many people are watching this duel
   const [spectatorCount, setSpectatorCount] = useState(0);
 
+  // ✅ NEW: post-duel "view opponent's code" modal
+  const [showOpponentCode, setShowOpponentCode] = useState(false);
+  const [replayData, setReplayData] = useState(null);
+  const [loadingReplay, setLoadingReplay] = useState(false);
+
   const timerRef = useRef(null);
   const editorRef = useRef(null);
   const gameStatusRef = useRef('waiting');
+  const codeUpdateTimeoutRef = useRef(null); // ✅ NEW: debounce handle for live code streaming
 
   const startTimer = (timeLimit, startedAt) => {
     clearInterval(timerRef.current);
@@ -177,6 +183,7 @@ const DuelPage = () => {
     socket.off('duel:spectator_count');
     socket.disconnect();
     clearInterval(timerRef.current);
+    clearTimeout(codeUpdateTimeoutRef.current); // ✅ NEW
   };
 }, [roomCode]);
 
@@ -184,6 +191,41 @@ const DuelPage = () => {
     if (problem) loadProblem(problem, selectedLanguage);
   }, [selectedLanguage, problem]);
 
+  // ✅ NEW: debounced live code broadcast — spectators only, never the opponent
+  const handleCodeChange = (val) => {
+    const newCode = val || '';
+    setCode(newCode);
+
+    if (gameStatusRef.current !== 'active') return;
+
+    clearTimeout(codeUpdateTimeoutRef.current);
+    codeUpdateTimeoutRef.current = setTimeout(() => {
+      socket.emit('duel:code_update', {
+        roomCode,
+        userId: user?._id,
+        code: newCode,
+        language: selectedLanguage
+      });
+    }, 400);
+  };
+
+  // ✅ NEW: fetch both players' final code after the duel ends
+  const handleViewOpponentCode = async () => {
+    if (!room) return;
+    setShowOpponentCode(true);
+    if (replayData) return; // already fetched
+    setLoadingReplay(true);
+    try {
+      const res = await axiosClient.get(`/duel/replay/${room._id}`);
+      setReplayData(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingReplay(false);
+    }
+  };
+
+  // ✅ FIXED: this declaration was missing its `const formatTime = (ms) => {` wrapper
   const formatTime = (ms) => {
     if (!ms) return '--:--';
     const m = Math.floor(ms / 60000);
@@ -341,6 +383,17 @@ const DuelPage = () => {
             >
               {rematching ? '⏳ Creating...' : '🔁 Rematch'}
             </button>
+            {/* ✅ NEW: view opponent's final code */}
+            <button
+              onClick={handleViewOpponentCode}
+              style={{
+                background: 'transparent', color: '#818cf8', border: '1px solid rgba(99,102,241,0.4)',
+                borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer',
+                fontSize: 14, fontFamily: "'Outfit', sans-serif"
+              }}
+            >
+              👁 View Opponent's Code
+            </button>
             <button onClick={() => navigate('/duel')} style={{ background: 'linear-gradient(135deg, #ffa116, #e08a00)', color: '#0e1117', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'Outfit', sans-serif" }}>
               ⚔ New Duel
             </button>
@@ -349,6 +402,69 @@ const DuelPage = () => {
             </button>
           </div>
         </div>
+
+        {/* ✅ NEW: opponent code modal — side-by-side comparison with your own final submission */}
+        {showOpponentCode && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 300,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24
+          }}>
+            <div style={{
+              background: '#0e1117', border: '1px solid #21262d', borderRadius: 16,
+              width: '100%', maxWidth: 1100, height: '85vh', display: 'flex', flexDirection: 'column',
+              overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
+            }}>
+              <div style={{
+                padding: '14px 20px', borderBottom: '1px solid #21262d', display: 'flex',
+                alignItems: 'center', justifyContent: 'space-between', flexShrink: 0
+              }}>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>🔍 Code Comparison</span>
+                <button
+                  onClick={() => setShowOpponentCode(false)}
+                  style={{ background: 'none', border: 'none', color: '#7d8590', fontSize: 20, cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {loadingReplay || !replayData ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 32, height: 32, border: '3px solid #1c2535', borderTop: '3px solid #818cf8', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+                  {[replayData.player1, replayData.player2].filter(Boolean).map((p, i) => {
+                    const isMe = p.userId?._id?.toString() === user?._id?.toString() || p.userId?.toString() === user?._id?.toString();
+                    return (
+                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: i === 0 ? '1px solid #21262d' : 'none', overflow: 'hidden' }}>
+                        <div style={{
+                          padding: '10px 16px', background: '#161b22', borderBottom: '1px solid #21262d',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0
+                        }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: isMe ? '#ffa116' : '#388bfd' }}>
+                            {isMe ? 'You' : (p.userId?.firstName || 'Opponent')}
+                          </span>
+                          <span style={{ fontSize: 11, color: '#7d8590', fontFamily: "'JetBrains Mono', monospace" }}>
+                            {p.testCasesPassed}/{p.totalTestCases} · {p.language}
+                          </span>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <Editor
+                            height="100%"
+                            language={LANGUAGES.find(l => l.key === p.language)?.monaco || p.language || 'javascript'}
+                            value={p.code || '// No submission'}
+                            theme="vs-dark"
+                            options={{ readOnly: true, fontSize: 12, minimap: { enabled: false }, scrollBeyondLastLine: false, fontFamily: "'JetBrains Mono', monospace" }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ✅ NEW: chat stays available after the duel ends — talk it out with your opponent (and any spectators) */}
         <DuelChatPanel roomCode={roomCode} userId={user?._id} userName={user?.firstName} role="player" accentColor="#ffa116" />
@@ -466,7 +582,7 @@ const DuelPage = () => {
               height="100%"
               language={LANGUAGES.find(l => l.key === selectedLanguage)?.monaco || 'javascript'}
               value={code}
-              onChange={(val) => setCode(val || '')}
+              onChange={handleCodeChange}
               onMount={(editor) => { editorRef.current = editor; }}
               theme="vs-dark"
               options={{

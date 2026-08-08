@@ -8,6 +8,7 @@ const {
   deleteCollege,
   getCollegeStudents,
   makeStudentCollegeAdmin,
+  getCollegeLeaderboard,
   requestCollege,
   getCollegeRequests,
   approveCollegeRequest,
@@ -18,6 +19,7 @@ const {
 const usermiddleware = require("../middleware/userauth");
 const adminmiddleware = require("../middleware/adminmiddleware");
 const collegeScope = require("../middleware/Collegescope"); // tenant-isolation check: Admin, or that college's own admin
+const collegeMemberScope = require("../middleware/collegeMemberScope"); // looser check: Admin, or ANY member (student or admin) of that college
 
 // Platform-admin only.
 router.get("/", usermiddleware, adminmiddleware, getAllColleges);
@@ -56,5 +58,11 @@ router.get("/:collegeId/students", usermiddleware, collegeScope, getCollegeStude
 // Promotes a student in this college to CollageAdmin. Any number of
 // co-admins can exist - collegeScope only checks role + collegeId.
 router.patch("/:collegeId/students/:userId/make-admin", usermiddleware, collegeScope, makeStudentCollegeAdmin);
+
+// NEW - College leaderboard. Uses collegeMemberScope (not collegeScope)
+// because this is viewable by ANY member of the college - regular
+// students included, not just the CollageAdmin - as well as the platform
+// Admin. A user from a different college is rejected with 403.
+router.get("/:collegeId/leaderboard", usermiddleware, collegeMemberScope, getCollegeLeaderboard);
 
 module.exports = router;

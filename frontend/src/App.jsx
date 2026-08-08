@@ -43,10 +43,12 @@ import CollegeAdminDashboard from "./pages/Collegeadmindashboard"
 import RegisterCollege from "./component/Registercollege";
 import CollegeRequests from "./pages/Collegerequests";
 import MakeAdmin from "./component/MakeAdmin";
+import CollegeLeaderboard from "./pages/CollegeLeaderboard";
 import RoadmapVisualizer from "./pages/roadmap";
 import DuelSpectate from "./pages/Duelspectate"
 //frontend/src/pages/Collegeadmindashboard.jsx
 //frontend/src/pages/Collegerequests.jsx
+//frontend/src/pages/CollegeLeaderboard.jsx
 // NOTE: no "/discuss" route exists anywhere in this file. If clicking
 // "Community" sometimes lands you on a discuss view, that behavior is being
 // decided *inside* the Community page component (./pages/connect.jsx) —
@@ -113,8 +115,11 @@ function App(){
      <Route path="/duel/watch/:roomCode" element={<DuelSpectate />} />
     <Route path="/duel/leaderboard" element={<DuelLeaderboard />} />
     <Route path="/contest/:contestId" element={<ContestDetail></ContestDetail>}></Route>
-    <Route path="/admin/contest/create" element={<AdminCreateContest></AdminCreateContest>}></Route>
-    <Route path="/admin/contest/manage" element={<AdminManageContests></AdminManageContests>}></Route>
+    {/* Create/Manage contest — shared between platform Admin and CollageAdmin.
+        Was previously unguarded; a CollageAdmin can now create/manage their
+        own college's contests here too, per the backend college-scoping. */}
+    <Route path="/admin/contest/create" element={isAuthenticated && (user?.role === 'Admin' || user?.role === 'CollageAdmin') ? <AdminCreateContest></AdminCreateContest> : <Navigate to="/" />}></Route>
+    <Route path="/admin/contest/manage" element={isAuthenticated && (user?.role === 'Admin' || user?.role === 'CollageAdmin') ? <AdminManageContests></AdminManageContests> : <Navigate to="/" />}></Route>
     <Route path="/contest/:contestId/problem/:problemId" element={<ContestProblemEditor></ContestProblemEditor>}></Route>
     <Route path="/explore/cheatsheet" element={<CheatSheet></CheatSheet>}></Route>
     <Route path="/explore/complexity" element={<TimeComplexityVisualizer></TimeComplexityVisualizer>}></Route>
@@ -130,8 +135,16 @@ function App(){
     <Route path="/admin/colleges/requests" element={isAuthenticated && user?.role === 'Admin' ? <CollegeRequests /> : <Navigate to="/" />} />
     {/* Platform admin: drill into one college's dashboard (view-only lens on someone else's college) */}
     <Route path="/admin/colleges/:collegeId" element={isAuthenticated && user?.role === 'Admin' ? <CollegeAdminDashboard /> : <Navigate to="/" />} />
+    {/* Platform admin: drill into one college's leaderboard */}
+    <Route path="/admin/colleges/:collegeId/leaderboard" element={isAuthenticated && user?.role === 'Admin' ? <CollegeLeaderboard /> : <Navigate to="/" />} />
     {/* College admin: their own college's dashboard (collegeId comes from their own user record) */}
     <Route path="/collegeadmin" element={isAuthenticated && user?.role === 'CollageAdmin' ? <CollegeAdminDashboard /> : <Navigate to="/" />} />
+    {/* College leaderboard - any authenticated college member (student or
+        CollageAdmin) viewing their OWN college; collegeId is resolved
+        inside CollegeLeaderboard.jsx via the user's profile. Platform Admin
+        is excluded here since they aren't tied to a single college - they
+        use /admin/colleges/:collegeId/leaderboard above instead. */}
+    <Route path="/collegeadmin/leaderboard" element={isAuthenticated && user?.role !== 'Admin' ? <CollegeLeaderboard /> : <Navigate to="/" />} />
     <Route path="/community" element={<Community />} />
 <Route path="/community/post/:id" element={<CommunityPostDetail />} />
 <Route path="/roadmap" element={<RoadmapVisualizer></RoadmapVisualizer>}></Route>

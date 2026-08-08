@@ -25,13 +25,19 @@ const generateUniqueJoinCode = async () => {
 };
 
 // ════════════════════════════════════════════════════════════════════
-//  ADMIN CONTROLLERS
+//  ADMIN / COLLEGE-ADMIN CONTROLLERS
 // ════════════════════════════════════════════════════════════════════
 
 // POST /contest/create
+// Callable by platform Admin OR CollageAdmin (gated by isAdminOrCollegeAdmin
+// middleware). A CollageAdmin's contest is ALWAYS locked to their own
+// college - we never trust a collegeId from the request body for them,
+// otherwise they could plant a contest inside another college. A platform
+// Admin may optionally scope a contest to a college via body.collegeId,
+// or leave it out entirely for a global/platform-wide contest.
 const createContest = async (req, res) => {
     try {
-        const { title, description, startTime, endTime, problems, isPublic } = req.body;
+        const { title, description, startTime, endTime, problems, isPublic, collegeId } = req.body;
 
         if (!title || !description || !startTime || !endTime) {
             return res.status(400).json({ message: 'title, description, startTime, endTime are required' });
@@ -56,6 +62,11 @@ const createContest = async (req, res) => {
             joinCode = await generateUniqueJoinCode();
         }
 
+        // CollageAdmin: always locked to their own college (ignore body.collegeId).
+        // Admin: may optionally scope it to a college, otherwise global (null).
+        const resolvedCollegeId =
+            req.result.role === 'CollageAdmin' ? req.result.collegeId : (collegeId || null);
+
         const contest = await Contest.create({
             title,
             description,
@@ -65,11 +76,12 @@ const createContest = async (req, res) => {
             isPublic: resolvedIsPublic,
             joinCode,
             createdBy: req.result._id,
+            collegeId: resolvedCollegeId,
         });
 
         // NOTE: `contest` here includes joinCode — this is returned to the
-        // creator (Admin) only, directly from the create response. The
-        // frontend must capture this from the response body, since it is
+        // creator (Admin/CollageAdmin) only, directly from the create response.
+        // The frontend must capture this from the response body, since it is
         // never exposed again through the public /contest/all list.
         res.status(201).json({ message: 'Contest created successfully', contest });
     } catch (err) {
@@ -78,6 +90,10 @@ const createContest = async (req, res) => {
 };
 
 // PUT /contest/:id/update
+// Ownership enforced upstream by isContestOwner middleware (Admin can edit
+// any contest; CollageAdmin only contests where createdBy === themselves).
+// collegeId is intentionally NOT accepted here - a contest's college is
+// fixed at creation time and can't be reassigned via update.
 const updateContest = async (req, res) => {
     try {
         const { title, description, startTime, endTime, problems, isPublic } = req.body;
@@ -86,7 +102,9 @@ const updateContest = async (req, res) => {
             return res.status(400).json({ message: 'startTime must be before endTime' });
         }
 
-        const existing = await Contest.findById(req.params.id);
+        // req.contest is already loaded by contestExists middleware, but we
+        // re-use it directly rather than re-fetching.
+        const existing = req.contest;
         if (!existing) {
             return res.status(404).json({ message: 'Contest not found' });
         }
@@ -114,6 +132,8 @@ const updateContest = async (req, res) => {
 };
 
 // DELETE /contest/:id/delete
+// Ownership enforced upstream by isContestOwner middleware - a CollageAdmin
+// can only reach this handler for contests they created themselves.
 const deleteContest = async (req, res) => {
     try {
         await Contest.findByIdAndDelete(req.params.id);
@@ -128,24 +148,38 @@ const deleteContest = async (req, res) => {
 //  PUBLIC CONTROLLERS
 // ════════════════════════════════════════════════════════════════════
 
-// GET /contest/all  — list ALL contests (public + private), grouped by status.
+// GET /contest/all
+// Response is scoped by caller role/college so this single endpoint can
+// safely power BOTH the public "browse contests" page AND the College
+// Admin's "Manage Contests" page:
+//   - Admin (platform):      sees every contest, any college, global too.
+//   - CollageAdmin:          sees contests where collegeId === their own
+//                            college, PLUS global (collegeId: null)
+//                            contests. isOwner flag lets the frontend show
+//                            edit/delete only on rows they actually created.
+//   - Regular User:          same scoping as CollageAdmin, using their own
+//                            collegeId. Users with no collegeId (no college
+//                            attached) only see global contests.
 //
-// FIX: previously filtered to { isPublic: true }, which meant:
-//   1. Private contests never showed up on the public /contest listing page
-//      (so users had no way to even know a private contest existed, beyond
-//      an invite link nobody sends).
-//   2. Private contests also vanished from the Admin "Manage Contests" page,
-//      since it reuses this same endpoint — admins couldn't edit/delete
-//      their own private contests.
-//
-// This is safe to open up because joinCode is intentionally excluded from
-// .select() below — it is NEVER present in this response, public or private.
+// joinCode is intentionally excluded from .select() below in every case -
+// it is NEVER present in this response, public or private, owner or not.
 const getAllContests = async (req, res) => {
     try {
         const now = new Date();
+        const { role, collegeId } = req.result;
 
-        const contests = await Contest.find({})
-            .select('title description startTime endTime problems participants status isPublic createdBy')
+        const filter = {};
+        if (role === 'Admin') {
+            // Platform admin: no filter, sees everything.
+        } else if (role === 'CollageAdmin') {
+            filter.$or = [{ collegeId: collegeId }, { collegeId: null }];
+        } else {
+            filter.$or = collegeId ? [{ collegeId }, { collegeId: null }] : [{ collegeId: null }];
+        }
+
+        const contests = await Contest.find(filter)
+            .select('title description startTime endTime problems participants status isPublic createdBy collegeId')
+            .populate('collegeId', 'Collage_name collegeCode')
             .sort({ startTime: 1 });
 
         const result = contests.map((c) => ({
@@ -156,6 +190,7 @@ const getAllContests = async (req, res) => {
                 : 'ended',
             totalProblems: c.problems.length,
             totalParticipants: c.participants.length,
+            isOwner: String(c.createdBy) === String(req.result._id),
         }));
 
         res.status(200).json(result);
@@ -169,6 +204,7 @@ const getContestById = async (req, res) => {
     try {
         const contest = await Contest.findById(req.params.id)
             .populate('createdBy', 'firstName lastName')
+            .populate('collegeId', 'Collage_name collegeCode')
             .populate('problems', 'title difficulty');
 
         if (!contest) return res.status(404).json({ message: 'Contest not found' });
@@ -544,7 +580,11 @@ const contestSubmit = async (req, res) => {
 //  LEADERBOARD
 // ════════════════════════════════════════════════════════════════════
 
-// GET /contest/:id/leaderboard
+// GET /contest/:id/leaderboard  — per-contest leaderboard (unchanged).
+// For a per-COLLEGE, cross-contest leaderboard (ranking all students in a
+// college by reputation), see getCollegeLeaderboard in collageauth.js -
+// that one lives on the /collage routes since it's not tied to a single
+// contest.
 const getLeaderboard = async (req, res) => {
     try {
         const leaderboard = await computeLeaderboard(req.params.id);

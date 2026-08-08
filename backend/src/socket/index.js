@@ -3,7 +3,7 @@ const ChatRequest = require("../models/chatrequest");
 const Message = require("../models/message");
 
 const pendingTimeouts = {}; // { chatRequestId: timeoutHandle }
-const spectatorRooms = {};  // ✅ NEW: { roomCode: Set of spectator socket ids }
+const spectatorRooms = {};  // { roomCode: Set of spectator socket ids }
 
 function initializeSocket(io) {
   io.on("connection", (socket) => {
@@ -161,19 +161,16 @@ function initializeSocket(io) {
       socket.to(roomCode).emit("duel:opponent_ready", { userId });
     });
 
-    // Live progress ticks the frontend can emit as the player runs code
-    // (separately from the final REST submit, which also emits its own
-    // duel:progress from the controller). Drives the opponent progress bar.
     socket.on("duel:progress", ({ roomCode, userId, testCasesPassed, total }) => {
       socket.to(roomCode).emit("duel:opponent_progress", {
         userId,
         testCasesPassed,
         total,
-        percent: total ? Math.round((testCasesPassed / total) * 100) : 0 // ✅ NEW
+        percent: total ? Math.round((testCasesPassed / total) * 100) : 0
       });
     });
 
-    // ✅ NEW: DUEL CHAT — live-only, no persistence, scoped to roomCode
+    // DUEL CHAT — live-only, no persistence, scoped to roomCode (players + spectators)
     socket.on("duel:chat_message", ({ roomCode, userId, name, text }) => {
       if (!text || !text.trim()) return;
       io.to(roomCode).emit("duel:chat_message", {
@@ -184,10 +181,24 @@ function initializeSocket(io) {
       });
     });
 
-    // ✅ NEW: SPECTATOR MODE — any logged-in user can watch a room live
+    // ✅ NEW: LIVE CODE STREAM — a player's editor changes are relayed ONLY to
+    // the spec-{roomCode} room (spectators), never to the opponent's socket.
+    // This keeps the actual duel fair (no one can see their opponent's code
+    // live) while still letting spectators watch both editors update in
+    // real time. Frontend should debounce/throttle this call (e.g. every
+    // 300-500ms) rather than emitting on every keystroke.
+    socket.on("duel:code_update", ({ roomCode, userId, code, language }) => {
+      io.to(`spec-${roomCode}`).emit("duel:opponent_code_update", { userId, code, language });
+    });
+
+    // SPECTATOR MODE — any logged-in user can watch a room live.
+    // Spectators join BOTH the main roomCode room (for progress/chat/finish
+    // events) and a dedicated spec-{roomCode} room (for the live code feed),
+    // so code updates never leak into the roomCode broadcast the players share.
     socket.on("duel:spectate_join", ({ roomCode, userId }) => {
       try {
         socket.join(roomCode);
+        socket.join(`spec-${roomCode}`); // ✅ NEW
         socket.isSpectator = true;
         socket.spectatingRoom = roomCode;
 
@@ -204,6 +215,7 @@ function initializeSocket(io) {
     socket.on("duel:spectate_leave", ({ roomCode, userId }) => {
       try {
         socket.leave(roomCode);
+        socket.leave(`spec-${roomCode}`); // ✅ NEW
         if (spectatorRooms[roomCode]) {
           spectatorRooms[roomCode].delete(socket.id);
           io.to(roomCode).emit("duel:spectator_count", { count: spectatorRooms[roomCode].size });
@@ -228,8 +240,7 @@ function initializeSocket(io) {
     socket.on("disconnecting", () => {
       const rooms = [...socket.rooms];
       rooms.forEach((room) => {
-        // don't fire "opponent_left" for rooms this socket was only spectating
-        if (!(socket.isSpectator && socket.spectatingRoom === room)) {
+        if (!(socket.isSpectator && (socket.spectatingRoom === room || room === `spec-${socket.spectatingRoom}`))) {
           socket.to(room).emit("duel:opponent_left");
         }
       });
@@ -239,7 +250,6 @@ function initializeSocket(io) {
     socket.on("disconnect", async () => {
       console.log("Socket disconnected:", socket.id);
       try {
-        // ✅ NEW: clean up spectator tracking
         if (socket.isSpectator && socket.spectatingRoom && spectatorRooms[socket.spectatingRoom]) {
           spectatorRooms[socket.spectatingRoom].delete(socket.id);
           io.to(socket.spectatingRoom).emit("duel:spectator_count", {

@@ -10,6 +10,33 @@ const isAdmin = (req, res, next) => {
     next();
 };
 
+// NEW — ownership gate for update/delete. Must run AFTER contestExists
+// (reads req.contest). Platform Admin can manage any contest. CollageAdmin
+// can only manage contests they personally created (req.contest.createdBy
+// === req.result._id) — this stops one college admin from editing or
+// deleting another college admin's contest, even one within their own
+// college. Regular Users never reach this (isAdmin already excludes them
+// upstream, but the role is re-checked here defensively).
+const isContestOwner = (req, res, next) => {
+    if (!req.result) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    if (req.result.role === 'Admin') {
+        return next();
+    }
+
+    if (req.result.role === 'CollageAdmin') {
+        const isCreator = req.contest.createdBy.toString() === req.result._id.toString();
+        if (!isCreator) {
+            return res.status(403).json({ message: 'You can only manage contests you created' });
+        }
+        return next();
+    }
+
+    return res.status(403).json({ message: 'Access denied. Admins only.' });
+};
+
 // Check contest exists and attach to req
 const contestExists = async (req, res, next) => {
     try {
@@ -57,4 +84,4 @@ const isRegistered = (req, res, next) => {
     next();
 };
 
-module.exports = { isAdmin, contestExists, contestStarted, contestOngoing, isRegistered };
+module.exports = { isAdmin, isContestOwner, contestExists, contestStarted, contestOngoing, isRegistered };

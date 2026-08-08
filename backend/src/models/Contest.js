@@ -36,6 +36,17 @@ const contestSchema = new Schema({
         ref: 'User',
         required: true,
     },
+    // NEW — which college this contest belongs to. null means it's a
+    // global/platform-wide contest, visible to every user regardless of
+    // their own collegeId. Set once in createContest (locked to the
+    // creator's own college for a CollageAdmin) and never reassigned by
+    // updateContest.
+    collegeId: {
+        type: Schema.Types.ObjectId,
+        ref: 'College',
+        default: null,
+        index: true,
+    },
     isPublic: {
         type: Boolean,
         default: true,

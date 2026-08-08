@@ -1,17 +1,39 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, NavLink } from 'react-router';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'motion/react';
-import { Search, ShieldCheck, X, Code2, Trophy, ExternalLink } from 'lucide-react';
+import { Search, ShieldCheck, X, Code2, Trophy, ExternalLink, ListChecks } from 'lucide-react';
 
 // Swap this for your project's real axios wrapper if the path differs.
 import axiosClient from '../utils/axiosClient';
+import { fetchUserProfile } from '../profileSlice';
 
 function CollegeAdminDashboard() {
   const { collegeId: collegeIdParam } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const collegeId = collegeIdParam || user?.collegeId;
+  // Same fix as Navbar.jsx/CollegeLeaderboard.jsx: user.collegeId is NOT
+  // reliably present on the auth slice (Homepage.jsx proves this - it needs
+  // a separate fetchUserProfile() call to learn about the user's college).
+  // getUserProfile's backend response confirms college.id is present there,
+  // so fetch it here too and use it as a fallback instead of assuming
+  // user.collegeId is populated.
+  const { data: profileData } = useSelector((state) => state.profile);
+
+  useEffect(() => {
+    if (!user?._id || profileData) return;
+    dispatch(fetchUserProfile(user._id));
+  }, [dispatch, user, profileData]);
+
+  const collegeId = collegeIdParam || user?.collegeId || profileData?.college?.id;
+
+  // A platform Admin drilling into someone else's college via
+  // /admin/colleges/:collegeId is viewing, not managing — hide the
+  // contest-management shortcuts in that case since they're scoped to
+  // "my own college" and an Admin should use /admin/contest/manage instead
+  // (which already shows every college, with a college badge per contest).
+  const isOwnCollegeAdmin = user?.role === 'CollageAdmin';
 
   const [students, setStudents] = useState([]);
   const [page, setPage] = useState(1);
@@ -62,6 +84,16 @@ function CollegeAdminDashboard() {
     }
   };
 
+  // Still resolving profile (collegeId not known yet) - avoid flashing the
+  // "no college" message before fetchUserProfile has had a chance to return.
+  if (!collegeId && !collegeIdParam && !profileData) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#050505] font-body text-white/40">
+        Loading...
+      </div>
+    );
+  }
+
   if (!collegeId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#050505] font-body text-white/40">
@@ -89,17 +121,35 @@ function CollegeAdminDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between gap-4"
+          className="flex flex-wrap items-center justify-between gap-3"
         >
           <h1 className="font-display text-2xl font-800 tracking-tight text-white">
             Students
           </h1>
-          <button
-            onClick={() => navigate('/admin/contest/create')}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-500/25 bg-violet-500/[0.08] px-3.5 py-2 text-xs font-medium text-violet-300 transition-colors hover:border-violet-500/45 hover:bg-violet-500/15"
-          >
-            <Trophy className="h-3.5 w-3.5" /> Create Contest
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {isOwnCollegeAdmin && (
+              <>
+                <button
+                  onClick={() => navigate('/collegeadmin/leaderboard')}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/[0.08] px-3.5 py-2 text-xs font-medium text-amber-300 transition-colors hover:border-amber-500/45 hover:bg-amber-500/15"
+                >
+                  <Trophy className="h-3.5 w-3.5" /> Leaderboard
+                </button>
+                <button
+                  onClick={() => navigate('/admin/contest/manage')}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/[0.08] px-3.5 py-2 text-xs font-medium text-sky-300 transition-colors hover:border-sky-500/45 hover:bg-sky-500/15"
+                >
+                  <ListChecks className="h-3.5 w-3.5" /> Manage Contests
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => navigate('/admin/contest/create')}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-500/25 bg-violet-500/[0.08] px-3.5 py-2 text-xs font-medium text-violet-300 transition-colors hover:border-violet-500/45 hover:bg-violet-500/15"
+            >
+              <Trophy className="h-3.5 w-3.5" /> Create Contest
+            </button>
+          </div>
         </motion.div>
 
         {error && (
