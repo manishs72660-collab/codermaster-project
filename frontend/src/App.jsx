@@ -44,6 +44,7 @@ import RegisterCollege from "./component/Registercollege";
 import CollegeRequests from "./pages/Collegerequests";
 import MakeAdmin from "./component/MakeAdmin";
 import RoadmapVisualizer from "./pages/roadmap";
+import DuelSpectate from "./pages/Duelspectate"
 //frontend/src/pages/Collegeadmindashboard.jsx
 //frontend/src/pages/Collegerequests.jsx
 // NOTE: no "/discuss" route exists anywhere in this file. If clicking
@@ -109,6 +110,7 @@ function App(){
       <Route path="/admin/update/:problemId" element={<AdminUpdate></AdminUpdate>}/>
       <Route path="/duel" element={ <DuelLobby />} />
      <Route path="/duel/:roomCode" element={<DuelPage />} />
+     <Route path="/duel/watch/:roomCode" element={<DuelSpectate />} />
     <Route path="/duel/leaderboard" element={<DuelLeaderboard />} />
     <Route path="/contest/:contestId" element={<ContestDetail></ContestDetail>}></Route>
     <Route path="/admin/contest/create" element={<AdminCreateContest></AdminCreateContest>}></Route>

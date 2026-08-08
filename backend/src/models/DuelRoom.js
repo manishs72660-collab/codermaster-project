@@ -18,19 +18,20 @@ const playerSchema = new Schema({
 }, { _id: false });
 
 const duelRoomSchema = new Schema({
-  roomCode: { type: String, required: true, unique: true },  // e.g "ABC123"
+  roomCode: { type: String, required: true, unique: true },
   problemId: { type: Schema.Types.ObjectId, ref: 'problem', required: true },
   status: {
     type: String,
     enum: ['waiting', 'active', 'finished'],
     default: 'waiting'
   },
-  timeLimit: { type: Number, default: 30 },   // minutes
+  timeLimit: { type: Number, default: 30 },
   player1: { type: playerSchema, required: true },
-  player2: { type: playerSchema },             // joins later
+  player2: { type: playerSchema },
   winnerId: { type: Schema.Types.ObjectId, ref: 'User' },
   startedAt: { type: Date },
-  finishedAt: { type: Date }
+  finishedAt: { type: Date },
+  rematchOf: { type: Schema.Types.ObjectId, ref: 'duelroom', default: null } // ✅ NEW: links a rematch room back to the original
 }, { timestamps: true });
 
 const DuelRoom = mongoose.model('duelroom', duelRoomSchema);

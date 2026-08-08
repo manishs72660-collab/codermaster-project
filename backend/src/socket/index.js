@@ -2,8 +2,8 @@ const client = require("../config/redis");
 const ChatRequest = require("../models/chatrequest");
 const Message = require("../models/message");
 
-// tracks pending auto-expire timers so we can cancel them if admin responds in time
 const pendingTimeouts = {}; // { chatRequestId: timeoutHandle }
+const spectatorRooms = {};  // ✅ NEW: { roomCode: Set of spectator socket ids }
 
 function initializeSocket(io) {
   io.on("connection", (socket) => {
@@ -26,14 +26,10 @@ function initializeSocket(io) {
       }
     });
 
-    // ================= STAGE 2: chat request flow =================
+    // ================= STAGE 2: chat request flow (unchanged) =================
 
-    // USER sends a chat request to a specific online admin
     socket.on("chat:request", async ({ userId, adminId }) => {
       try {
-        // FIX: block requesting a chat with yourself (e.g. a CollageAdmin
-        // somehow ends up targeting their own id). Server-side guard so this
-        // can't happen regardless of what the frontend sends.
         if (userId === adminId) {
           socket.emit("chat:request_failed", { reason: "You can't request a chat with yourself" });
           return;
@@ -77,7 +73,6 @@ function initializeSocket(io) {
       }
     });
 
-    // ADMIN responds to a request
     socket.on("chat:respond", async ({ chatRequestId, accept }) => {
       try {
         const chatRequest = await ChatRequest.findById(chatRequestId);
@@ -89,44 +84,22 @@ function initializeSocket(io) {
         }
 
         const userSocketId = await client.hGet("online_users", chatRequest.userId.toString());
-
-        // DIAGNOSTIC: tells us whether Redis has a stale socket id for the
-        // requester (userSocketId present but not found live), or whether
-        // Redis never had one to begin with (userSocketId missing). Remove
-        // once you've confirmed delivery is reliable.
         const requesterSocket = userSocketId ? io.sockets.sockets.get(userSocketId) : null;
-        console.log(
-          "chat:respond -> requester userSocketId:",
-          userSocketId,
-          "| live socket found:",
-          !!requesterSocket
-        );
 
         if (accept) {
           chatRequest.status = "accepted";
           await chatRequest.save();
 
           const roomName = `chat-${chatRequest._id}`;
-          socket.join(roomName); // admin (acceptor) joins — this is always a live socket
-
-          // Best effort: also add the requester's socket to the room (for
-          // chat:message / chat:ended delivery going forward).
+          socket.join(roomName);
           requesterSocket?.join(roomName);
 
           await client.set(`admin_busy:${chatRequest.adminId}`, roomName);
 
           const payload = { chatRequestId, roomName };
 
-          // Room emit covers the normal case.
           io.to(roomName).emit("chat:started", payload);
 
-          // FIX: direct emit to the requester's known socket id as a
-          // fallback. If the join above silently failed (stale Redis entry,
-          // multi-instance deployment without a shared adapter, etc.), the
-          // room emit alone would never reach the requester and they'd be
-          // stuck waiting forever. This guarantees delivery whenever Redis
-          // has a currently-valid socket id for them, independent of
-          // whether the room join itself succeeded.
           if (userSocketId) {
             io.to(userSocketId).emit("chat:started", payload);
           }
@@ -142,12 +115,6 @@ function initializeSocket(io) {
       }
     });
 
-    // NEW: lets a client (re)join a chat room's socket.io room on demand.
-    // Needed for ChatRoomModal — when a user reopens a past chat from
-    // "View All Chats" (possibly after a page refresh / new socket
-    // connection), their socket was never added to that room via
-    // chat:respond, so without this, live messages / chat:ended wouldn't
-    // reach them even though history still loads fine via the REST call.
     socket.on("chat:join_room", async ({ roomName }) => {
       try {
         socket.join(roomName);
@@ -156,10 +123,9 @@ function initializeSocket(io) {
       }
     });
 
-    // persists to MongoDB so refresh doesn't lose history
     socket.on("chat:message", async ({ roomName, chatRequestId, senderId, text }) => {
       try {
-        if (!text || !text.trim()) return; // ignore empty messages
+        if (!text || !text.trim()) return;
 
         const message = await Message.create({ chatRequestId, senderId, text: text.trim() });
 
@@ -174,7 +140,6 @@ function initializeSocket(io) {
       }
     });
 
-    // either side ends the chat
     socket.on("chat:end", async ({ chatRequestId, roomName, adminId }) => {
       try {
         await ChatRequest.findByIdAndUpdate(chatRequestId, { status: "ended" });
@@ -185,7 +150,7 @@ function initializeSocket(io) {
       }
     });
 
-    // ================= existing duel/contest handlers (unchanged) =================
+    // ================= DUEL: core (unchanged) =================
 
     socket.on("duel:join_room", ({ roomCode, userId }) => {
       socket.join(roomCode);
@@ -196,9 +161,61 @@ function initializeSocket(io) {
       socket.to(roomCode).emit("duel:opponent_ready", { userId });
     });
 
+    // Live progress ticks the frontend can emit as the player runs code
+    // (separately from the final REST submit, which also emits its own
+    // duel:progress from the controller). Drives the opponent progress bar.
     socket.on("duel:progress", ({ roomCode, userId, testCasesPassed, total }) => {
-      socket.to(roomCode).emit("duel:opponent_progress", { userId, testCasesPassed, total });
+      socket.to(roomCode).emit("duel:opponent_progress", {
+        userId,
+        testCasesPassed,
+        total,
+        percent: total ? Math.round((testCasesPassed / total) * 100) : 0 // ✅ NEW
+      });
     });
+
+    // ✅ NEW: DUEL CHAT — live-only, no persistence, scoped to roomCode
+    socket.on("duel:chat_message", ({ roomCode, userId, name, text }) => {
+      if (!text || !text.trim()) return;
+      io.to(roomCode).emit("duel:chat_message", {
+        userId,
+        name: name || "Player",
+        text: text.trim(),
+        createdAt: new Date()
+      });
+    });
+
+    // ✅ NEW: SPECTATOR MODE — any logged-in user can watch a room live
+    socket.on("duel:spectate_join", ({ roomCode, userId }) => {
+      try {
+        socket.join(roomCode);
+        socket.isSpectator = true;
+        socket.spectatingRoom = roomCode;
+
+        if (!spectatorRooms[roomCode]) spectatorRooms[roomCode] = new Set();
+        spectatorRooms[roomCode].add(socket.id);
+
+        socket.to(roomCode).emit("duel:spectator_joined", { userId });
+        io.to(roomCode).emit("duel:spectator_count", { count: spectatorRooms[roomCode].size });
+      } catch (err) {
+        console.error("duel:spectate_join error:", err);
+      }
+    });
+
+    socket.on("duel:spectate_leave", ({ roomCode, userId }) => {
+      try {
+        socket.leave(roomCode);
+        if (spectatorRooms[roomCode]) {
+          spectatorRooms[roomCode].delete(socket.id);
+          io.to(roomCode).emit("duel:spectator_count", { count: spectatorRooms[roomCode].size });
+        }
+        socket.isSpectator = false;
+        socket.spectatingRoom = null;
+      } catch (err) {
+        console.error("duel:spectate_leave error:", err);
+      }
+    });
+
+    // ================= CONTEST (unchanged) =================
 
     socket.on("contest:join", ({ contestId, userId }) => {
       socket.join(`contest-${contestId}`);
@@ -211,7 +228,10 @@ function initializeSocket(io) {
     socket.on("disconnecting", () => {
       const rooms = [...socket.rooms];
       rooms.forEach((room) => {
-        socket.to(room).emit("duel:opponent_left");
+        // don't fire "opponent_left" for rooms this socket was only spectating
+        if (!(socket.isSpectator && socket.spectatingRoom === room)) {
+          socket.to(room).emit("duel:opponent_left");
+        }
       });
     });
 
@@ -219,14 +239,20 @@ function initializeSocket(io) {
     socket.on("disconnect", async () => {
       console.log("Socket disconnected:", socket.id);
       try {
+        // ✅ NEW: clean up spectator tracking
+        if (socket.isSpectator && socket.spectatingRoom && spectatorRooms[socket.spectatingRoom]) {
+          spectatorRooms[socket.spectatingRoom].delete(socket.id);
+          io.to(socket.spectatingRoom).emit("duel:spectator_count", {
+            count: spectatorRooms[socket.spectatingRoom].size
+          });
+        }
+
         if (socket.userId) {
           await client.hDel("online_users", socket.userId);
 
           if (socket.role === "CollageAdmin") {
             await client.sRem("online_admins", socket.userId);
             io.emit("admin:status_update", { userId: socket.userId, status: "offline" });
-
-            // release admin_busy if they disconnect mid-chat
             await client.del(`admin_busy:${socket.userId}`);
           }
         }

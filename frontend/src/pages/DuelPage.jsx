@@ -5,6 +5,16 @@ import Editor from '@monaco-editor/react';
 import axiosClient from '../utils/axiosClient';
 import socket from '../utils/socket';
 import Backbutton from "../component/backbutton"
+import DuelChatPanel from "../component/Duelchatpanel"
+
+// ✅ NEW: 4 languages, each with its display label, icon, and Monaco language id
+const LANGUAGES = [
+  { key: 'javascript', label: 'JavaScript', icon: '🟨', monaco: 'javascript' },
+  { key: 'python', label: 'Python', icon: '🐍', monaco: 'python' },
+  { key: 'java', label: 'Java', icon: '☕', monaco: 'java' },
+  { key: 'cpp', label: 'C++', icon: '⚙️', monaco: 'cpp' },
+];
+
 const DuelPage = () => {
   const { roomCode } = useParams();
   const navigate = useNavigate();
@@ -25,12 +35,19 @@ const DuelPage = () => {
   const [result, setResult] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
 
+  // ✅ NEW: rematch state
+  const [rematching, setRematching] = useState(false);
+  const [rematchInvite, setRematchInvite] = useState(null);
+
+  // ✅ NEW: how many people are watching this duel
+  const [spectatorCount, setSpectatorCount] = useState(0);
+
   const timerRef = useRef(null);
   const editorRef = useRef(null);
-  const gameStatusRef = useRef('waiting'); // ✅ ref to track gameStatus in socket callbacks
+  const gameStatusRef = useRef('waiting');
 
   const startTimer = (timeLimit, startedAt) => {
-    clearInterval(timerRef.current); // ✅ clear any existing timer first
+    clearInterval(timerRef.current);
     const endTime = new Date(startedAt).getTime() + timeLimit * 60 * 1000;
     timerRef.current = setInterval(() => {
       const remaining = Math.max(0, endTime - Date.now());
@@ -55,26 +72,22 @@ const DuelPage = () => {
     if (!prob?.startCode) return;
     const initialCode = prob.startCode.find(
       sc => sc.language.toLowerCase() === lang.toLowerCase() ||
-           (sc.language.toLowerCase() === 'c++' && lang === 'cpp')
+           (lang === 'cpp' && sc.language.toLowerCase() === 'c++')
     )?.initialCode || '// Write your solution here';
     setCode(initialCode);
   };
 
  useEffect(() => {
-  // ✅ Connect socket FIRST before anything else
   socket.connect();
   socket.emit('duel:join_room', { roomCode, userId: user?._id });
 
   const init = async () => {
     try {
-      // ✅ Small delay to ensure socket is joined before join API fires
       await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Step 1 — join first (activates room for player2)
       const joinRes = await axiosClient.get(`/duel/join/${roomCode}`);
       const joinData = joinRes.data;
 
-      // Step 2 — get full room info
       const roomRes = await axiosClient.get(`/duel/room/${roomCode}`);
       const roomData = roomRes.data;
 
@@ -143,18 +156,30 @@ const DuelPage = () => {
     alert('Opponent disconnected!');
   });
 
+  // ✅ NEW: opponent created a rematch room — show an invite banner
+  socket.on('duel:rematch_invite', ({ fromUserId, roomCode: newRoomCode, problem: newProblem }) => {
+    if (fromUserId?.toString() === user?._id?.toString()) return; // ignore our own invite
+    setRematchInvite({ roomCode: newRoomCode, problem: newProblem });
+  });
+
+  // ✅ NEW: live spectator count (people watching this duel)
+  socket.on('duel:spectator_count', ({ count }) => {
+    setSpectatorCount(count);
+  });
+
   return () => {
     socket.off('duel:opponent_joined');
     socket.off('duel:start');
     socket.off('duel:opponent_progress');
     socket.off('duel:finished');
     socket.off('duel:opponent_left');
+    socket.off('duel:rematch_invite');
+    socket.off('duel:spectator_count');
     socket.disconnect();
     clearInterval(timerRef.current);
   };
 }, [roomCode]);
 
-  // language change
   useEffect(() => {
     if (problem) loadProblem(problem, selectedLanguage);
   }, [selectedLanguage, problem]);
@@ -202,6 +227,21 @@ const DuelPage = () => {
     }
   };
 
+  // ✅ NEW: rematch handler — creates a new room via the backend and waits for opponent
+  const handleRematch = async () => {
+    if (!room || rematching) return;
+    setRematching(true);
+    try {
+      const res = await axiosClient.post(`/duel/rematch/${room._id}`);
+      navigate(`/duel/${res.data.roomCode}`);
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to create rematch');
+    } finally {
+      setRematching(false);
+    }
+  };
+
   const ProgressBar = ({ passed, total, color, label }) => (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -235,12 +275,17 @@ const DuelPage = () => {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: "'Outfit', system-ui, sans-serif"
       }}>
-        <backbutton></backbutton>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;600;700;800&display=swap');
+          @keyframes popIn { from { opacity: 0; transform: scale(0.9) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        `}</style>
+        <Backbutton></Backbutton>
         <div style={{
           background: '#161b22',
           border: `1px solid ${result.won ? 'rgba(63,185,80,0.3)' : 'rgba(248,81,73,0.3)'}`,
           borderRadius: 20, padding: 48, textAlign: 'center', maxWidth: 480, width: '90%',
-          boxShadow: `0 0 60px ${result.won ? 'rgba(63,185,80,0.15)' : 'rgba(248,81,73,0.15)'}`
+          boxShadow: `0 0 60px ${result.won ? 'rgba(63,185,80,0.15)' : 'rgba(248,81,73,0.15)'}`,
+          animation: 'popIn 0.35s ease'
         }}>
           <div style={{ fontSize: 72, marginBottom: 16 }}>{result.won ? '🏆' : '💀'}</div>
           <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: -1, marginBottom: 8, color: result.won ? '#3fb950' : '#f85149' }}>
@@ -260,7 +305,42 @@ const DuelPage = () => {
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+
+          {/* ✅ NEW: rematch invite banner */}
+          {rematchInvite && (
+            <div style={{
+              background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.3)',
+              borderRadius: 12, padding: '14px 18px', marginBottom: 20, textAlign: 'left'
+            }}>
+              <div style={{ fontSize: 12, color: '#a5b4fc', fontFamily: "'JetBrains Mono', monospace", marginBottom: 8 }}>
+                ⚔ Your opponent started a rematch — {rematchInvite.problem?.title}
+              </div>
+              <button
+                onClick={() => navigate(`/duel/${rematchInvite.roomCode}`)}
+                style={{
+                  background: '#6366f1', color: '#fff', border: 'none', borderRadius: 8,
+                  padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: 12,
+                  fontFamily: "'Outfit', sans-serif"
+                }}
+              >
+                Join Rematch →
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleRematch}
+              disabled={rematching}
+              style={{
+                background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff',
+                border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700,
+                cursor: rematching ? 'not-allowed' : 'pointer', fontSize: 14,
+                fontFamily: "'Outfit', sans-serif", opacity: rematching ? 0.6 : 1
+              }}
+            >
+              {rematching ? '⏳ Creating...' : '🔁 Rematch'}
+            </button>
             <button onClick={() => navigate('/duel')} style={{ background: 'linear-gradient(135deg, #ffa116, #e08a00)', color: '#0e1117', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'Outfit', sans-serif" }}>
               ⚔ New Duel
             </button>
@@ -269,6 +349,9 @@ const DuelPage = () => {
             </button>
           </div>
         </div>
+
+        {/* ✅ NEW: chat stays available after the duel ends — talk it out with your opponent (and any spectators) */}
+        <DuelChatPanel roomCode={roomCode} userId={user?._id} userName={user?.firstName} role="player" accentColor="#ffa116" />
       </div>
     );
   }
@@ -277,7 +360,12 @@ const DuelPage = () => {
     <div style={{ height: '100vh', background: '#0e1117', color: '#e6edf3', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'Outfit', system-ui, sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;600;700;800&display=swap');
-        .lang-pill { background: none; border: 1px solid #21262d; border-radius: 6px; cursor: pointer; padding: 4px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: #484f58; transition: all 0.15s; }
+        .lang-pill {
+          background: none; border: 1px solid #21262d; border-radius: 6px; cursor: pointer;
+          padding: 4px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+          font-weight: 600; color: #484f58; transition: all 0.15s;
+          display: flex; align-items: center; gap: 5px;
+        }
         .lang-pill.active { background: rgba(255,161,22,0.07); color: #ffa116; border-color: rgba(255,161,22,0.35); }
         .lang-pill:hover:not(.active) { border-color: #30363d; color: #7d8590; }
       `}</style>
@@ -308,9 +396,20 @@ const DuelPage = () => {
           ) : formatTime(timeLeft)}
         </div>
 
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#7d8590', background: '#1c2130', padding: '4px 10px', borderRadius: 6, border: '1px solid #21262d' }}>
-          {roomCode}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {spectatorCount > 0 && (
+            <span style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#818cf8',
+              background: 'rgba(99,102,241,0.1)', padding: '4px 10px', borderRadius: 6,
+              border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', gap: 5
+            }}>
+              👀 {spectatorCount} watching
+            </span>
+          )}
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#7d8590', background: '#1c2130', padding: '4px 10px', borderRadius: 6, border: '1px solid #21262d' }}>
+            {roomCode}
+          </span>
+        </div>
       </div>
 
       {/* BODY */}
@@ -348,9 +447,10 @@ const DuelPage = () => {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '8px 16px', background: '#161b22', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 6 }}>
-              {['javascript', 'cpp'].map(lang => (
-                <button key={lang} className={`lang-pill ${selectedLanguage === lang ? 'active' : ''}`} onClick={() => setSelectedLanguage(lang)}>
-                  {lang === 'cpp' ? 'C++' : 'JavaScript'}
+              {/* ✅ CHANGED: now 4 languages instead of 2 */}
+              {LANGUAGES.map(({ key, label, icon }) => (
+                <button key={key} className={`lang-pill ${selectedLanguage === key ? 'active' : ''}`} onClick={() => setSelectedLanguage(key)}>
+                  <span>{icon}</span>{label}
                 </button>
               ))}
             </div>
@@ -364,7 +464,7 @@ const DuelPage = () => {
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <Editor
               height="100%"
-              language={selectedLanguage === 'cpp' ? 'cpp' : 'javascript'}
+              language={LANGUAGES.find(l => l.key === selectedLanguage)?.monaco || 'javascript'}
               value={code}
               onChange={(val) => setCode(val || '')}
               onMount={(editor) => { editorRef.current = editor; }}
@@ -378,20 +478,18 @@ const DuelPage = () => {
                 fontFamily: "'JetBrains Mono', monospace",
                 fontLigatures: true,
                 padding: { top: 14 },
-                readOnly: gameStatus !== 'active' // ✅ editable only when active
+                readOnly: gameStatus !== 'active'
               }}
             />
           </div>
 
           <div style={{ padding: '12px 16px', background: '#161b22', borderTop: '1px solid #21262d', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            {/* ✅ status message on left */}
             <span style={{ fontSize: 12, color: '#7d8590', fontFamily: "'JetBrains Mono', monospace" }}>
               {gameStatus === 'waiting' && (opponentJoined ? '✅ Starting soon...' : '⏳ Waiting for opponent...')}
               {gameStatus === 'active' && '🟢 Duel in progress'}
               {gameStatus === 'finished' && '🏁 Duel finished'}
             </span>
 
-            {/* ✅ submit button always visible, disabled when not active */}
             <button
               onClick={handleSubmit}
               disabled={submitting || gameStatus !== 'active'}
@@ -411,6 +509,9 @@ const DuelPage = () => {
           </div>
         </div>
       </div>
+
+      {/* ✅ NEW: chat button/panel, bottom-right */}
+      <DuelChatPanel roomCode={roomCode} userId={user?._id} userName={user?.firstName} role="player" accentColor="#ffa116" />
     </div>
   );
 };

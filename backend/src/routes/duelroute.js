@@ -7,7 +7,9 @@ const {
   submitDuelCode,
   getDuelRoom,
   getDuelStats,
-  getDuelLeaderboard
+  getDuelLeaderboard,
+  rematchDuel,
+  getDuelReplay
 } = require('../controller/duelController');
 
 router.post('/create', userAuth, createDuel);
@@ -16,5 +18,7 @@ router.post('/submit/:roomId', userAuth, submitDuelCode);
 router.get('/room/:roomCode', userAuth, getDuelRoom);
 router.get('/stats', userAuth, getDuelStats);
 router.get('/leaderboard', getDuelLeaderboard);
+router.post("/rematch/:roomId", userAuth, rematchDuel);
+router.get("/replay/:roomId", userAuth, getDuelReplay);
 
 module.exports = router;

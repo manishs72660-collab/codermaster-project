@@ -1,25 +1,63 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { Search, X, Loader2 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
+import { fetchProblems } from '../problemslice';
 import BackButton from '../component/backbutton';
+
+const PROBLEM_FETCH_LIMIT = 200;
+
 const DuelLobby = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+
+  const {
+    problems: allProblems,
+    loading: problemsLoading,
+    error: problemsError,
+    initialized: problemsInitialized,
+  } = useSelector((state) => state.problem);
+
   const [roomCode, setRoomCode] = useState('');
-  const [problemId, setProblemId] = useState('');
+  const [watchCode, setWatchCode] = useState(''); // ✅ NEW
+  const [selectedProblem, setSelectedProblem] = useState(null);
+  const [problemSearch, setProblemSearch] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [timeLimit, setTimeLimit] = useState(30);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdRoom, setCreatedRoom] = useState(null);
-  const [activeTab, setActiveTab] = useState('create'); // create / join
+  const [activeTab, setActiveTab] = useState('create');
+
+  useEffect(() => {
+    if (!problemsInitialized) {
+      dispatch(fetchProblems({ page: 1, limit: PROBLEM_FETCH_LIMIT }));
+    }
+  }, [dispatch, problemsInitialized]);
+
+  const problemsList = Array.isArray(allProblems) ? allProblems : [];
+
+  const filteredProblems = problemsList.filter((p) => {
+    const matchesSearch = p.title?.toLowerCase().includes(problemSearch.toLowerCase());
+    const matchesDifficulty = difficultyFilter === 'all' || p.difficulty === difficultyFilter;
+    return matchesSearch && matchesDifficulty;
+  });
+
+  const diffColor = (d) => {
+    if (d === 'easy') return '#3fb950';
+    if (d === 'medium') return '#d29922';
+    if (d === 'hard') return '#f85149';
+    return '#7d8590';
+  };
 
   const handleCreate = async () => {
-    if (!problemId.trim()) return setError('Enter a problem ID');
+    if (!selectedProblem) return setError('Pick a problem first');
     setLoading(true);
     setError('');
     try {
-      const res = await axiosClient.post('/duel/create', { problemId, timeLimit });
+      const res = await axiosClient.post('/duel/create', { problemId: selectedProblem._id, timeLimit });
       setCreatedRoom(res.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create room');
@@ -43,6 +81,22 @@ const DuelLobby = () => {
     }
   };
 
+  // ✅ NEW: watch a duel without joining it as a player
+  const handleWatch = async () => {
+    if (!watchCode.trim()) return setError('Enter a room code');
+    setLoading(true);
+    setError('');
+    try {
+      const res = await axiosClient.get(`/duel/room/${watchCode.toUpperCase()}`);
+      if (!res.data) return setError('Room not found');
+      navigate(`/duel/watch/${watchCode.toUpperCase()}`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Room not found');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -52,7 +106,6 @@ const DuelLobby = () => {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
       padding: '24px',
     }}>
       <style>{`
@@ -62,23 +115,17 @@ const DuelLobby = () => {
 
         .hud-root { width: 100%; max-width: 900px; }
 
-        /* ── top bar ── */
         .hud-topbar {
           display: flex; align-items: center; justify-content: space-between;
           margin-bottom: 40px;
         }
-        .hud-logo {
-          display: flex; align-items: center; gap: 10px;
-        }
+        .hud-logo { display: flex; align-items: center; gap: 10px; }
         .hud-logo-icon {
           width: 36px; height: 36px; background: #ff6b00;
           border-radius: 10px; display: flex; align-items: center;
           justify-content: center; font-size: 18px;
         }
-        .hud-logo-text {
-          font-size: 16px; font-weight: 700; color: #f1f5f9;
-          letter-spacing: -0.3px;
-        }
+        .hud-logo-text { font-size: 16px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.3px; }
         .hud-leaderboard-btn {
           background: #0f1520; border: 1px solid #1e2d3d;
           color: #64748b; padding: 8px 16px; border-radius: 8px;
@@ -88,7 +135,6 @@ const DuelLobby = () => {
         }
         .hud-leaderboard-btn:hover { border-color: #ff6b00; color: #ff6b00; }
 
-        /* ── VS section ── */
         .hud-vs-section {
           display: grid; grid-template-columns: 1fr 80px 1fr;
           gap: 0; align-items: center; margin-bottom: 28px;
@@ -109,14 +155,7 @@ const DuelLobby = () => {
         .hud-player-avatar.opp { background: #6366f120; border: 2px solid #6366f1; color: #818cf8; }
         .hud-player-name { font-size: 14px; font-weight: 600; color: #f1f5f9; }
         .hud-player-elo { font-size: 11px; color: #64748b; font-family: 'JetBrains Mono', monospace; }
-        .hud-player-stats {
-          display: flex; gap: 12px; margin-top: 4px;
-        }
-        .hud-stat { text-align: center; }
-        .hud-stat-val { font-size: 15px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-        .hud-stat-label { font-size: 10px; color: #475569; margin-top: 1px; }
 
-        /* ── VS center ── */
         .hud-vs-center {
           background: #0d1520; border-top: 1px solid #1a2535;
           border-bottom: 1px solid #1a2535;
@@ -124,13 +163,9 @@ const DuelLobby = () => {
           align-items: center; justify-content: center;
           height: 100%; padding: 24px 0; gap: 6px;
         }
-        .hud-vs-text {
-          font-size: 28px; font-weight: 800; color: #ff6b00;
-          font-family: 'JetBrains Mono', monospace; letter-spacing: 2px;
-        }
+        .hud-vs-text { font-size: 28px; font-weight: 800; color: #ff6b00; font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; }
         .hud-vs-sub { font-size: 9px; color: #334155; letter-spacing: 3px; }
 
-        /* ── tabs ── */
         .hud-tabs {
           display: flex; gap: 0; margin-bottom: 20px;
           background: #0d1520; border: 1px solid #1a2535;
@@ -145,14 +180,13 @@ const DuelLobby = () => {
         }
         .hud-tab.active-create { background: #ff6b00; color: #000; }
         .hud-tab.active-join { background: #6366f1; color: #fff; }
+        .hud-tab.active-watch { background: #818cf8; color: #000; }
 
-        /* ── panel ── */
         .hud-panel {
           background: #0d1520; border: 1px solid #1a2535;
           border-radius: 12px; padding: 24px;
         }
 
-        /* ── inputs ── */
         .hud-label {
           font-size: 11px; font-weight: 600; color: #475569;
           letter-spacing: 0.5px; text-transform: uppercase;
@@ -171,7 +205,6 @@ const DuelLobby = () => {
         }
         .hud-input.join-input:focus { border-color: #6366f1; }
 
-        /* ── time pills ── */
         .hud-time-pills { display: flex; gap: 8px; }
         .hud-time-pill {
           flex: 1; padding: 9px; text-align: center;
@@ -180,11 +213,16 @@ const DuelLobby = () => {
           border: 1px solid #1a2535; background: #080b10;
           color: #475569; transition: all 0.15s;
         }
-        .hud-time-pill.active {
-          background: #ff6b0015; border-color: #ff6b00; color: #ff6b00;
+        .hud-time-pill.active { background: #ff6b0015; border-color: #ff6b00; color: #ff6b00; }
+
+        .hud-diff-pills { display: flex; gap: 6px; }
+        .hud-diff-pill {
+          padding: 6px 12px; border-radius: 7px; cursor: pointer;
+          font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+          border: 1px solid #1a2535; background: #080b10; color: #475569;
+          transition: all 0.15s; text-transform: uppercase;
         }
 
-        /* ── buttons ── */
         .hud-btn-create {
           width: 100%; padding: 13px; border: none; border-radius: 10px;
           background: #ff6b00; color: #000; font-size: 14px;
@@ -205,20 +243,13 @@ const DuelLobby = () => {
         .hud-btn-join:hover:not(:disabled) { background: #818cf8; }
         .hud-btn-join:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* ── room code display ── */
         .hud-room-code-box {
           background: #080b10; border: 2px dashed #ff6b00;
           border-radius: 12px; padding: 28px; text-align: center;
           margin-bottom: 20px;
         }
-        .hud-room-code {
-          font-size: 52px; font-weight: 800; color: #ff6b00;
-          font-family: 'JetBrains Mono', monospace; letter-spacing: 10px;
-        }
-        .hud-room-meta {
-          font-size: 12px; color: #475569; margin-top: 8px;
-          font-family: 'JetBrains Mono', monospace;
-        }
+        .hud-room-code { font-size: 52px; font-weight: 800; color: #ff6b00; font-family: 'JetBrains Mono', monospace; letter-spacing: 10px; }
+        .hud-room-meta { font-size: 12px; color: #475569; margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
         .hud-copy-btn {
           background: #0f1520; border: 1px solid #1e2d3d;
           color: #94a3b8; padding: 8px 20px; border-radius: 8px;
@@ -228,7 +259,6 @@ const DuelLobby = () => {
         }
         .hud-copy-btn:hover { border-color: #ff6b00; color: #ff6b00; }
 
-        /* ── error ── */
         .hud-error {
           margin-top: 14px; padding: 10px 14px; border-radius: 8px;
           background: #ff000010; border: 1px solid #ff000030;
@@ -236,18 +266,32 @@ const DuelLobby = () => {
           font-family: 'JetBrains Mono', monospace;
         }
 
-        /* ── divider ── */
-        .hud-divider {
-          height: 1px; background: #1a2535;
-          margin: 20px 0; position: relative;
+        .hud-divider { height: 1px; background: #1a2535; margin: 20px 0; }
+
+        .prob-search-wrap { position: relative; }
+        .prob-search {
+          width: 100%; background: #080b10; border: 1px solid #1a2535;
+          border-radius: 8px; color: #e2e8f0; font-family: 'JetBrains Mono', monospace;
+          font-size: 12px; padding: 9px 12px 9px 34px; outline: none; transition: border-color 0.15s;
         }
+        .prob-search:focus { border-color: #ff6b00; }
+        .prob-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #475569; }
+
+        .prob-row {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 10px 12px; background: #080b10; border: 1px solid #1a2535;
+          border-radius: 8px; cursor: pointer; transition: all 0.12s; margin-bottom: 6px;
+        }
+        .prob-row:hover { border-color: #ff6b0060; }
+        .prob-row.selected { border-color: #ff6b00; background: #ff6b0010; }
+
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #0d1520; } ::-webkit-scrollbar-thumb { background: #1e2d3d; border-radius: 3px; }
       `}</style>
 
       <div className="hud-root">
 
-        {/* ── TOP BAR ── */}
         <div className="hud-topbar">
-<BackButton></BackButton>
+          <BackButton></BackButton>
           <div className="hud-logo">
             <div className="hud-logo-icon">⚔</div>
             <span className="hud-logo-text">Coding Duels</span>
@@ -257,60 +301,27 @@ const DuelLobby = () => {
           </button>
         </div>
 
-        {/* ── VS SECTION ── */}
         <div className="hud-vs-section">
-          {/* Player 1 — You */}
           <div className="hud-player-card left">
             <div className="hud-player-avatar you">
               {user?.firstName?.charAt(0)?.toUpperCase() || 'Y'}
             </div>
             <div className="hud-player-name">{user?.firstName || 'You'}</div>
-            <div className="hud-player-elo">ELO: 1000</div>
-            <div className="hud-player-stats">
-              <div className="hud-stat">
-                <div className="hud-stat-val" style={{ color: '#22c55e' }}>0</div>
-                <div className="hud-stat-label">Wins</div>
-              </div>
-              <div className="hud-stat">
-                <div className="hud-stat-val" style={{ color: '#f87171' }}>0</div>
-                <div className="hud-stat-label">Losses</div>
-              </div>
-              <div className="hud-stat">
-                <div className="hud-stat-val" style={{ color: '#fbbf24' }}>0%</div>
-                <div className="hud-stat-label">Win rate</div>
-              </div>
-            </div>
+            <div className="hud-player-elo">Ready to duel</div>
           </div>
 
-          {/* VS Center */}
           <div className="hud-vs-center">
             <div className="hud-vs-text">VS</div>
             <div className="hud-vs-sub">DUEL</div>
           </div>
 
-          {/* Player 2 — Opponent */}
           <div className="hud-player-card right">
             <div className="hud-player-avatar opp">?</div>
             <div className="hud-player-name">Opponent</div>
             <div className="hud-player-elo">Waiting...</div>
-            <div className="hud-player-stats">
-              <div className="hud-stat">
-                <div className="hud-stat-val" style={{ color: '#475569' }}>—</div>
-                <div className="hud-stat-label">Wins</div>
-              </div>
-              <div className="hud-stat">
-                <div className="hud-stat-val" style={{ color: '#475569' }}>—</div>
-                <div className="hud-stat-label">Losses</div>
-              </div>
-              <div className="hud-stat">
-                <div className="hud-stat-val" style={{ color: '#475569' }}>—</div>
-                <div className="hud-stat-label">Win rate</div>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* ── TABS ── */}
         <div className="hud-tabs">
           <button
             className={`hud-tab ${activeTab === 'create' ? 'active-create' : ''}`}
@@ -324,21 +335,97 @@ const DuelLobby = () => {
           >
             🔗 Join Room
           </button>
+          <button
+            className={`hud-tab ${activeTab === 'watch' ? 'active-watch' : ''}`}
+            onClick={() => { setActiveTab('watch'); setError(''); }}
+          >
+            👁 Watch
+          </button>
         </div>
 
-        {/* ── CREATE PANEL ── */}
         {activeTab === 'create' && (
           <div className="hud-panel">
             {!createdRoom ? (
               <>
                 <div style={{ marginBottom: 18 }}>
-                  <label className="hud-label">Problem ID</label>
-                  <input
-                    className="hud-input"
-                    placeholder="Paste problem ID from admin panel..."
-                    value={problemId}
-                    onChange={(e) => setProblemId(e.target.value)}
-                  />
+                  <label className="hud-label">Pick a Problem</label>
+
+                  {selectedProblem ? (
+                    <div className="prob-row selected" style={{ cursor: 'default', marginBottom: 12 }}>
+                      <div>
+                        <span style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600 }}>{selectedProblem.title}</span>
+                        <span style={{
+                          marginLeft: 10, fontSize: 10, fontWeight: 700,
+                          fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase',
+                          color: diffColor(selectedProblem.difficulty)
+                        }}>
+                          {selectedProblem.difficulty}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedProblem(null)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="prob-search-wrap" style={{ marginBottom: 8 }}>
+                        <Search size={13} className="prob-search-icon" />
+                        <input
+                          className="prob-search"
+                          placeholder="Search problems..."
+                          value={problemSearch}
+                          onChange={(e) => setProblemSearch(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="hud-diff-pills" style={{ marginBottom: 10 }}>
+                        {['all', 'easy', 'medium', 'hard'].map((d) => (
+                          <div
+                            key={d}
+                            className="hud-diff-pill"
+                            onClick={() => setDifficultyFilter(d)}
+                            style={difficultyFilter === d ? {
+                              borderColor: d === 'all' ? '#ff6b00' : diffColor(d),
+                              color: d === 'all' ? '#ff6b00' : diffColor(d),
+                              background: `${d === 'all' ? '#ff6b00' : diffColor(d)}15`
+                            } : {}}
+                          >
+                            {d}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                        {problemsLoading ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 0', color: '#475569' }}>
+                            <Loader2 size={14} className="spin-slow" />
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>Loading problems…</span>
+                          </div>
+                        ) : problemsError ? (
+                          <div style={{ padding: '20px 0', textAlign: 'center', color: '#f87171', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                            {problemsError}
+                          </div>
+                        ) : filteredProblems.length === 0 ? (
+                          <div style={{ padding: '20px 0', textAlign: 'center', color: '#475569', fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                            No problems found
+                          </div>
+                        ) : filteredProblems.map((p) => (
+                          <div key={p._id} className="prob-row" onClick={() => setSelectedProblem(p)}>
+                            <span style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 500 }}>{p.title}</span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                              textTransform: 'uppercase', color: diffColor(p.difficulty)
+                            }}>
+                              {p.difficulty}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
@@ -356,7 +443,7 @@ const DuelLobby = () => {
                   </div>
                 </div>
 
-                <button className="hud-btn-create" onClick={handleCreate} disabled={loading}>
+                <button className="hud-btn-create" onClick={handleCreate} disabled={loading || !selectedProblem}>
                   {loading ? 'Creating...' : '⚔ Create Duel Room'}
                 </button>
               </>
@@ -391,7 +478,7 @@ const DuelLobby = () => {
                 <div className="hud-divider" />
 
                 <button
-                  onClick={() => setCreatedRoom(null)}
+                  onClick={() => { setCreatedRoom(null); setSelectedProblem(null); }}
                   style={{
                     background: 'none', border: 'none', color: '#475569',
                     fontSize: 12, cursor: 'pointer', width: '100%',
@@ -407,7 +494,6 @@ const DuelLobby = () => {
           </div>
         )}
 
-        {/* ── JOIN PANEL ── */}
         {activeTab === 'join' && (
           <div className="hud-panel">
             <div style={{ marginBottom: 20 }}>
@@ -423,6 +509,37 @@ const DuelLobby = () => {
 
             <button className="hud-btn-join" onClick={handleJoin} disabled={loading}>
               {loading ? 'Joining...' : '→ Enter the Arena'}
+            </button>
+
+            {error && <div className="hud-error">{error}</div>}
+          </div>
+        )}
+
+        {/* ✅ NEW: Watch panel — spectate a live duel without playing */}
+        {activeTab === 'watch' && (
+          <div className="hud-panel">
+            <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16, lineHeight: 1.6 }}>
+              Enter a room code to watch a duel live — see both players' progress, the problem, and chat once it wraps up.
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <label className="hud-label">Room Code</label>
+              <input
+                className="hud-input join-input"
+                placeholder="ABC123"
+                value={watchCode}
+                onChange={(e) => setWatchCode(e.target.value.toUpperCase())}
+                maxLength={6}
+                style={{ color: '#818cf8' }}
+              />
+            </div>
+
+            <button
+              className="hud-btn-join"
+              style={{ background: '#818cf8' }}
+              onClick={handleWatch}
+              disabled={loading}
+            >
+              {loading ? 'Loading...' : '👁 Start Watching'}
             </button>
 
             {error && <div className="hud-error">{error}</div>}

@@ -28,7 +28,6 @@ const createDuel = async (req, res) => {
     const problem = await Problem.findById(problemId);
     if (!problem) return res.status(404).json({ message: "Problem not found" });
 
-    // Generate unique room code
     let roomCode;
     let exists = true;
     while (exists) {
@@ -67,15 +66,13 @@ const joinDuel = async (req, res) => {
     const { roomCode } = req.params;
 
     const duelRoom = await DuelRoom.findOne({ roomCode })
-      .populate('problemId', 'title difficulty description visibleTestCases startCode tags driverCode hiddenTestCases'); // ✅ added driverCode + hiddenTestCases
+      .populate('problemId', 'title difficulty description visibleTestCases startCode tags driverCode hiddenTestCases');
 
     if (!duelRoom) return res.status(404).json({ message: "Room not found" });
     if (duelRoom.status === 'finished') return res.status(400).json({ message: "Duel already finished" });
 
-    // Check if user is already player1
     const isPlayer1 = duelRoom.player1.userId.toString() === userId.toString();
     if (isPlayer1) {
-      // ✅ removed 'active' block — allow player1 to rejoin active room
       return res.status(200).json({
         roomId: duelRoom._id,
         roomCode: duelRoom.roomCode,
@@ -86,7 +83,6 @@ const joinDuel = async (req, res) => {
       });
     }
 
-    // Check if user is already player2 rejoining
     if (duelRoom.player2?.userId?.toString() === userId.toString()) {
       return res.status(200).json({
         roomId: duelRoom._id,
@@ -98,7 +94,6 @@ const joinDuel = async (req, res) => {
       });
     }
 
-    // ✅ New player2 joining
     if (duelRoom.player2) return res.status(400).json({ message: "Room is full" });
     if (duelRoom.status === 'active') return res.status(400).json({ message: "Duel already started" });
 
@@ -109,10 +104,8 @@ const joinDuel = async (req, res) => {
 
     const io = req.app.get("io");
 
-    // ✅ emit opponent_joined first
     io.to(roomCode).emit("duel:opponent_joined", { userId });
 
-    // ✅ emit duel:start after 500ms so Player1 socket is ready
     setTimeout(() => {
       io.to(roomCode).emit("duel:start", {
         message: "Both players connected! Duel starting...",
@@ -134,6 +127,7 @@ const joinDuel = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error", error: err.message });
   }
 };
+
 // ─── SUBMIT CODE IN DUEL ──────────────────────────────────────────────────────
 const submitDuelCode = async (req, res) => {
   try {
@@ -149,7 +143,6 @@ const submitDuelCode = async (req, res) => {
 
     const problem = duelRoom.problemId;
 
-    // Get driver code and wrap
     const driverEntry = problem.driverCode?.find(
       (d) => d.language.toLowerCase() === language.toLowerCase()
     );
@@ -158,7 +151,6 @@ const submitDuelCode = async (req, res) => {
     const fullCode = buildFullCode(code, driverEntry.code, language);
     const languageId = getLanguageById(language);
 
-    // Submit to Judge0
     const submissions = problem.hiddenTestCases.map((tc) => ({
       source_code: fullCode,
       language_id: languageId,
@@ -170,7 +162,6 @@ const submitDuelCode = async (req, res) => {
     const tokens = submitResult.map((v) => v.token);
     const testResult = await submitToken(tokens);
 
-    // Count results
     let testCasesPassed = 0;
     let runtime = 0;
     let memory = 0;
@@ -186,11 +177,9 @@ const submitDuelCode = async (req, res) => {
     const totalTestCases = problem.hiddenTestCases.length;
     const allPassed = testCasesPassed === totalTestCases;
 
-    // Determine which player
     const isPlayer1 = duelRoom.player1.userId.toString() === userId.toString();
     const playerKey = isPlayer1 ? 'player1' : 'player2';
 
-    // Update player data
     duelRoom[playerKey].testCasesPassed = testCasesPassed;
     duelRoom[playerKey].totalTestCases = totalTestCases;
     duelRoom[playerKey].runtime = runtime;
@@ -201,28 +190,26 @@ const submitDuelCode = async (req, res) => {
 
     const io = req.app.get("io");
 
-    // Broadcast progress to opponent
+    // Live progress broadcast — frontend renders opponent's progress bar from this
     io.to(duelRoom.roomCode).emit("duel:progress", {
       userId,
       testCasesPassed,
       total: totalTestCases,
+      percent: Math.round((testCasesPassed / totalTestCases) * 100), // ✅ NEW: convenience field for progress bar UI
       allPassed
     });
 
     if (allPassed && duelRoom.status !== 'finished') {
-      // This player WON
       duelRoom.status = 'finished';
       duelRoom.winnerId = userId;
       duelRoom.finishedAt = new Date();
       duelRoom[playerKey].status = 'won';
 
-      // Mark loser
       const loserKey = isPlayer1 ? 'player2' : 'player1';
       if (duelRoom[loserKey]) duelRoom[loserKey].status = 'lost';
 
       await duelRoom.save();
 
-      // Update ELO ratings
       const loserId = duelRoom[loserKey]?.userId;
       if (loserId) {
         const [winnerStats, loserStats] = await Promise.all([
@@ -230,10 +217,10 @@ const submitDuelCode = async (req, res) => {
           getOrCreateStats(loserId)
         ]);
 
-        const { newWinnerRating, newLoserRating, winnerGain, loserLoss } =
-          calculateElo(winnerStats.rating, loserStats.rating);
+        // ✅ CHANGED: pass problem.difficulty for weighted ELO
+        const { newWinnerRating, newLoserRating, winnerGain, loserLoss, kFactorUsed } =
+          calculateElo(winnerStats.rating, loserStats.rating, problem.difficulty);
 
-        // Update winner
         winnerStats.rating = newWinnerRating;
         winnerStats.bestRating = Math.max(winnerStats.bestRating, newWinnerRating);
         winnerStats.wins += 1;
@@ -241,14 +228,12 @@ const submitDuelCode = async (req, res) => {
         winnerStats.winStreak += 1;
         await winnerStats.save();
 
-        // Update loser
         loserStats.rating = Math.max(0, newLoserRating);
         loserStats.losses += 1;
         loserStats.totalDuels += 1;
         loserStats.winStreak = 0;
         await loserStats.save();
 
-        // Broadcast winner to room
         io.to(duelRoom.roomCode).emit("duel:finished", {
           winnerId: userId,
           winnerGain,
@@ -256,7 +241,9 @@ const submitDuelCode = async (req, res) => {
           runtime,
           memory,
           testCasesPassed,
-          totalTestCases
+          totalTestCases,
+          difficulty: problem.difficulty, // ✅ NEW
+          kFactorUsed // ✅ NEW
         });
 
         return res.status(200).json({
@@ -288,26 +275,137 @@ const submitDuelCode = async (req, res) => {
   }
 };
 
+// ✅ NEW: REMATCH — same players, new random problem at same difficulty
+const rematchDuel = async (req, res) => {
+  try {
+    const userId = req.result._id;
+    const { roomId } = req.params;
+
+    const oldRoom = await DuelRoom.findById(roomId).populate('problemId');
+    if (!oldRoom) return res.status(404).json({ message: "Original duel room not found" });
+    if (oldRoom.status !== 'finished') return res.status(400).json({ message: "Duel is not finished yet" });
+
+    const isPlayer1 = oldRoom.player1.userId.toString() === userId.toString();
+    const isPlayer2 = oldRoom.player2?.userId?.toString() === userId.toString();
+    if (!isPlayer1 && !isPlayer2) return res.status(403).json({ message: "You were not part of this duel" });
+
+    const opponentId = isPlayer1 ? oldRoom.player2?.userId : oldRoom.player1.userId;
+    if (!opponentId) return res.status(400).json({ message: "Opponent not found for rematch" });
+
+    const difficulty = oldRoom.problemId.difficulty;
+
+    // pick a new random problem, same difficulty, excluding the one just played
+    const candidates = await Problem.find({
+      difficulty,
+      _id: { $ne: oldRoom.problemId._id }
+    }).select('_id');
+
+    const newProblemId = candidates.length > 0
+      ? candidates[Math.floor(Math.random() * candidates.length)]._id
+      : oldRoom.problemId._id; // fallback if no other problem exists at this difficulty
+
+    let roomCode;
+    let exists = true;
+    while (exists) {
+      roomCode = generateRoomCode();
+      exists = await DuelRoom.findOne({ roomCode });
+    }
+
+    const newRoom = await DuelRoom.create({
+      roomCode,
+      problemId: newProblemId,
+      timeLimit: oldRoom.timeLimit,
+      player1: { userId },
+      rematchOf: oldRoom._id
+    });
+
+    const newProblem = await Problem.findById(newProblemId);
+
+    const io = req.app.get("io");
+    // notify the opponent (they're likely still connected to the old room's socket channel)
+    io.to(oldRoom.roomCode).emit("duel:rematch_invite", {
+      fromUserId: userId,
+      roomCode: newRoom.roomCode,
+      roomId: newRoom._id,
+      problem: { id: newProblem._id, title: newProblem.title, difficulty: newProblem.difficulty }
+    });
+
+    res.status(201).json({
+      roomCode: newRoom.roomCode,
+      roomId: newRoom._id,
+      problem: { id: newProblem._id, title: newProblem.title, difficulty: newProblem.difficulty },
+      timeLimit: newRoom.timeLimit,
+      message: "Rematch room created! Waiting for opponent to join."
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+};
+
+// ✅ NEW: POST-DUEL REPLAY — both players' final code, side by side
+const getDuelReplay = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+
+    const duelRoom = await DuelRoom.findById(roomId)
+      .populate('problemId', 'title difficulty')
+      .populate('player1.userId', 'firstName')
+      .populate('player2.userId', 'firstName')
+      .populate('winnerId', 'firstName');
+
+    if (!duelRoom) return res.status(404).json({ message: "Room not found" });
+    if (duelRoom.status !== 'finished') return res.status(400).json({ message: "Duel is not finished yet" });
+
+    res.status(200).json({
+      problem: duelRoom.problemId,
+      winnerId: duelRoom.winnerId,
+      player1: {
+        userId: duelRoom.player1.userId,
+        code: duelRoom.player1.code,
+        language: duelRoom.player1.language,
+        testCasesPassed: duelRoom.player1.testCasesPassed,
+        totalTestCases: duelRoom.player1.totalTestCases,
+        runtime: duelRoom.player1.runtime,
+        memory: duelRoom.player1.memory,
+        status: duelRoom.player1.status,
+        submittedAt: duelRoom.player1.submittedAt
+      },
+      player2: duelRoom.player2 ? {
+        userId: duelRoom.player2.userId,
+        code: duelRoom.player2.code,
+        language: duelRoom.player2.language,
+        testCasesPassed: duelRoom.player2.testCasesPassed,
+        totalTestCases: duelRoom.player2.totalTestCases,
+        runtime: duelRoom.player2.runtime,
+        memory: duelRoom.player2.memory,
+        status: duelRoom.player2.status,
+        submittedAt: duelRoom.player2.submittedAt
+      } : null,
+      startedAt: duelRoom.startedAt,
+      finishedAt: duelRoom.finishedAt
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Internal Server Error", error: err.message });
+  }
+};
+
 // ─── GET DUEL ROOM INFO ───────────────────────────────────────────────────────
 const getDuelRoom = async (req, res) => {
   try {
     const { roomCode } = req.params;
-    console.log("getDuelRoom called with roomCode:", roomCode); // ✅ add
-    
+
     const duelRoom = await DuelRoom.findOne({ roomCode })
       .populate('problemId', 'title difficulty description visibleTestCases startCode tags driverCode hiddenTestCases')
       .populate('player1.userId', 'firstName')
       .populate('player2.userId', 'firstName')
       .populate('winnerId', 'firstName');
 
-    console.log("duelRoom found:", duelRoom?._id); // ✅ add
-    console.log("problemId:", duelRoom?.problemId); // ✅ add
-
     if (!duelRoom) return res.status(404).json({ message: "Room not found" });
 
     res.status(200).json(duelRoom);
   } catch (err) {
-    console.error("getDuelRoom error:", err); // ✅ add
     res.status(500).json({ message: "Internal Server Error", error: err.message });
   }
 };
@@ -318,7 +416,6 @@ const getDuelStats = async (req, res) => {
     const userId = req.result._id;
     const stats = await getOrCreateStats(userId);
 
-    // Get recent duels
     const recentDuels = await DuelRoom.find({
       $or: [{ 'player1.userId': userId }, { 'player2.userId': userId }],
       status: 'finished'
@@ -365,5 +462,7 @@ module.exports = {
   submitDuelCode,
   getDuelRoom,
   getDuelStats,
-  getDuelLeaderboard
+  getDuelLeaderboard,
+  rematchDuel,      // ✅ NEW
+  getDuelReplay      // ✅ NEW
 };
