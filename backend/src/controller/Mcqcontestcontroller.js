@@ -43,6 +43,17 @@ const validateQuestions = (questions) => {
         ) {
             return `Question ${i + 1}: correctOption must be 0, 1, 2 or 3`;
         }
+        // code is optional, but if the client sent a code object it must
+        // actually carry a non-empty snippet — reject empty/partial ones
+        // rather than silently storing a blank code block.
+        if (q.code !== undefined && q.code !== null) {
+            if (typeof q.code !== 'object' || Array.isArray(q.code)) {
+                return `Question ${i + 1}: code must be an object with language and content`;
+            }
+            if (!q.code.content || !String(q.code.content).trim()) {
+                return `Question ${i + 1}: code.content cannot be empty when code is provided`;
+            }
+        }
     }
     return null;
 };
@@ -50,21 +61,35 @@ const validateQuestions = (questions) => {
 // Normalizes options to { text } shape regardless of whether the client
 // sent plain strings or { text } objects, and coerces numeric fields.
 const normalizeQuestions = (questions) =>
-    questions.map((q) => ({
-        questionText: String(q.questionText).trim(),
-        options: q.options.map((o) => ({ text: String(o.text ?? o).trim() })),
-        correctOption: Number(q.correctOption),
-        marks: q.marks && q.marks > 0 ? q.marks : 1,
-        explanation: q.explanation ? String(q.explanation).trim() : '',
-    }));
+    questions.map((q) => {
+        const normalized = {
+            questionText: String(q.questionText).trim(),
+            options: q.options.map((o) => ({ text: String(o.text ?? o).trim() })),
+            correctOption: Number(q.correctOption),
+            marks: q.marks && q.marks > 0 ? q.marks : 1,
+            explanation: q.explanation ? String(q.explanation).trim() : '',
+        };
+        // Only attach `code` when meaningfully present, so questions without
+        // it don't end up with an empty subdocument in the DB.
+        if (q.code && String(q.code.content ?? '').trim()) {
+            normalized.code = {
+                language: q.code.language ? String(q.code.language).trim() : 'javascript',
+                content: String(q.code.content).trim(),
+            };
+        }
+        return normalized;
+    });
 
 // Strips answer-revealing fields before questions are sent to a participant.
+// `code` is included — it's just the snippet the question is asking about,
+// it never carries the correct answer.
 const sanitizeQuestionsForParticipant = (questions) =>
     questions.map((q) => ({
         _id: q._id,
         questionText: q.questionText,
         options: q.options,
         marks: q.marks,
+        ...(q.code ? { code: { language: q.code.language, content: q.code.content } } : {}),
     }));
 
 // ════════════════════════════════════════════════════════════════════
@@ -76,7 +101,8 @@ const sanitizeQuestionsForParticipant = (questions) =>
 // from the coding-contest routes). Body:
 // { title, description, startTime, endTime, isPublic, collegeId?,
 //   durationMinutes?, questions: [{ questionText, options: [4 strings],
-//   correctOption: 0-3, marks?, explanation? }] }  (max 20 questions)
+//   correctOption: 0-3, marks?, explanation?, code?: { language, content } }] }
+// (max 20 questions)
 const createMcqContest = async (req, res) => {
     try {
         const { title, description, startTime, endTime, questions, isPublic, collegeId, durationMinutes } = req.body;
@@ -618,6 +644,7 @@ const getMyMcqSubmission = async (req, res) => {
                 options: q?.options,
                 correctOption: q?.correctOption,
                 explanation: q?.explanation,
+                code: q?.code ? { language: q.code.language, content: q.code.content } : undefined,
                 selectedOption: a.selectedOption,
                 isCorrect: a.isCorrect,
                 marks: q?.marks,

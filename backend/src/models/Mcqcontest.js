@@ -4,6 +4,13 @@ const optionSchema = new mongoose.Schema({
     text: { type: String, required: true, trim: true },
 }, { _id: false });
 
+// Optional code snippet attached to a question (e.g. "what does this C++
+// function return?"). Not required — omitted entirely for plain-text MCQs.
+const questionCodeSchema = new mongoose.Schema({
+    language: { type: String, trim: true, default: 'javascript' },
+    content: { type: String, trim: true, required: true },
+}, { _id: false });
+
 const mcqQuestionSchema = new mongoose.Schema({
     questionText: { type: String, required: true, trim: true },
     options: {
@@ -23,6 +30,10 @@ const mcqQuestionSchema = new mongoose.Schema({
     },
     marks: { type: Number, default: 1, min: 1 },
     explanation: { type: String, trim: true, default: '' },
+    // Present only when the question shows a code snippet alongside the
+    // question text. Safe to expose to participants pre-submit — it carries
+    // no answer info, unlike correctOption/explanation.
+    code: { type: questionCodeSchema, default: undefined },
 });
 
 const mcqContestSchema = new mongoose.Schema({

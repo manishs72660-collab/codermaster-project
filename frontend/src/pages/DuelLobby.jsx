@@ -29,6 +29,7 @@ const CM = {
   teal:      "#2dd4bf",
   pink:      "#ff5fa6",
   sky:       "#38bdf8",
+  whatsapp:  "#25D366",
 };
 
 const MONO = "'JetBrains Mono', monospace";
@@ -122,6 +123,7 @@ const DuelLobby = () => {
   const [error, setError] = useState('');
   const [createdRoom, setCreatedRoom] = useState(null);
   const [activeTab, setActiveTab] = useState('create');
+  const [copied, setCopied] = useState(false); // ✅ NEW: copy feedback
 
   useEffect(() => {
     if (!problemsInitialized) {
@@ -187,6 +189,26 @@ const DuelLobby = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ NEW: copy room code with brief visual feedback
+  const handleCopyCode = () => {
+    if (!createdRoom?.roomCode) return;
+    navigator.clipboard.writeText(createdRoom.roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  // ✅ NEW: share the room invite on WhatsApp
+  const handleShareWhatsApp = () => {
+    if (!createdRoom?.roomCode) return;
+    const link = `${window.location.origin}/duel/${createdRoom.roomCode}`;
+    const message =
+      `⚔ Join my coding duel on CodeMaster!\n` +
+      `Room Code: ${createdRoom.roomCode}\n` +
+      `Problem: ${createdRoom.problem?.title || 'N/A'} · ${createdRoom.timeLimit} min\n\n` +
+      `Join here: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -343,14 +365,31 @@ const DuelLobby = () => {
         }
         .hud-room-code { font-size: 52px; font-weight: 800; color: ${CM.accent}; font-family: ${MONO}; letter-spacing: 10px; }
         .hud-room-meta { font-size: 12px; color: ${CM.muted}; margin-top: 8px; font-family: ${MONO}; }
+
+        /* ✅ NEW: row that holds the copy + whatsapp buttons side by side */
+        .hud-share-row {
+          display: flex; align-items: center; justify-content: center;
+          gap: 10px; margin-top: 14px; flex-wrap: wrap;
+        }
         .hud-copy-btn {
           background: ${CM.surface}; border: 1px solid ${CM.border};
           color: ${CM.muted}; padding: 8px 20px; border-radius: 8px;
           font-size: 12px; font-weight: 600; cursor: pointer;
           font-family: ${SANS}; transition: all 0.15s;
-          margin-top: 12px; display: inline-block;
+          display: inline-flex; align-items: center; gap: 6px;
         }
         .hud-copy-btn:hover { border-color: ${CM.accent}; color: ${CM.accent}; }
+        .hud-copy-btn.copied { border-color: ${CM.green}; color: ${CM.green}; }
+
+        /* ✅ NEW: whatsapp share button */
+        .hud-whatsapp-btn {
+          background: ${CM.whatsapp}15; border: 1px solid ${CM.whatsapp}55;
+          color: ${CM.whatsapp}; padding: 8px 20px; border-radius: 8px;
+          font-size: 12px; font-weight: 600; cursor: pointer;
+          font-family: ${SANS}; transition: all 0.15s;
+          display: inline-flex; align-items: center; gap: 6px;
+        }
+        .hud-whatsapp-btn:hover { background: ${CM.whatsapp}25; border-color: ${CM.whatsapp}; }
 
         .hud-error {
           margin-top: 14px; padding: 10px 14px; border-radius: 8px;
@@ -569,12 +608,22 @@ const DuelLobby = () => {
                       <div className="hud-room-meta">
                         {createdRoom.problem?.title} · {createdRoom.timeLimit} min
                       </div>
-                      <button
-                        className="hud-copy-btn"
-                        onClick={() => { navigator.clipboard.writeText(createdRoom.roomCode); }}
-                      >
-                        📋 Copy code
-                      </button>
+
+                      {/* ✅ NEW: copy + WhatsApp share, side by side */}
+                      <div className="hud-share-row">
+                        <button
+                          className={`hud-copy-btn ${copied ? 'copied' : ''}`}
+                          onClick={handleCopyCode}
+                        >
+                          {copied ? '✓ Copied!' : '📋 Copy code'}
+                        </button>
+                        <button
+                          className="hud-whatsapp-btn"
+                          onClick={handleShareWhatsApp}
+                        >
+                          📲 Share on WhatsApp
+                        </button>
+                      </div>
                     </div>
                   </div>
 

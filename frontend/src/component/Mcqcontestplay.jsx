@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ListChecks, Clock, ChevronLeft, ChevronRight, CheckCircle2, XCircle,
-  Trophy, AlertTriangle, Loader2, Send, Circle, CheckCircle,
+  Trophy, AlertTriangle, Loader2, Send, Circle, CheckCircle, Code2,
 } from 'lucide-react';
 import Navbar from '../component/navbar';
 import axiosClient from '../utils/axiosClient';
@@ -220,6 +220,27 @@ export default function McqContestPlay() {
 }
 
 /* ══════════════════════════════════════════
+   CODE BLOCK — shown under a question's text
+   when the question has a `code` snippet attached.
+══════════════════════════════════════════ */
+function QuestionCodeBlock({ code }) {
+  if (!code || !code.content) return null;
+  return (
+    <div className="mb-5 bg-black/40 border border-sky-500/20 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] border-b border-white/[0.06]">
+        <Code2 className="w-3.5 h-3.5 text-sky-400" />
+        <span className="text-[11px] font-bold text-sky-300 uppercase tracking-wide">{code.language || 'code'}</span>
+      </div>
+      <pre className="px-4 py-3 overflow-x-auto">
+        <code className="font-mono text-[12.5px] leading-relaxed text-white/90 whitespace-pre">
+          {code.content}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
    QUIZ VIEW
 ══════════════════════════════════════════ */
 function QuizView({ contest, questions, answers, current, setCurrent, selectAnswer, answeredCount, onSubmit, disqualified, violation, errorMsg }) {
@@ -295,7 +316,9 @@ function QuizView({ contest, questions, answers, current, setCurrent, selectAnsw
           className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-6 mb-6"
         >
           <p className="text-[10px] font-black text-white/25 uppercase tracking-widest mb-3">Question {current + 1} of {questions.length}</p>
-          <h2 className="text-white text-base font-semibold mb-6 leading-relaxed">{q.questionText}</h2>
+          <h2 className="text-white text-base font-semibold mb-4 leading-relaxed">{q.questionText}</h2>
+
+          <QuestionCodeBlock code={q.code} />
 
           <div className="space-y-2.5">
             {q.options.map((opt, oi) => (
@@ -460,6 +483,13 @@ function ResultView({ contest, result, leaderboard }) {
                 {a.isCorrect ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" /> : <XCircle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />}
                 <p className="text-sm text-white/85 font-medium leading-relaxed">{i + 1}. {a.questionText}</p>
               </div>
+
+              {a.code && (
+                <div className="pl-7 mb-3">
+                  <QuestionCodeBlock code={a.code} />
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-7">
                 {a.options.map((opt, oi) => (
                   <div

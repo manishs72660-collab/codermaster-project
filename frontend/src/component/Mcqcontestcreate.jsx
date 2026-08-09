@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ListChecks, Plus, Trash2, Lock, Globe, CheckCircle2,
-  ChevronLeft, AlertCircle, GripVertical,
+  ChevronLeft, AlertCircle, GripVertical, MessageCircle,
+  Sparkles, Brain, GraduationCap, PartyPopper, Code2, X,
 } from 'lucide-react';
 import Navbar from '../component/navbar';
 import axiosClient from '../utils/axiosClient';
@@ -11,11 +12,33 @@ import { cn } from '../utils/cn';
 
 const MAX_QUESTIONS = 20;
 
+// ─── category / tag options, same visual language as Community.jsx's TAG_META ───
+const TAG_META = {
+  general:     { label: 'General',     icon: Sparkles,       color: 'text-white/50',    bg: 'bg-white/[0.04]',    border: 'border-white/10' },
+  aptitude:    { label: 'Aptitude',    icon: Brain,          color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20' },
+  technical:   { label: 'Technical',   icon: Code2,          color: 'text-sky-400',     bg: 'bg-sky-500/10',     border: 'border-sky-500/20' },
+  'exam-prep': { label: 'Exam Prep',   icon: GraduationCap,  color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20' },
+  'fun-quiz':  { label: 'Fun Quiz',    icon: PartyPopper,    color: 'text-purple-400',  bg: 'bg-purple-500/10',  border: 'border-purple-500/20' },
+};
+
+// ─── languages available for the "code" attachment on a question ───
+const CODE_LANGUAGES = [
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'python',     label: 'Python' },
+  { value: 'cpp',        label: 'C++' },
+  { value: 'c',          label: 'C' },
+  { value: 'java',       label: 'Java' },
+  { value: 'go',         label: 'Go' },
+  { value: 'sql',        label: 'SQL' },
+];
+
 const blankQuestion = () => ({
   questionText: '',
   options: ['', '', '', ''],
   correctOption: 0,
   marks: 1,
+  code: null, // { language, content } — added on demand via "Add code"
 });
 
 export default function McqContestCreate() {
@@ -26,6 +49,7 @@ export default function McqContestCreate() {
   const [startTime, setStartTime]     = useState('');
   const [endTime, setEndTime]         = useState('');
   const [isPublic, setIsPublic]       = useState(true);
+  const [tag, setTag]                 = useState('general');
   const [questions, setQuestions]     = useState([blankQuestion()]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +65,20 @@ export default function McqContestCreate() {
       qs.map((q, idx) =>
         idx === qi ? { ...q, options: q.options.map((o, j) => (j === oi ? value : o)) } : q
       )
+    );
+  };
+
+  const toggleCode = (i) => {
+    setQuestions((qs) =>
+      qs.map((q, idx) =>
+        idx === i ? { ...q, code: q.code ? null : { language: 'javascript', content: '' } } : q
+      )
+    );
+  };
+
+  const updateCode = (i, patch) => {
+    setQuestions((qs) =>
+      qs.map((q, idx) => (idx === i ? { ...q, code: { ...q.code, ...patch } } : q))
     );
   };
 
@@ -65,6 +103,7 @@ export default function McqContestCreate() {
       const q = questions[i];
       if (!q.questionText.trim()) return `Question ${i + 1}: text is required`;
       if (q.options.some((o) => !o.trim())) return `Question ${i + 1}: all 4 options must be filled in`;
+      if (q.code && !q.code.content.trim()) return `Question ${i + 1}: code block is empty — add code or remove it`;
     }
     return null;
   };
@@ -85,11 +124,15 @@ export default function McqContestCreate() {
         startTime,
         endTime,
         isPublic,
+        tags: [tag],
         questions: questions.map((q) => ({
           questionText: q.questionText.trim(),
           options: q.options.map((o) => ({ text: o.trim() })),
           correctOption: q.correctOption,
           marks: q.marks || 1,
+          ...(q.code && q.code.content.trim()
+            ? { code: { language: q.code.language, content: q.code.content } }
+            : {}),
         })),
       });
       setCreated(data.contest);
@@ -101,6 +144,13 @@ export default function McqContestCreate() {
   };
 
   if (created) {
+    const whatsappText = encodeURIComponent(
+      created.isPublic === false && created.joinCode
+        ? `Join my MCQ contest "${created.title}" — use invite code ${created.joinCode} to enter!`
+        : `Check out my MCQ contest "${created.title}"!`
+    );
+    const whatsappHref = `https://wa.me/?text=${whatsappText}`;
+
     return (
       <Shell>
         <motion.div
@@ -116,16 +166,25 @@ export default function McqContestCreate() {
           </p>
 
           {created.isPublic === false && created.joinCode && (
-            <div className="mb-8 inline-flex flex-col items-center gap-2 bg-purple-500/[0.06] border border-purple-500/20 rounded-2xl px-6 py-4">
+            <div className="mb-8 inline-flex flex-col items-center gap-3 bg-purple-500/[0.06] border border-purple-500/20 rounded-2xl px-6 py-4">
               <span className="text-[10px] font-black text-purple-400 uppercase tracking-[0.15em]">Invite Code — save this now</span>
               <span className="font-mono text-2xl tracking-[0.3em] text-white">{created.joinCode}</span>
               <span className="text-[11px] text-white/30">This won't be shown again after you leave this page.</span>
+
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all"
+              >
+                <MessageCircle className="w-3.5 h-3.5" /> Share on WhatsApp
+              </a>
             </div>
           )}
 
           <div className="flex items-center justify-center gap-3">
             <button
-              onClick={() => navigate('/admin/contest/manage')}
+              onClick={() => navigate('/admin/mcq-contest/manage')}
               className="px-5 py-2.5 rounded-xl text-sm font-bold text-white/70 border border-white/[0.1] hover:text-white hover:border-white/20 transition-all"
             >
               Manage Contests
@@ -191,6 +250,29 @@ export default function McqContestCreate() {
               <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="input" />
             </Field>
           </div>
+
+          {/* ── category / tag picker, same chip style as Community post creation ── */}
+          <Field label="Category">
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(TAG_META).map(([key, meta]) => {
+                const Icon = meta.icon;
+                const active = tag === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setTag(key)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all",
+                      active ? cn(meta.bg, meta.border, meta.color) : "bg-white/[0.02] border-white/[0.08] text-white/40 hover:text-white/70"
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" /> {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
 
           <Field label="Visibility">
             <div className="flex gap-3">
@@ -264,6 +346,44 @@ export default function McqContestCreate() {
                     className="input mb-4"
                   />
 
+                  {/* ── optional code block attached to the question ── */}
+                  {q.code && (
+                    <div className="mb-4 bg-black/40 border border-sky-500/20 rounded-xl overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 bg-white/[0.02] border-b border-white/[0.06]">
+                        <div className="flex items-center gap-2">
+                          <Code2 className="w-3.5 h-3.5 text-sky-400" />
+                          <select
+                            value={q.code.language}
+                            onChange={(e) => updateCode(qi, { language: e.target.value })}
+                            className="bg-transparent text-xs font-bold text-sky-300 outline-none cursor-pointer"
+                          >
+                            {CODE_LANGUAGES.map((l) => (
+                              <option key={l.value} value={l.value} className="bg-[#0a0a0a] text-white">
+                                {l.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleCode(qi)}
+                          className="text-white/20 hover:text-rose-400 transition-colors"
+                          title="Remove code block"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <textarea
+                        value={q.code.content}
+                        onChange={(e) => updateCode(qi, { content: e.target.value })}
+                        placeholder={`// paste your ${q.code.language} snippet here…`}
+                        rows={7}
+                        spellCheck={false}
+                        className="w-full bg-transparent px-3 py-3 font-mono text-[12.5px] leading-relaxed text-white/90 outline-none resize-y placeholder:text-white/20"
+                      />
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
                     {q.options.map((opt, oi) => (
                       <label
@@ -299,7 +419,18 @@ export default function McqContestCreate() {
                       onChange={(e) => updateQuestion(qi, { marks: Math.max(1, Number(e.target.value) || 1) })}
                       className="w-16 bg-white/[0.03] border border-white/[0.08] rounded-lg px-2 py-1 text-xs text-white text-center outline-none focus:border-cyan-500/40"
                     />
-                    <span className="text-[10px] text-white/20">Select the correct option's radio button.</span>
+
+                    {!q.code && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCode(qi)}
+                        className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border bg-white/[0.02] border-white/[0.08] text-white/40 hover:text-sky-400 hover:border-sky-500/30 transition-all"
+                      >
+                        <Code2 className="w-3.5 h-3.5" /> Add code
+                      </button>
+                    )}
+
+                    <span className="text-[10px] text-white/20 ml-auto">Select the correct option's radio button.</span>
                   </div>
                 </motion.div>
               ))}

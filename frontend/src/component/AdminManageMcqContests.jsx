@@ -3,11 +3,22 @@ import { NavLink, useNavigate } from 'react-router';
 import { useSelector } from 'react-redux';
 import {
   Trash2, Edit, Trophy, Clock, Users, X, Check, Plus, Lock,
-  Building2, Eye, ListChecks, GripVertical, CircleCheck,
+  Building2, Eye, ListChecks, GripVertical, CircleCheck, Code2,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 
 const MAX_QUESTIONS = 20;
+
+const CODE_LANGUAGES = [
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'python',     label: 'Python' },
+  { value: 'cpp',        label: 'C++' },
+  { value: 'c',          label: 'C' },
+  { value: 'java',       label: 'Java' },
+  { value: 'go',         label: 'Go' },
+  { value: 'sql',        label: 'SQL' },
+];
 
 const formatDate = (d) => {
   if (!d) return '—';
@@ -30,6 +41,7 @@ const blankQuestion = () => ({
   correctOption: 0,
   marks: 1,
   explanation: '',
+  code: null, // { language, content } — added on demand via "Add code"
 });
 
 export default function AdminManageMcqContests() {
@@ -82,6 +94,7 @@ export default function AdminManageMcqContests() {
           correctOption: q.correctOption,
           marks: q.marks ?? 1,
           explanation: q.explanation || '',
+          code: q.code ? { language: q.code.language || 'javascript', content: q.code.content || '' } : null,
         }))
       );
     } catch (err) {
@@ -105,6 +118,16 @@ export default function AdminManageMcqContests() {
       const options = q.options.map((o, j) => (j === oIdx ? { text } : o));
       return { ...q, options };
     }));
+  };
+  const toggleCode = (idx) => {
+    setEditQuestions((prev) => prev.map((q, i) =>
+      i === idx ? { ...q, code: q.code ? null : { language: 'javascript', content: '' } } : q
+    ));
+  };
+  const updateCode = (idx, patch) => {
+    setEditQuestions((prev) => prev.map((q, i) =>
+      i === idx ? { ...q, code: { ...q.code, ...patch } } : q
+    ));
   };
   const addQuestion = () => {
     if (editQuestions.length >= MAX_QUESTIONS) return;
@@ -130,6 +153,7 @@ export default function AdminManageMcqContests() {
       const q = editQuestions[i];
       if (!q.questionText.trim()) { setError(`Question ${i + 1}: text is required.`); return; }
       if (q.options.some((o) => !o.text.trim())) { setError(`Question ${i + 1}: all 4 options are required.`); return; }
+      if (q.code && !q.code.content.trim()) { setError(`Question ${i + 1}: code block is empty — add code or remove it.`); return; }
     }
 
     setSaving(true);
@@ -141,7 +165,16 @@ export default function AdminManageMcqContests() {
         endTime: editForm.endTime,
         isPublic: editForm.isPublic,
         durationMinutes: editForm.durationMinutes ? Number(editForm.durationMinutes) : null,
-        questions: editQuestions,
+        questions: editQuestions.map((q) => ({
+          questionText: q.questionText,
+          options: q.options,
+          correctOption: q.correctOption,
+          marks: q.marks,
+          explanation: q.explanation,
+          ...(q.code && q.code.content.trim()
+            ? { code: { language: q.code.language, content: q.code.content } }
+            : {}),
+        })),
       });
       cancelEdit();
       fetchContests();
@@ -460,6 +493,64 @@ export default function AdminManageMcqContests() {
                                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff4444', flexShrink: 0, padding: 6 }}>
                                       <Trash2 size={13} />
                                     </button>
+                                  </div>
+
+                                  {/* ── optional code block attached to the question ── */}
+                                  <div style={{ marginLeft: 24, marginBottom: 10 }}>
+                                    {q.code ? (
+                                      <div style={{ background: '#0d1117', border: '1px solid #123a3f', borderRadius: 8, overflow: 'hidden' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#0a2226', borderBottom: '1px solid #123a3f' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <Code2 size={12} style={{ color: '#22d3ee' }} />
+                                            <select
+                                              value={q.code.language}
+                                              onChange={(e) => updateCode(qIdx, { language: e.target.value })}
+                                              style={{
+                                                background: 'transparent', border: 'none', outline: 'none', cursor: 'pointer',
+                                                color: '#22d3ee', fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 700,
+                                              }}
+                                            >
+                                              {CODE_LANGUAGES.map((l) => (
+                                                <option key={l.value} value={l.value} style={{ background: '#0d1117', color: '#e6edf3' }}>
+                                                  {l.label}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                          <button onClick={() => toggleCode(qIdx)} title="Remove code block"
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#495366', padding: 2 }}
+                                            onMouseEnter={(e) => e.currentTarget.style.color = '#ff4444'}
+                                            onMouseLeave={(e) => e.currentTarget.style.color = '#495366'}>
+                                            <X size={12} />
+                                          </button>
+                                        </div>
+                                        <textarea
+                                          value={q.code.content}
+                                          onChange={(e) => updateCode(qIdx, { content: e.target.value })}
+                                          placeholder={`// paste your ${q.code.language} snippet here…`}
+                                          rows={6}
+                                          spellCheck={false}
+                                          style={{
+                                            width: '100%', background: 'transparent', border: 'none', outline: 'none', resize: 'vertical',
+                                            color: '#e6edf3', fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, lineHeight: 1.6,
+                                            padding: '10px 12px',
+                                          }}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <button onClick={() => toggleCode(qIdx)}
+                                        style={{
+                                          display: 'flex', alignItems: 'center', gap: 5,
+                                          background: '#0d1117', border: '1px solid #21262d', borderRadius: 6,
+                                          color: '#495366', fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, fontWeight: 700,
+                                          padding: '5px 10px', cursor: 'pointer', transition: 'all 0.15s',
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee'; e.currentTarget.style.borderColor = '#123a3f'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.color = '#495366'; e.currentTarget.style.borderColor = '#21262d'; }}
+                                      >
+                                        <Code2 size={11} /> Add code
+                                      </button>
+                                    )}
                                   </div>
 
                                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginLeft: 24, marginBottom: 10 }}>
