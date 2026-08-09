@@ -44,10 +44,10 @@ import RegisterCollege from "./component/Registercollege";
 import CollegeRequests from "./pages/Collegerequests";
 import MakeAdmin from "./component/MakeAdmin";
 import CollegeLeaderboard from "./pages/CollegeLeaderboard";
-import RoadmapVisualizer from "./pages/roadmap";
+import RoadmapExplorer from "./pages/roadmap";
 import DuelSpectate from "./pages/Duelspectate"
 //frontend/src/pages/Collegeadmindashboard.jsx
-//frontend/src/pages/Collegerequests.jsx
+//frontend/src/pages/Collegerequests.jsxF
 //frontend/src/pages/CollegeLeaderboard.jsx
 // NOTE: no "/discuss" route exists anywhere in this file. If clicking
 // "Community" sometimes lands you on a discuss view, that behavior is being
@@ -147,7 +147,7 @@ function App(){
     <Route path="/collegeadmin/leaderboard" element={isAuthenticated && user?.role !== 'Admin' ? <CollegeLeaderboard /> : <Navigate to="/" />} />
     <Route path="/community" element={<Community />} />
 <Route path="/community/post/:id" element={<CommunityPostDetail />} />
-<Route path="/roadmap" element={<RoadmapVisualizer></RoadmapVisualizer>}></Route>
+<Route path="/explore/roadmap" element={<RoadmapExplorer></RoadmapExplorer>}></Route>
     </Routes>
   </>
   )

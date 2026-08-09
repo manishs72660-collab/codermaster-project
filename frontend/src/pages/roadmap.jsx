@@ -1,7 +1,24 @@
-import { useState, useMemo } from "react";
-import { NavLink } from "react-router";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { NavLink, useLocation } from "react-router";
+import {
+  X,
+  PlayCircle,
+  BookOpen,
+  Code2,
+  Server,
+  Layers,
+  Cloud,
+  ShieldHalf,
+  Terminal,
+  CircleDot,
+  Check,
+  ArrowRight,
+} from "lucide-react";
 
-// ─── CodeMaster Color Palette (shared with DSA Visualizer) ───────────────────
+/* ------------------------------------------------------------------ */
+/*  CodeMaster Color Palette (matches ComplexityVisualizer / Navbar)  */
+/* ------------------------------------------------------------------ */
+
 const CM = {
   bg:        "#0d1117",
   surface:   "#161b22",
@@ -13,817 +30,702 @@ const CM = {
   dim:       "#495366",
   accent:    "#ffa116",
   accentDim: "#1e1608",
-  accentBdr: "#3a2e0f",
   green:     "#00b86b",
-  greenDim:  "#0f2a1a",
-  greenBdr:  "#1a3a2a",
   red:       "#ff4444",
-  redDim:    "#1a0808",
-  redBdr:    "#3a1a1a",
   blue:      "#4493f8",
-  blueDim:   "#0a1220",
-  blueBdr:   "#1c2a3a",
   purple:    "#c084fc",
-  purpleDim: "#120d1e",
-  purpleBdr: "#2a1a3a",
   teal:      "#2dd4bf",
-  tealDim:   "#0a1f1c",
-  tealBdr:   "#123a34",
+  pink:      "#ff5fa6",
+  sky:       "#38bdf8",
 };
 
-const MONO = "'JetBrains Mono', monospace";
-
-// ─── Resource type styling ─────────────────────────────────────────────────
-const RTYPE = {
-  youtube:    { label: "Video",      short: "YT",   color: CM.red,    dim: CM.redDim,    bdr: CM.redBdr },
-  docs:       { label: "Docs",       short: "DOC",  color: CM.blue,   dim: CM.blueDim,   bdr: CM.blueBdr },
-  article:    { label: "Article",    short: "ART",  color: CM.teal,   dim: CM.tealDim,   bdr: CM.tealBdr },
-  cheatsheet: { label: "Cheatsheet", short: "PDF",  color: CM.purple, dim: CM.purpleDim, bdr: CM.purpleBdr },
-  practice:   { label: "Practice",   short: "DO",   color: CM.green,  dim: CM.greenDim,  bdr: CM.greenBdr },
-  course:     { label: "Course",     short: "EDU",  color: CM.accent, dim: CM.accentDim, bdr: CM.accentBdr },
-};
-
-// ─── Reusable UI ──────────────────────────────────────────────────────────────
-function Badge({ label, color, bg, bdr }) {
+function Badge({ label, color }) {
   return (
     <span style={{
-      background: bg || color + "18", color,
-      border: `1px solid ${bdr || color + "40"}`,
-      borderRadius: 20, padding: "2px 10px",
-      fontSize: 10, fontWeight: 700, fontFamily: MONO, letterSpacing: 0.3,
-      whiteSpace: "nowrap",
+      background: color + "18", color, border: `1px solid ${color}40`,
+      borderRadius: 20, padding: "2px 10px", fontSize: 10, fontWeight: 700,
+      fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.3, whiteSpace: "nowrap",
+      display: "inline-block",
     }}>{label}</span>
   );
 }
 
-function SectionLabel({ children, color = CM.accent, right }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-      <div style={{ width: 3, height: 14, borderRadius: 2, background: color, flexShrink: 0 }} />
-      <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: CM.dim }}>{children}</span>
-      <div style={{ flex: 1, height: 1, background: CM.border }} />
-      {right}
-    </div>
-  );
-}
+/* ------------------------------------------------------------------ */
+/*  TRACK DATA — each track is a DAG of levels. Nodes list `parents`  */
+/*  by id; the layout engine positions levels top-to-bottom and       */
+/*  spreads sibling nodes horizontally, roadmap.sh style.             */
+/* ------------------------------------------------------------------ */
 
-function ResourceLink({ r }) {
-  const t = RTYPE[r.type] || RTYPE.article;
-  return (
-    <a href={r.url} target="_blank" rel="noopener noreferrer" style={{
-      display: "flex", alignItems: "center", gap: 8, textDecoration: "none",
-      padding: "9px 10px", borderRadius: 7, background: CM.bg,
-      border: `1px solid ${CM.border2}`, transition: "all 0.15s",
-    }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = t.color; e.currentTarget.style.background = t.dim; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = CM.border2; e.currentTarget.style.background = CM.bg; }}
-    >
-      <span style={{
-        fontFamily: MONO, fontSize: 9, fontWeight: 800, color: t.color,
-        background: t.dim, border: `1px solid ${t.bdr}`, borderRadius: 5,
-        padding: "3px 6px", flexShrink: 0, letterSpacing: 0.5, minWidth: 30, textAlign: "center",
-      }}>{t.short}</span>
-      <span style={{ fontSize: 12.5, color: CM.text, flex: 1, fontFamily: "'Segoe UI',sans-serif" }}>{r.label}</span>
-      <span style={{ color: CM.dim, fontSize: 12 }}>↗</span>
-    </a>
-  );
-}
-
-// ─── Topic detail panel (slide-over, opens on node click) ─────────────────────
-function TopicPanel({ topic, stageTitle, roadmapColor, done, onToggleDone, onClose }) {
-  if (!topic) return null;
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 100, display: "flex", justifyContent: "flex-end",
-      background: "rgba(3,5,8,0.6)", backdropFilter: "blur(2px)",
-    }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{
-        width: "min(420px, 92vw)", height: "100%", background: CM.surface,
-        borderLeft: `1px solid ${CM.border2}`, overflowY: "auto",
-        animation: "slideIn 0.2s ease-out",
-        display: "flex", flexDirection: "column",
-      }}>
-        <div style={{
-          padding: "16px 20px", borderBottom: `1px solid ${CM.border}`,
-          display: "flex", alignItems: "flex-start", gap: 10, background: CM.bg, position: "sticky", top: 0,
-        }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: roadmapColor, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>{stageTitle}</div>
-            <div style={{ fontSize: 17, fontWeight: 700 }}>{topic.title}</div>
-          </div>
-          <button onClick={onClose} style={{
-            background: CM.surface2, border: `1px solid ${CM.border2}`, color: CM.muted,
-            borderRadius: 7, width: 28, height: 28, cursor: "pointer", fontSize: 14, flexShrink: 0,
-          }}>✕</button>
-        </div>
-
-        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 18 }}>
-          {topic.optional && <Badge label="OPTIONAL" color={CM.dim} bg={CM.surface2} bdr={CM.border2} />}
-          <p style={{ fontSize: 13, lineHeight: 1.7, color: CM.muted, margin: 0 }}>{topic.desc}</p>
-
-          <button onClick={onToggleDone} style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "10px 14px", borderRadius: 8, cursor: "pointer", fontFamily: MONO,
-            fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
-            background: done ? CM.greenDim : CM.surface2,
-            color: done ? CM.green : CM.text,
-            border: `1px solid ${done ? CM.greenBdr : CM.border2}`,
-          }}>
-            {done ? "✓ Marked as Learned" : "○ Mark as Learned"}
-          </button>
-
-          <div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: CM.dim, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>
-              Resources ({topic.resources.length})
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {topic.resources.map((r, i) => <ResourceLink key={i} r={r} />)}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// NODE-GRAPH LAYOUT ENGINE — computes pixel positions + connector edges
-// for a roadmap.sh-style flowchart from the stage/topic data.
-// ══════════════════════════════════════════════════════════════════════════
-const NODE_W = 174, NODE_H = 58;
-const STAGE_W = 220, STAGE_H = 50;
-const COL_GAP = 20, ROW_GAP = 24;
-const TOP_GAP = 46, BOTTOM_GAP = 56;
-const MAX_COLS = 4;
-
-function layoutRoadmap(stages) {
-  let maxRowWidth = STAGE_W;
-  stages.forEach(s => {
-    for (let i = 0; i < s.topics.length; i += MAX_COLS) {
-      const cols = Math.min(MAX_COLS, s.topics.length - i);
-      const w = cols * NODE_W + (cols - 1) * COL_GAP;
-      if (w > maxRowWidth) maxRowWidth = w;
-    }
-  });
-  const totalWidth = maxRowWidth + 60;
-  const cx = totalWidth / 2;
-
-  const stageNodes = [];
-  const topicNodes = [];
-  const edges = [];
-  let cursorY = 34;
-  let prevBottomY = null;
-
-  stages.forEach((stage, si) => {
-    const stageY = cursorY + STAGE_H / 2;
-    if (prevBottomY != null) {
-      edges.push({ x1: cx, y1: prevBottomY, x2: cx, y2: stageY - STAGE_H / 2, dashed: false, key: `s${si}-in` });
-    }
-    stageNodes.push({ id: `stage-${si}`, x: cx, y: stageY, title: stage.title, note: stage.note, index: si });
-
-    const rows = [];
-    for (let i = 0; i < stage.topics.length; i += MAX_COLS) rows.push(stage.topics.slice(i, i + MAX_COLS));
-
-    let rowTopAnchorY = stageY + STAGE_H / 2;
-    let rowTopAnchorX = cx;
-
-    rows.forEach((row, ri) => {
-      const cols = row.length;
-      const rowWidth = cols * NODE_W + (cols - 1) * COL_GAP;
-      const startX = cx - rowWidth / 2 + NODE_W / 2;
-      const rowY = rowTopAnchorY + TOP_GAP + NODE_H / 2;
-      const busY = rowTopAnchorY + TOP_GAP / 2;
-
-      edges.push({ x1: rowTopAnchorX, y1: rowTopAnchorY, x2: rowTopAnchorX, y2: busY, key: `bus-v-${si}-${ri}` });
-      if (cols > 1) {
-        const firstX = startX, lastX = startX + (cols - 1) * (NODE_W + COL_GAP);
-        edges.push({ x1: firstX, y1: busY, x2: lastX, y2: busY, key: `bus-h-${si}-${ri}` });
-      }
-
-      row.forEach((topic, ci) => {
-        const x = startX + ci * (NODE_W + COL_GAP);
-        edges.push({ x1: x, y1: busY, x2: x, y2: rowY - NODE_H / 2, dashed: !!topic.optional, key: `stub-${topic.id}` });
-        topicNodes.push({ id: topic.id, x, y: rowY, topic, stageIndex: si });
-      });
-
-      rowTopAnchorY = rowY + NODE_H / 2;
-      rowTopAnchorX = cx;
-    });
-
-    prevBottomY = rowTopAnchorY + BOTTOM_GAP / 2;
-    cursorY = rowTopAnchorY + BOTTOM_GAP;
-  });
-
-  return { width: totalWidth, height: cursorY, stageNodes, topicNodes, edges };
-}
-
-// ─── Node visuals ───────────────────────────────────────────────────────────
-function StageNodeBox({ node, color }) {
-  return (
-    <div style={{
-      position: "absolute", left: node.x, top: node.y, transform: "translate(-50%,-50%)",
-      width: STAGE_W, height: STAGE_H, borderRadius: 10, zIndex: 2,
-      background: `linear-gradient(180deg, ${color}22, ${color}0a)`,
-      border: `1.5px solid ${color}`, boxShadow: `0 0 16px ${color}33`,
-      display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "0 12px",
-    }}>
-      <span style={{
-        width: 22, height: 22, borderRadius: "50%", background: color, color: "#0d1117",
-        fontFamily: MONO, fontWeight: 800, fontSize: 11, flexShrink: 0,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>{node.index + 1}</span>
-      <span style={{ fontSize: 13, fontWeight: 700, color: CM.text, textAlign: "center", lineHeight: 1.2 }}>{node.title}</span>
-    </div>
-  );
-}
-
-function TopicNodeBox({ node, done, roadmapColor, onOpen }) {
-  const topic = node.topic;
-  return (
-    <button onClick={onOpen} title={topic.title} style={{
-      position: "absolute", left: node.x, top: node.y, transform: "translate(-50%,-50%)",
-      width: NODE_W, height: NODE_H, zIndex: 2, cursor: "pointer", textAlign: "left",
-      borderRadius: 9, padding: "7px 10px",
-      background: done ? CM.greenDim : CM.surface2,
-      border: `1.5px solid ${done ? CM.greenBdr : CM.border2}`,
-      borderStyle: topic.optional && !done ? "dashed" : "solid",
-      display: "flex", flexDirection: "column", justifyContent: "center", gap: 4,
-      transition: "all 0.15s",
-    }}
-      onMouseEnter={e => { if (!done) { e.currentTarget.style.borderColor = roadmapColor; e.currentTarget.style.background = CM.surface; e.currentTarget.style.boxShadow = `0 0 10px ${roadmapColor}44`; } }}
-      onMouseLeave={e => { if (!done) { e.currentTarget.style.borderColor = CM.border2; e.currentTarget.style.background = CM.surface2; e.currentTarget.style.boxShadow = "none"; } }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{
-          width: 15, height: 15, borderRadius: 4, flexShrink: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: done ? CM.green : "transparent",
-          border: `1.5px solid ${done ? CM.green : CM.dim}`,
-          fontSize: 9, fontWeight: 900, color: "#0d1117",
-        }}>{done ? "✓" : ""}</span>
-        <span style={{
-          fontSize: 12, fontWeight: 700, color: done ? CM.green : CM.text, lineHeight: 1.25,
-          overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-        }}>{topic.title}</span>
-      </div>
-      <div style={{ display: "flex", gap: 3, flexWrap: "wrap", paddingLeft: 21 }}>
-        {topic.resources.slice(0, 4).map((r, i) => {
-          const t = RTYPE[r.type] || RTYPE.article;
-          return <span key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: t.color, opacity: 0.9 }} />;
-        })}
-        <span style={{ fontFamily: MONO, fontSize: 8.5, color: CM.dim, marginLeft: 2 }}>{topic.resources.length} res</span>
-      </div>
-    </button>
-  );
-}
-
-function RoadmapCanvas({ stages, roadmapColor, progress, onOpenTopic }) {
-  const layout = useMemo(() => layoutRoadmap(stages), [stages]);
-  return (
-    <div style={{ overflowX: "auto", paddingBottom: 8 }}>
-      <div style={{ position: "relative", width: layout.width, height: layout.height, margin: "0 auto" }}>
-        <svg width={layout.width} height={layout.height} style={{ position: "absolute", top: 0, left: 0, zIndex: 1 }}>
-          {layout.edges.map(e => (
-            <line key={e.key} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
-              stroke={CM.border2} strokeWidth={1.75}
-              strokeDasharray={e.dashed ? "4 4" : undefined} />
-          ))}
-          {layout.topicNodes.map(n => (
-            <circle key={"dot-" + n.id} cx={n.x} cy={n.y - NODE_H / 2} r={2.5} fill={progress[n.id] ? CM.green : CM.border2} />
-          ))}
-        </svg>
-
-        {layout.stageNodes.map(n => <StageNodeBox key={n.id} node={n} color={roadmapColor} />)}
-        {layout.topicNodes.map(n => (
-          <TopicNodeBox
-            key={n.id} node={n} roadmapColor={roadmapColor}
-            done={!!progress[n.id]}
-            onOpen={() => onOpenTopic(n.topic, stages[n.stageIndex].title)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-// ROADMAP DATA
-// ══════════════════════════════════════════════════════════════════════════
-const T = (id, title, desc, resources, optional) => ({ id, title, desc, resources, optional: !!optional });
-const R = (type, label, url) => ({ type, label, url });
-
-const ROADMAPS = {
-  "Full Stack": {
-    color: CM.accent, icon: "🧩", level: "Beginner → Advanced", duration: "6-9 months",
-    description: "Everything you need to build and ship complete web applications — from the browser to the database and the server in between.",
-    liveLink: "https://roadmap.sh/full-stack",
-    stages: [
-      { title: "Internet & Web Basics", note: "Understand what actually happens when a URL loads.", topics: [
-        T("fs-http","How the Web Works","DNS, HTTP/HTTPS, browsers, hosting and domains — the foundation everything else sits on.",[
-          R("youtube","How the Internet Works — freeCodeCamp","https://www.youtube.com/@freecodecamp"),
-          R("article","HTTP overview — MDN","https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview"),
-          R("docs","roadmap.sh: Internet","https://roadmap.sh/computer-science")]),
-        T("fs-git","Git & GitHub","Version control basics: commits, branches, merges, pull requests.",[
-          R("youtube","Git & GitHub Crash Course","https://www.youtube.com/@programmingwithmosh"),
-          R("cheatsheet","Git Cheat Sheet (PDF)","https://education.github.com/git-cheat-sheet-education.pdf"),
-          R("practice","Learn Git Branching","https://learngitbranching.js.org/")]),
-      ]},
-      { title: "Frontend Foundations", note: "The three languages every browser understands.", topics: [
-        T("fs-html","HTML5","Semantic markup, forms, accessibility basics.",[
-          R("docs","HTML — MDN","https://developer.mozilla.org/en-US/docs/Web/HTML"),
-          R("course","freeCodeCamp: Responsive Web Design","https://www.freecodecamp.org/learn/2022/responsive-web-design/")]),
-        T("fs-css","CSS3","Box model, Flexbox, Grid, responsive design.",[
-          R("docs","CSS — MDN","https://developer.mozilla.org/en-US/docs/Web/CSS"),
-          R("youtube","CSS Crash Course — Traversy Media","https://www.youtube.com/@TraversyMedia"),
-          R("practice","Flexbox Froggy","https://flexboxfroggy.com/")]),
-        T("fs-js","JavaScript","Variables, functions, DOM, async/await, ES6+.",[
-          R("docs","The Modern JS Tutorial","https://javascript.info/"),
-          R("youtube","JavaScript Full Course — freeCodeCamp","https://www.youtube.com/@freecodecamp"),
-          R("cheatsheet","JS Cheatsheet — devhints","https://devhints.io/js")]),
-        T("fs-frameworks","Pick a Framework: React / Vue / Svelte","Component-driven UI, state, props, hooks.",[
-          R("docs","React Docs","https://react.dev/learn"),
-          R("docs","Vue Docs","https://vuejs.org/guide/introduction.html"),
-          R("youtube","React Course — freeCodeCamp","https://www.youtube.com/@freecodecamp")], true),
-      ]},
-      { title: "Backend & APIs", note: "Server-side logic and how the frontend talks to it.", topics: [
-        T("fs-node","Node.js & Express","Build REST APIs, middleware, routing.",[
-          R("docs","Node.js Docs","https://nodejs.org/en/docs"),
-          R("docs","Express Guide","https://expressjs.com/en/guide/routing.html"),
-          R("youtube","Node.js Crash Course — Traversy Media","https://www.youtube.com/@TraversyMedia")]),
-        T("fs-api","REST API Design","Resources, status codes, versioning, auth.",[
-          R("article","REST API Tutorial","https://restfulapi.net/"),
-          R("practice","Postman Learning Center","https://learning.postman.com/")]),
-        T("fs-auth","Authentication","Sessions, JWT, OAuth2.",[
-          R("article","JWT Introduction","https://jwt.io/introduction"),
-          R("youtube","Auth Explained — Fireship","https://www.youtube.com/@Fireship")]),
-      ]},
-      { title: "Databases", note: "Where the application's data actually lives.", topics: [
-        T("fs-sql","SQL & PostgreSQL","Schema design, joins, indexes, transactions.",[
-          R("docs","PostgreSQL Tutorial","https://www.postgresql.org/docs/current/tutorial.html"),
-          R("practice","SQLZoo","https://sqlzoo.net/")]),
-        T("fs-nosql","NoSQL: MongoDB","Documents, collections, aggregation.",[
-          R("docs","MongoDB Manual","https://www.mongodb.com/docs/manual/"),
-          R("youtube","MongoDB Crash Course — Traversy Media","https://www.youtube.com/@TraversyMedia")], true),
-        T("fs-orm","ORMs: Prisma / Sequelize","Type-safe database access from code.",[
-          R("docs","Prisma Docs","https://www.prisma.io/docs")]),
-      ]},
-      { title: "DevOps & Deployment", note: "Get the app in front of real users.", topics: [
-        T("fs-docker","Docker Basics","Containerize your app for consistent environments.",[
-          R("docs","Docker Get Started","https://docs.docker.com/get-started/"),
-          R("youtube","Docker in 100 Seconds — Fireship","https://www.youtube.com/@Fireship")]),
-        T("fs-ci","CI/CD","Automated testing and deployment pipelines.",[
-          R("docs","GitHub Actions Docs","https://docs.github.com/en/actions")]),
-        T("fs-hosting","Hosting & DNS","Deploy to Vercel, Netlify, Render, or a VPS.",[
-          R("docs","Vercel Docs","https://vercel.com/docs"),
-          R("docs","Render Docs","https://render.com/docs")]),
-      ]},
-      { title: "Beyond the Basics", note: "What separates a junior from a senior full-stack engineer.", topics: [
-        T("fs-testing","Testing","Unit, integration and end-to-end tests.",[
-          R("docs","Jest Docs","https://jestjs.io/docs/getting-started"),
-          R("docs","Playwright Docs","https://playwright.dev/docs/intro")]),
-        T("fs-perf","Performance & Caching","Lazy loading, CDNs, Redis caching.",[
-          R("article","Web Performance — web.dev","https://web.dev/learn/performance/")]),
-        T("fs-system","System Design Basics","Load balancing, scaling, microservices.",[
-          R("youtube","System Design Primer","https://www.youtube.com/@Gkcs"),
-          R("docs","System Design Primer (GitHub)","https://github.com/donnemartin/system-design-primer")], true),
-      ]},
+const TRACKS = {
+  fullstack: {
+    label: "Full Stack",
+    icon: Code2,
+    color: CM.green,
+    tagline: "Ship the whole product, front to back",
+    levels: [
+      [{ id: "fs_web", label: "HTML / CSS / JS", parents: [] }],
+      [{ id: "fs_git", label: "Git & GitHub", parents: ["fs_web"] }],
+      [
+        { id: "fs_front", label: "Frontend Framework", parents: ["fs_git"] },
+        { id: "fs_back", label: "Backend Runtime", parents: ["fs_git"] },
+      ],
+      [{ id: "fs_db", label: "Databases", parents: ["fs_front", "fs_back"] }],
+      [{ id: "fs_api", label: "REST / GraphQL APIs", parents: ["fs_db"] }],
+      [{ id: "fs_auth", label: "Authentication", parents: ["fs_api"] }],
+      [{ id: "fs_docker", label: "Docker", parents: ["fs_auth"] }],
+      [{ id: "fs_cicd", label: "CI / CD", parents: ["fs_docker"] }],
+      [{ id: "fs_cloud", label: "Cloud Deployment", parents: ["fs_cicd"] }],
+      [{ id: "fs_monitor", label: "Monitoring & Logs", parents: ["fs_cloud"] }],
     ],
   },
 
-  "Frontend": {
-    color: CM.purple, icon: "🎨", level: "Beginner → Advanced", duration: "4-6 months",
-    description: "Master the browser: markup, styling, JavaScript and the modern frameworks used to build interactive interfaces.",
-    liveLink: "https://roadmap.sh/frontend",
-    stages: [
-      { title: "Core Web Languages", topics: [
-        T("fe-html","HTML5 & Semantics","Structure content the way browsers and screen readers expect.",[
-          R("docs","HTML — MDN","https://developer.mozilla.org/en-US/docs/Web/HTML"),
-          R("practice","freeCodeCamp HTML","https://www.freecodecamp.org/learn/2022/responsive-web-design/")]),
-        T("fe-css","CSS: Flexbox & Grid","Modern layout systems for any screen size.",[
-          R("youtube","CSS Grid Crash Course — Traversy Media","https://www.youtube.com/@TraversyMedia"),
-          R("practice","Grid Garden","https://cssgridgarden.com/")]),
-        T("fe-js","JavaScript Fundamentals","Closures, promises, the event loop, DOM manipulation.",[
-          R("docs","javascript.info","https://javascript.info/"),
-          R("youtube","JS Full Course — freeCodeCamp","https://www.youtube.com/@freecodecamp")]),
-        T("fe-ts","TypeScript","Add static types on top of JavaScript.",[
-          R("docs","TypeScript Handbook","https://www.typescriptlang.org/docs/handbook/intro.html")], true),
-      ]},
-      { title: "Version Control & Tooling", topics: [
-        T("fe-git","Git & GitHub","Branching, PRs, resolving merge conflicts.",[
-          R("cheatsheet","Git Cheat Sheet","https://education.github.com/git-cheat-sheet-education.pdf"),
-          R("practice","Learn Git Branching","https://learngitbranching.js.org/")]),
-        T("fe-build","Build Tools: Vite / Webpack","Bundling, dev servers, hot reload.",[
-          R("docs","Vite Docs","https://vitejs.dev/guide/")]),
-        T("fe-pkg","Package Managers","npm, pnpm, yarn and semantic versioning.",[
-          R("docs","npm Docs","https://docs.npmjs.com/")]),
-      ]},
-      { title: "Pick a Framework", note: "Choose one to go deep on.", topics: [
-        T("fe-react","React","Components, hooks, state management.",[
-          R("docs","React Docs","https://react.dev/learn"),
-          R("youtube","React Course — freeCodeCamp","https://www.youtube.com/@freecodecamp")]),
-        T("fe-vue","Vue","Reactive templates and the Composition API.",[
-          R("docs","Vue Docs","https://vuejs.org/guide/introduction.html")], true),
-        T("fe-svelte","Svelte","Compiler-based, no virtual DOM.",[
-          R("docs","Svelte Tutorial","https://svelte.dev/tutorial")], true),
-        T("fe-angular","Angular","Full-featured opinionated framework for large apps.",[
-          R("docs","Angular Docs","https://angular.dev/overview")], true),
-      ]},
-      { title: "Styling at Scale", topics: [
-        T("fe-tailwind","Tailwind CSS","Utility-first styling.",[
-          R("docs","Tailwind Docs","https://tailwindcss.com/docs/installation")]),
-        T("fe-css-arch","CSS Architecture","BEM, CSS Modules, styled-components.",[
-          R("article","CSS Modules — CSS Tricks","https://css-tricks.com/css-modules-part-1-need/")], true),
-        T("fe-anim","Animation","Transitions, keyframes, Framer Motion.",[
-          R("docs","Framer Motion Docs","https://www.framer.com/motion/")], true),
-      ]},
-      { title: "State, Testing & Shipping", topics: [
-        T("fe-state","State Management","Context, Redux, Zustand, or signals.",[
-          R("docs","Redux Toolkit Docs","https://redux-toolkit.js.org/introduction/getting-started")]),
-        T("fe-test","Testing","React Testing Library, Playwright, Cypress.",[
-          R("docs","Testing Library Docs","https://testing-library.com/docs/")]),
-        T("fe-a11y","Accessibility (a11y)","ARIA, keyboard navigation, contrast.",[
-          R("docs","Web Accessibility — MDN","https://developer.mozilla.org/en-US/docs/Web/Accessibility")]),
-        T("fe-deploy","Deployment","Vercel, Netlify, CDNs.",[
-          R("docs","Vercel Docs","https://vercel.com/docs")]),
-      ]},
+  frontend: {
+    label: "Frontend",
+    icon: Layers,
+    color: CM.sky,
+    tagline: "Everything that renders in the browser",
+    levels: [
+      [{ id: "fe_html", label: "HTML", parents: [] }],
+      [{ id: "fe_css", label: "CSS", parents: ["fe_html"] }],
+      [{ id: "fe_js", label: "JavaScript", parents: ["fe_css"] }],
+      [{ id: "fe_git", label: "Git & GitHub", parents: ["fe_js"] }],
+      [
+        { id: "fe_react", label: "React", parents: ["fe_git"] },
+        { id: "fe_vue", label: "Vue", parents: ["fe_git"] },
+        { id: "fe_angular", label: "Angular", parents: ["fe_git"] },
+        { id: "fe_svelte", label: "Svelte", parents: ["fe_git"] },
+      ],
+      [
+        {
+          id: "fe_state",
+          label: "State Management",
+          parents: ["fe_react", "fe_vue", "fe_angular", "fe_svelte"],
+        },
+      ],
+      [{ id: "fe_ts", label: "TypeScript", parents: ["fe_state"] }],
+      [{ id: "fe_build", label: "Vite / Webpack", parents: ["fe_ts"] }],
+      [{ id: "fe_test", label: "Testing", parents: ["fe_build"] }],
+      [{ id: "fe_perf", label: "Performance", parents: ["fe_test"] }],
+      [{ id: "fe_deploy", label: "Deploy & Host", parents: ["fe_perf"] }],
     ],
   },
 
-  "Backend": {
-    color: CM.blue, icon: "🗄️", level: "Beginner → Advanced", duration: "5-7 months",
-    description: "Servers, APIs, databases and everything that runs behind the scenes to power an application.",
-    liveLink: "https://roadmap.sh/backend",
-    stages: [
-      { title: "Pick a Language", note: "Any of these can build production backends.", topics: [
-        T("be-node","Node.js (JavaScript)","Event-driven, single language across the stack.",[
-          R("docs","Node.js Docs","https://nodejs.org/en/docs"),
-          R("youtube","Node Crash Course — Traversy Media","https://www.youtube.com/@TraversyMedia")]),
-        T("be-python","Python (Django / FastAPI)","Readable syntax, huge ecosystem.",[
-          R("docs","FastAPI Docs","https://fastapi.tiangolo.com/"),
-          R("docs","Django Docs","https://docs.djangoproject.com/en/stable/")], true),
-        T("be-go","Go","Fast, simple, great for concurrency.",[
-          R("docs","Go Tour","https://go.dev/tour/welcome/1")], true),
-        T("be-java","Java (Spring Boot)","Enterprise-grade, strongly typed.",[
-          R("docs","Spring Boot Docs","https://spring.io/projects/spring-boot")], true),
-      ]},
-      { title: "Databases", topics: [
-        T("be-sql","Relational DBs: PostgreSQL / MySQL","Schema design, normalization, indexing.",[
-          R("docs","PostgreSQL Docs","https://www.postgresql.org/docs/current/tutorial.html"),
-          R("practice","SQLZoo","https://sqlzoo.net/")]),
-        T("be-nosql","NoSQL: MongoDB / Redis","Document stores and in-memory caching.",[
-          R("docs","MongoDB Manual","https://www.mongodb.com/docs/manual/"),
-          R("docs","Redis Docs","https://redis.io/docs/latest/")]),
-        T("be-orm","ORMs / Query Builders","Prisma, SQLAlchemy, TypeORM.",[
-          R("docs","Prisma Docs","https://www.prisma.io/docs")]),
-      ]},
-      { title: "APIs & Communication", topics: [
-        T("be-rest","REST APIs","Resource modeling, status codes, pagination.",[
-          R("article","REST API Tutorial","https://restfulapi.net/")]),
-        T("be-graphql","GraphQL","Query language for flexible APIs.",[
-          R("docs","GraphQL Docs","https://graphql.org/learn/")], true),
-        T("be-grpc","gRPC & Message Queues","Service-to-service communication, RabbitMQ/Kafka.",[
-          R("docs","gRPC Docs","https://grpc.io/docs/"), R("docs","Kafka Docs","https://kafka.apache.org/documentation/")], true),
-      ]},
-      { title: "Security & Auth", topics: [
-        T("be-auth","Authentication & Authorization","JWT, OAuth2, sessions, RBAC.",[
-          R("article","JWT Introduction","https://jwt.io/introduction")]),
-        T("be-owasp","Web Security Basics","Injection, XSS, CSRF and how to prevent them.",[
-          R("docs","OWASP Top 10","https://owasp.org/www-project-top-ten/")]),
-      ]},
-      { title: "Scaling & Architecture", topics: [
-        T("be-cache","Caching","Redis, CDN caching, cache invalidation strategies.",[
-          R("docs","Redis Docs","https://redis.io/docs/latest/")]),
-        T("be-micro","Microservices vs Monoliths","Trade-offs of splitting services apart.",[
-          R("article","Microservices — martinfowler.com","https://martinfowler.com/articles/microservices.html")], true),
-        T("be-design","System Design","Load balancing, sharding, consistency models.",[
-          R("docs","System Design Primer (GitHub)","https://github.com/donnemartin/system-design-primer")]),
-        T("be-docker","Docker & Deployment","Containerize and ship your services.",[
-          R("docs","Docker Get Started","https://docs.docker.com/get-started/")]),
-      ]},
+  backend: {
+    label: "Backend",
+    icon: Server,
+    color: CM.purple,
+    tagline: "Servers, data, and the logic behind the API",
+    levels: [
+      [
+        { id: "be_node", label: "Node.js", parents: [] },
+        { id: "be_python", label: "Python", parents: [] },
+        { id: "be_go", label: "Go", parents: [] },
+        { id: "be_java", label: "Java", parents: [] },
+      ],
+      [
+        {
+          id: "be_framework",
+          label: "Web Framework",
+          parents: ["be_node", "be_python", "be_go", "be_java"],
+        },
+      ],
+      [{ id: "be_rest", label: "REST APIs", parents: ["be_framework"] }],
+      [
+        { id: "be_sql", label: "PostgreSQL", parents: ["be_rest"] },
+        { id: "be_nosql", label: "MongoDB", parents: ["be_rest"] },
+        { id: "be_cache", label: "Redis", parents: ["be_rest"] },
+      ],
+      [
+        {
+          id: "be_auth",
+          label: "Auth (JWT / OAuth)",
+          parents: ["be_sql", "be_nosql", "be_cache"],
+        },
+      ],
+      [{ id: "be_graphql", label: "GraphQL", parents: ["be_auth"] }],
+      [{ id: "be_queue", label: "Message Queues", parents: ["be_graphql"] }],
+      [{ id: "be_test", label: "Testing", parents: ["be_queue"] }],
+      [{ id: "be_docker", label: "Docker", parents: ["be_test"] }],
+      [{ id: "be_deploy", label: "CI / CD & Deploy", parents: ["be_docker"] }],
     ],
   },
 
-  "DevOps": {
-    color: CM.green, icon: "⚙️", level: "Intermediate → Advanced", duration: "5-8 months",
-    description: "Bridge development and operations: automate builds, manage infrastructure, and keep systems reliable at scale.",
-    liveLink: "https://roadmap.sh/devops",
-    stages: [
-      { title: "Foundations", topics: [
-        T("do-linux","Linux Fundamentals","The shell, file system, permissions, processes.",[
-          R("docs","Linux Journey","https://linuxjourney.com/"),
-          R("youtube","Linux Crash Course — NetworkChuck","https://www.youtube.com/@NetworkChuck")]),
-        T("do-net","Networking Basics","TCP/IP, DNS, load balancers, firewalls.",[
-          R("youtube","Networking Fundamentals — NetworkChuck","https://www.youtube.com/@NetworkChuck")]),
-        T("do-git","Git & Version Control","Branching strategies for teams.",[
-          R("cheatsheet","Git Cheat Sheet","https://education.github.com/git-cheat-sheet-education.pdf")]),
-        T("do-script","Scripting: Bash & Python","Automate repetitive operational tasks.",[
-          R("docs","Bash Guide","https://mywiki.wooledge.org/BashGuide")]),
-      ]},
-      { title: "Containers & Orchestration", topics: [
-        T("do-docker","Docker","Images, containers, volumes, networking.",[
-          R("docs","Docker Get Started","https://docs.docker.com/get-started/"),
-          R("cheatsheet","Docker Cheat Sheet","https://devhints.io/docker")]),
-        T("do-k8s","Kubernetes","Pods, deployments, services, scaling.",[
-          R("docs","Kubernetes Docs","https://kubernetes.io/docs/home/"),
-          R("youtube","Kubernetes Crash Course — TechWorld with Nana","https://www.youtube.com/@TechWorldwithNana")]),
-        T("do-helm","Helm","Package manager for Kubernetes.",[
-          R("docs","Helm Docs","https://helm.sh/docs/")], true),
-      ]},
-      { title: "CI/CD & Automation", topics: [
-        T("do-ci","CI/CD Pipelines","GitHub Actions, GitLab CI, Jenkins.",[
-          R("docs","GitHub Actions Docs","https://docs.github.com/en/actions")]),
-        T("do-iac","Infrastructure as Code","Terraform, Pulumi, CloudFormation.",[
-          R("docs","Terraform Tutorials","https://developer.hashicorp.com/terraform/tutorials")]),
-        T("do-ansible","Config Management: Ansible","Automate server configuration at scale.",[
-          R("docs","Ansible Docs","https://docs.ansible.com/")], true),
-      ]},
-      { title: "Cloud Platforms", note: "Pick one major provider to specialize in first.", topics: [
-        T("do-aws","AWS","EC2, S3, IAM, VPC, Lambda.",[
-          R("docs","AWS Docs","https://docs.aws.amazon.com/"),
-          R("course","AWS Skill Builder","https://skillbuilder.aws/")]),
-        T("do-gcp","Google Cloud","Compute Engine, GKE, Cloud Functions.",[
-          R("docs","GCP Docs","https://cloud.google.com/docs")], true),
-        T("do-azure","Microsoft Azure","VMs, AKS, Azure Functions.",[
-          R("docs","Azure Docs","https://learn.microsoft.com/en-us/azure/")], true),
-      ]},
-      { title: "Observability & Reliability", topics: [
-        T("do-mon","Monitoring & Logging","Prometheus, Grafana, the ELK stack.",[
-          R("docs","Prometheus Docs","https://prometheus.io/docs/introduction/overview/"),
-          R("docs","Grafana Docs","https://grafana.com/docs/grafana/latest/")]),
-        T("do-sre","SRE Practices","SLOs, SLIs, incident response, on-call.",[
-          R("docs","Google SRE Book","https://sre.google/sre-book/table-of-contents/")]),
-        T("do-security","DevSecOps","Secrets management, image scanning, least privilege.",[
-          R("docs","OWASP DevSecOps Guideline","https://owasp.org/www-project-devsecops-guideline/")], true),
-      ]},
+  devops: {
+    label: "DevOps",
+    icon: Cloud,
+    color: CM.accent,
+    tagline: "Build, ship, and run infrastructure at scale",
+    levels: [
+      [{ id: "do_linux", label: "Linux Fundamentals", parents: [] }],
+      [{ id: "do_net", label: "Networking Basics", parents: ["do_linux"] }],
+      [{ id: "do_git", label: "Git", parents: ["do_net"] }],
+      [{ id: "do_script", label: "Bash / Python Scripting", parents: ["do_git"] }],
+      [{ id: "do_docker", label: "Docker", parents: ["do_script"] }],
+      [{ id: "do_k8s", label: "Kubernetes", parents: ["do_docker"] }],
+      [
+        { id: "do_gh", label: "GitHub Actions", parents: ["do_k8s"] },
+        { id: "do_jenkins", label: "Jenkins", parents: ["do_k8s"] },
+        { id: "do_gitlab", label: "GitLab CI", parents: ["do_k8s"] },
+      ],
+      [
+        {
+          id: "do_terraform",
+          label: "Terraform",
+          parents: ["do_gh", "do_jenkins", "do_gitlab"],
+        },
+        {
+          id: "do_ansible",
+          label: "Ansible",
+          parents: ["do_gh", "do_jenkins", "do_gitlab"],
+        },
+      ],
+      [
+        { id: "do_aws", label: "AWS", parents: ["do_terraform", "do_ansible"] },
+        { id: "do_gcp", label: "GCP", parents: ["do_terraform", "do_ansible"] },
+        { id: "do_azure", label: "Azure", parents: ["do_terraform", "do_ansible"] },
+      ],
+      [
+        {
+          id: "do_monitor",
+          label: "Monitoring & Logs",
+          parents: ["do_aws", "do_gcp", "do_azure"],
+        },
+      ],
+      [{ id: "do_secops", label: "DevSecOps Basics", parents: ["do_monitor"] }],
     ],
   },
 
-  "AI / Machine Learning": {
-    color: CM.teal, icon: "🤖", level: "Intermediate → Advanced", duration: "6-10 months",
-    description: "From the math foundations to training and deploying real machine learning and deep learning models.",
-    liveLink: "https://roadmap.sh/ai-data-scientist",
-    stages: [
-      { title: "Math & Programming Foundations", topics: [
-        T("ai-py","Python for Data","NumPy, Pandas, Matplotlib.",[
-          R("docs","NumPy Quickstart","https://numpy.org/doc/stable/user/quickstart.html"),
-          R("docs","Pandas Docs","https://pandas.pydata.org/docs/user_guide/index.html")]),
-        T("ai-math","Linear Algebra & Calculus","Vectors, matrices, derivatives, gradients.",[
-          R("youtube","Essence of Linear Algebra — 3Blue1Brown","https://www.youtube.com/@3blue1brown"),
-          R("course","Khan Academy: Linear Algebra","https://www.khanacademy.org/math/linear-algebra")]),
-        T("ai-stats","Statistics & Probability","Distributions, hypothesis testing, Bayes' theorem.",[
-          R("youtube","StatQuest with Josh Starmer","https://www.youtube.com/@statquest")]),
-      ]},
-      { title: "Classical Machine Learning", topics: [
-        T("ai-ml-basics","ML Fundamentals","Supervised vs unsupervised, train/test splits, overfitting.",[
-          R("course","Kaggle: Intro to Machine Learning","https://www.kaggle.com/learn/intro-to-machine-learning")]),
-        T("ai-sklearn","scikit-learn","Regression, classification, clustering in practice.",[
-          R("docs","scikit-learn Tutorials","https://scikit-learn.org/stable/tutorial/index.html")]),
-        T("ai-eval","Model Evaluation","Precision, recall, ROC curves, cross-validation.",[
-          R("article","Model Evaluation — scikit-learn Docs","https://scikit-learn.org/stable/modules/model_evaluation.html")]),
-      ]},
-      { title: "Deep Learning", topics: [
-        T("ai-nn","Neural Networks","Perceptrons, backpropagation, activation functions.",[
-          R("youtube","Neural Networks — 3Blue1Brown","https://www.youtube.com/@3blue1brown")]),
-        T("ai-pytorch","PyTorch","Build and train models with tensors and autograd.",[
-          R("docs","PyTorch Tutorials","https://pytorch.org/tutorials/")]),
-        T("ai-tf","TensorFlow / Keras","Alternative deep learning framework.",[
-          R("docs","TensorFlow Tutorials","https://www.tensorflow.org/tutorials")], true),
-        T("ai-cnn","CNNs & Computer Vision","Image classification, convolutions, pooling.",[
-          R("docs","CS231n Notes","https://cs231n.github.io/")]),
-      ]},
-      { title: "NLP & Modern AI", topics: [
-        T("ai-nlp","NLP Basics","Tokenization, embeddings, sequence models.",[
-          R("docs","Hugging Face NLP Course","https://huggingface.co/learn/nlp-course")]),
-        T("ai-transformers","Transformers & LLMs","Attention mechanisms, fine-tuning, prompting.",[
-          R("article","The Illustrated Transformer","https://jalammar.github.io/illustrated-transformer/"),
-          R("docs","Hugging Face Transformers Docs","https://huggingface.co/docs/transformers/index")]),
-        T("ai-rag","RAG & AI Agents","Retrieval-augmented generation and tool-using agents.",[
-          R("docs","LangChain Docs","https://python.langchain.com/docs/introduction/")], true),
-      ]},
-      { title: "MLOps & Deployment", topics: [
-        T("ai-deploy","Model Deployment","Serving models via APIs, batch vs real-time inference.",[
-          R("docs","FastAPI Docs","https://fastapi.tiangolo.com/")]),
-        T("ai-mlops","MLOps","Experiment tracking, model versioning, pipelines.",[
-          R("docs","MLflow Docs","https://mlflow.org/docs/latest/index.html")], true),
-        T("ai-ethics","Responsible AI","Bias, fairness, interpretability.",[
-          R("article","Responsible AI Practices — Google","https://ai.google/responsibility/responsible-ai-practices/")]),
-      ]},
-    ],
-  },
-
-  "Python Developer": {
-    color: CM.blue, icon: "🐍", level: "Beginner → Advanced", duration: "3-5 months",
-    description: "A dedicated path through Python itself — syntax to standard library to real backend and automation work.",
-    liveLink: "https://roadmap.sh/python",
-    stages: [
-      { title: "Language Basics", topics: [
-        T("py-syntax","Syntax & Data Types","Variables, strings, numbers, lists, dicts, tuples.",[
-          R("docs","Python Official Tutorial","https://docs.python.org/3/tutorial/"),
-          R("youtube","Python Full Course — freeCodeCamp","https://www.youtube.com/@freecodecamp")]),
-        T("py-control","Control Flow","Conditionals, loops, comprehensions.",[
-          R("article","Real Python: List Comprehensions","https://realpython.com/list-comprehension-python/")]),
-        T("py-func","Functions & Scope","Args, kwargs, closures, decorators.",[
-          R("article","Real Python: Decorators","https://realpython.com/primer-on-python-decorators/")]),
-      ]},
-      { title: "Intermediate Python", topics: [
-        T("py-oop","Object-Oriented Python","Classes, inheritance, dunder methods.",[
-          R("docs","Python Classes Docs","https://docs.python.org/3/tutorial/classes.html")]),
-        T("py-modules","Modules & Packages","Imports, virtual environments, pip.",[
-          R("docs","Python Packaging Guide","https://packaging.python.org/en/latest/tutorials/installing-packages/")]),
-        T("py-errors","Error Handling","try/except, custom exceptions, context managers.",[
-          R("docs","Errors and Exceptions — Python Docs","https://docs.python.org/3/tutorial/errors.html")]),
-        T("py-files","Files & I/O","Reading/writing files, working with JSON and CSV.",[
-          R("docs","Reading and Writing Files — Python Docs","https://docs.python.org/3/tutorial/inputoutput.html")]),
-      ]},
-      { title: "Testing & Tooling", topics: [
-        T("py-test","Testing: pytest","Unit tests, fixtures, mocking.",[
-          R("docs","pytest Docs","https://docs.pytest.org/en/stable/")]),
-        T("py-lint","Linting & Formatting","black, ruff, type hints with mypy.",[
-          R("docs","mypy Docs","https://mypy.readthedocs.io/en/stable/")], true),
-        T("py-async","Async Python","asyncio, coroutines, concurrency.",[
-          R("docs","asyncio Docs","https://docs.python.org/3/library/asyncio.html")]),
-      ]},
-      { title: "Build Something", note: "Apply Python to a real domain.", topics: [
-        T("py-web","Web: Django / FastAPI / Flask","Build web apps and APIs.",[
-          R("docs","FastAPI Docs","https://fastapi.tiangolo.com/"),
-          R("docs","Flask Docs","https://flask.palletsprojects.com/en/latest/")]),
-        T("py-data","Data: Pandas & NumPy","Analyze and manipulate structured data.",[
-          R("docs","Pandas Docs","https://pandas.pydata.org/docs/user_guide/index.html")], true),
-        T("py-automation","Automation & Scripting","Web scraping, file automation, CLI tools.",[
-          R("docs","Beautiful Soup Docs","https://www.crummy.com/software/BeautifulSoup/bs4/doc/")], true),
-      ]},
-      { title: "Ship It", topics: [
-        T("py-db","Databases","SQLAlchemy, psycopg2, connecting to Postgres.",[
-          R("docs","SQLAlchemy Docs","https://docs.sqlalchemy.org/en/latest/")]),
-        T("py-docker","Docker for Python Apps","Containerize a Python service.",[
-          R("docs","Docker Get Started","https://docs.docker.com/get-started/")]),
-        T("py-deploy","Deployment","Deploy to Render, Railway, or a VPS.",[
-          R("docs","Render Docs","https://render.com/docs")]),
-      ]},
+  cyber: {
+    label: "Cybersecurity",
+    icon: ShieldHalf,
+    color: CM.pink,
+    tagline: "Defend systems, networks, and data",
+    levels: [
+      [{ id: "cy_net", label: "Networking Fundamentals", parents: [] }],
+      [{ id: "cy_os", label: "OS Fundamentals", parents: ["cy_net"] }],
+      [{ id: "cy_sec", label: "Security Fundamentals", parents: ["cy_os"] }],
+      [{ id: "cy_crypto", label: "Cryptography", parents: ["cy_sec"] }],
+      [{ id: "cy_web", label: "Web Security (OWASP)", parents: ["cy_crypto"] }],
+      [{ id: "cy_netsec", label: "Network Security", parents: ["cy_web"] }],
+      [
+        { id: "cy_nmap", label: "Nmap", parents: ["cy_netsec"] },
+        { id: "cy_burp", label: "Burp Suite", parents: ["cy_netsec"] },
+        { id: "cy_msf", label: "Metasploit", parents: ["cy_netsec"] },
+      ],
+      [
+        {
+          id: "cy_wireshark",
+          label: "Wireshark",
+          parents: ["cy_nmap", "cy_burp", "cy_msf"],
+        },
+      ],
+      [{ id: "cy_kali", label: "Kali Linux", parents: ["cy_wireshark"] }],
+      [{ id: "cy_grc", label: "Compliance & GRC", parents: ["cy_kali"] }],
+      [{ id: "cy_cert", label: "Certifications", parents: ["cy_grc"] }],
     ],
   },
 };
 
-const ROADMAP_NAMES = Object.keys(ROADMAPS);
+/* ------------------------------------------------------------------ */
+/*  RESOURCE LIBRARY — description + learning links per node id       */
+/* ------------------------------------------------------------------ */
 
-// ─── MAIN ─────────────────────────────────────────────────────────────────────
-export default function RoadmapVisualizer() {
-  const [activeMap, setActiveMap] = useState("Full Stack");
-  const [progress, setProgress] = useState({}); // { mapName: { topicId: true } }
-  const [panel, setPanel] = useState(null); // { topic, stageTitle }
+const yt = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 
-  const roadmap = ROADMAPS[activeMap];
-  const mapProgress = progress[activeMap] || {};
+const RESOURCES = {
+  fs_web: { desc: "The three languages every product on the web is built from — structure, style, and behavior.", youtube: yt("HTML CSS JavaScript full course"), docs: "https://developer.mozilla.org/en-US/docs/Web", docsLabel: "MDN Web Docs" },
+  fs_git: { desc: "Track changes and collaborate with a team using branches, commits, and pull requests.", youtube: yt("git and github full course"), docs: "https://docs.github.com/en/get-started", docsLabel: "GitHub Docs" },
+  fs_front: { desc: "Pick a component-based framework to build interactive, stateful user interfaces.", youtube: yt("react js full course"), docs: "https://react.dev/learn", docsLabel: "React Docs" },
+  fs_back: { desc: "Run JavaScript on the server to handle requests, business logic, and data.", youtube: yt("node.js express full course"), docs: "https://nodejs.org/en/docs", docsLabel: "Node.js Docs" },
+  fs_db: { desc: "Store and query application data reliably, relationally or as flexible documents.", youtube: yt("postgresql mongodb crash course"), docs: "https://www.postgresql.org/docs/", docsLabel: "PostgreSQL Docs" },
+  fs_api: { desc: "Design the contract your frontend and backend use to exchange data.", youtube: yt("rest api graphql explained"), docs: "https://graphql.org/learn/", docsLabel: "GraphQL Docs" },
+  fs_auth: { desc: "Verify who a user is and control what they're allowed to do.", youtube: yt("jwt oauth authentication explained"), docs: "https://jwt.io/introduction", docsLabel: "JWT.io Guide" },
+  fs_docker: { desc: "Package your app and its dependencies into a portable, reproducible container.", youtube: yt("docker tutorial for beginners"), docs: "https://docs.docker.com/get-started/", docsLabel: "Docker Docs" },
+  fs_cicd: { desc: "Automatically test and ship code every time you push, with no manual steps.", youtube: yt("ci cd pipeline tutorial github actions"), docs: "https://docs.github.com/en/actions", docsLabel: "GitHub Actions Docs" },
+  fs_cloud: { desc: "Put your app on infrastructure the world can reach, reliably and at scale.", youtube: yt("deploy full stack app to cloud"), docs: "https://vercel.com/docs", docsLabel: "Vercel Docs" },
+  fs_monitor: { desc: "Know when something breaks before your users tell you.", youtube: yt("application monitoring logging tutorial"), docs: "https://grafana.com/docs/", docsLabel: "Grafana Docs" },
 
-  const totals = useMemo(() => {
-    let total = 0, done = 0;
-    roadmap.stages.forEach(s => s.topics.forEach(t => {
-      total++; if (mapProgress[t.id]) done++;
-    }));
-    return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
-  }, [roadmap, mapProgress]);
+  fe_html: { desc: "The markup language that structures every web page ever built.", youtube: yt("html full course for beginners"), docs: "https://developer.mozilla.org/en-US/docs/Web/HTML", docsLabel: "MDN HTML" },
+  fe_css: { desc: "Style layout, color, and responsiveness — flexbox and grid are non-negotiable.", youtube: yt("css flexbox grid full course"), docs: "https://developer.mozilla.org/en-US/docs/Web/CSS", docsLabel: "MDN CSS" },
+  fe_js: { desc: "The language that makes pages interactive: DOM, events, async, and beyond.", youtube: yt("javascript full course for beginners"), docs: "https://developer.mozilla.org/en-US/docs/Web/JavaScript", docsLabel: "MDN JavaScript" },
+  fe_git: { desc: "Version control basics: commits, branches, merges, and working with a remote.", youtube: yt("git github crash course"), docs: "https://docs.github.com/en/get-started", docsLabel: "GitHub Docs" },
+  fe_react: { desc: "A component-based library for building UIs out of reusable, composable pieces.", youtube: yt("react js full course"), docs: "https://react.dev/learn", docsLabel: "React Docs" },
+  fe_vue: { desc: "An approachable, incrementally adoptable framework with a gentle learning curve.", youtube: yt("vue js full course"), docs: "https://vuejs.org/guide/introduction.html", docsLabel: "Vue Docs" },
+  fe_angular: { desc: "A full-featured, opinionated framework built for large enterprise applications.", youtube: yt("angular full course"), docs: "https://angular.dev/overview", docsLabel: "Angular Docs" },
+  fe_svelte: { desc: "A compiler that turns components into tiny, framework-free vanilla JS.", youtube: yt("svelte full course"), docs: "https://svelte.dev/docs", docsLabel: "Svelte Docs" },
+  fe_state: { desc: "Manage data that's shared across components without prop-drilling chaos.", youtube: yt("redux zustand state management tutorial"), docs: "https://redux.js.org/introduction/getting-started", docsLabel: "Redux Docs" },
+  fe_ts: { desc: "Add static types to JavaScript to catch bugs before they ship.", youtube: yt("typescript full course"), docs: "https://www.typescriptlang.org/docs/", docsLabel: "TypeScript Docs" },
+  fe_build: { desc: "Bundle, transpile, and optimize your code for a fast production build.", youtube: yt("vite webpack tutorial"), docs: "https://vitejs.dev/guide/", docsLabel: "Vite Docs" },
+  fe_test: { desc: "Write unit and end-to-end tests so refactors don't silently break things.", youtube: yt("jest cypress testing tutorial"), docs: "https://jestjs.io/docs/getting-started", docsLabel: "Jest Docs" },
+  fe_perf: { desc: "Shrink bundle size, lazy-load, and profile renders for a snappy UI.", youtube: yt("web performance optimization tutorial"), docs: "https://web.dev/learn/performance", docsLabel: "web.dev Performance" },
+  fe_deploy: { desc: "Ship your static site or SPA to a CDN with zero-downtime deploys.", youtube: yt("deploy react app vercel netlify"), docs: "https://vercel.com/docs", docsLabel: "Vercel Docs" },
 
-  const toggleDone = (topicId) => {
-    setProgress(p => ({
-      ...p,
-      [activeMap]: { ...(p[activeMap] || {}), [topicId]: !(p[activeMap] || {})[topicId] },
-    }));
-  };
+  be_node: { desc: "A JavaScript runtime for building fast, event-driven servers.", youtube: yt("node.js full course"), docs: "https://nodejs.org/en/docs", docsLabel: "Node.js Docs" },
+  be_python: { desc: "A readable, batteries-included language popular for APIs and data.", youtube: yt("python for backend development full course"), docs: "https://docs.python.org/3/", docsLabel: "Python Docs" },
+  be_go: { desc: "A compiled, concurrent language built by Google for fast networked services.", youtube: yt("go golang full course"), docs: "https://go.dev/doc/", docsLabel: "Go Docs" },
+  be_java: { desc: "A mature, strongly-typed language that powers a huge share of enterprise backends.", youtube: yt("java spring boot full course"), docs: "https://spring.io/guides", docsLabel: "Spring Docs" },
+  be_framework: { desc: "A framework that handles routing, middleware, and requests for you.", youtube: yt("express django fastapi framework tutorial"), docs: "https://expressjs.com/", docsLabel: "Express Docs" },
+  be_rest: { desc: "The standard architecture for stateless, resource-oriented HTTP APIs.", youtube: yt("rest api design tutorial"), docs: "https://restfulapi.net/", docsLabel: "RESTful API Guide" },
+  be_sql: { desc: "A powerful open-source relational database for structured, transactional data.", youtube: yt("postgresql full course"), docs: "https://www.postgresql.org/docs/", docsLabel: "PostgreSQL Docs" },
+  be_nosql: { desc: "A flexible, document-oriented database that scales horizontally with ease.", youtube: yt("mongodb full course"), docs: "https://www.mongodb.com/docs/", docsLabel: "MongoDB Docs" },
+  be_cache: { desc: "An in-memory store for caching, sessions, and rate limiting at speed.", youtube: yt("redis crash course"), docs: "https://redis.io/docs/latest/", docsLabel: "Redis Docs" },
+  be_auth: { desc: "Authenticate requests with tokens and delegate identity with OAuth providers.", youtube: yt("jwt oauth authentication backend tutorial"), docs: "https://jwt.io/introduction", docsLabel: "JWT.io Guide" },
+  be_graphql: { desc: "Let clients query exactly the data shape they need, nothing more.", youtube: yt("graphql full course"), docs: "https://graphql.org/learn/", docsLabel: "GraphQL Docs" },
+  be_queue: { desc: "Decouple services and handle spikes with asynchronous message brokers.", youtube: yt("rabbitmq kafka message queue tutorial"), docs: "https://kafka.apache.org/documentation/", docsLabel: "Kafka Docs" },
+  be_test: { desc: "Unit and integration test your endpoints so deploys stay boring.", youtube: yt("backend api testing tutorial"), docs: "https://jestjs.io/docs/getting-started", docsLabel: "Jest Docs" },
+  be_docker: { desc: "Containerize your service so it runs the same everywhere, every time.", youtube: yt("docker for backend developers tutorial"), docs: "https://docs.docker.com/get-started/", docsLabel: "Docker Docs" },
+  be_deploy: { desc: "Automate build, test, and release so shipping is a single push.", youtube: yt("ci cd deploy backend tutorial"), docs: "https://docs.github.com/en/actions", docsLabel: "GitHub Actions Docs" },
 
-  const resetProgress = () => setProgress(p => ({ ...p, [activeMap]: {} }));
+  do_linux: { desc: "The operating system that runs almost every server on the internet.", youtube: yt("linux for devops full course"), docs: "https://linuxjourney.com/", docsLabel: "Linux Journey" },
+  do_net: { desc: "DNS, TCP/IP, load balancers — the plumbing every deployment depends on.", youtube: yt("networking basics for devops"), docs: "https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/How_browsers_work", docsLabel: "MDN Networking" },
+  do_git: { desc: "Version control for infrastructure code, not just application code.", youtube: yt("git for devops tutorial"), docs: "https://git-scm.com/doc", docsLabel: "Git Docs" },
+  do_script: { desc: "Automate repetitive ops tasks with shell and Python scripts.", youtube: yt("bash scripting full course"), docs: "https://www.gnu.org/software/bash/manual/bash.html", docsLabel: "Bash Manual" },
+  do_docker: { desc: "Package services into containers that behave identically everywhere.", youtube: yt("docker full course for devops"), docs: "https://docs.docker.com/get-started/", docsLabel: "Docker Docs" },
+  do_k8s: { desc: "Orchestrate, scale, and self-heal containers across a cluster of machines.", youtube: yt("kubernetes full course"), docs: "https://kubernetes.io/docs/home/", docsLabel: "Kubernetes Docs" },
+  do_gh: { desc: "Run CI/CD pipelines directly from your GitHub repository.", youtube: yt("github actions full course"), docs: "https://docs.github.com/en/actions", docsLabel: "GitHub Actions Docs" },
+  do_jenkins: { desc: "A veteran, plugin-driven automation server for build pipelines.", youtube: yt("jenkins pipeline tutorial"), docs: "https://www.jenkins.io/doc/", docsLabel: "Jenkins Docs" },
+  do_gitlab: { desc: "Built-in CI/CD pipelines tightly integrated with GitLab repos.", youtube: yt("gitlab ci cd tutorial"), docs: "https://docs.gitlab.com/ee/ci/", docsLabel: "GitLab CI Docs" },
+  do_terraform: { desc: "Define cloud infrastructure as versioned, repeatable code.", youtube: yt("terraform full course"), docs: "https://developer.hashicorp.com/terraform/docs", docsLabel: "Terraform Docs" },
+  do_ansible: { desc: "Agentless configuration management to provision and configure servers.", youtube: yt("ansible full course"), docs: "https://docs.ansible.com/", docsLabel: "Ansible Docs" },
+  do_aws: { desc: "The largest cloud provider — compute, storage, networking, and more.", youtube: yt("aws full course for beginners"), docs: "https://docs.aws.amazon.com/", docsLabel: "AWS Docs" },
+  do_gcp: { desc: "Google's cloud platform, strong in data, ML, and Kubernetes tooling.", youtube: yt("google cloud platform full course"), docs: "https://cloud.google.com/docs", docsLabel: "GCP Docs" },
+  do_azure: { desc: "Microsoft's cloud platform, deeply integrated with enterprise tooling.", youtube: yt("azure fundamentals full course"), docs: "https://learn.microsoft.com/en-us/azure/", docsLabel: "Azure Docs" },
+  do_monitor: { desc: "Collect metrics and logs so you see problems before users do.", youtube: yt("prometheus grafana monitoring tutorial"), docs: "https://prometheus.io/docs/introduction/overview/", docsLabel: "Prometheus Docs" },
+  do_secops: { desc: "Bake security scanning and policy checks directly into the pipeline.", youtube: yt("devsecops fundamentals tutorial"), docs: "https://owasp.org/www-project-devsecops-guideline/", docsLabel: "OWASP DevSecOps Guide" },
+
+  cy_net: { desc: "Understand how packets, ports, and protocols actually move data.", youtube: yt("networking fundamentals for cybersecurity"), docs: "https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/How_browsers_work", docsLabel: "MDN Networking" },
+  cy_os: { desc: "How Linux and Windows manage processes, permissions, and users.", youtube: yt("operating system fundamentals security"), docs: "https://linuxjourney.com/", docsLabel: "Linux Journey" },
+  cy_sec: { desc: "Core principles: confidentiality, integrity, availability, and risk thinking.", youtube: yt("cybersecurity fundamentals full course"), docs: "https://www.cisa.gov/topics/cybersecurity-best-practices", docsLabel: "CISA Best Practices" },
+  cy_crypto: { desc: "Encryption, hashing, and signatures — the math that keeps secrets secret.", youtube: yt("cryptography full course"), docs: "https://cryptobook.nakov.com/", docsLabel: "Practical Cryptography" },
+  cy_web: { desc: "The most common web vulnerabilities and how attackers exploit them.", youtube: yt("owasp top 10 explained"), docs: "https://owasp.org/www-project-top-ten/", docsLabel: "OWASP Top 10" },
+  cy_netsec: { desc: "Firewalls, IDS/IPS, and segmentation to keep networks defensible.", youtube: yt("network security fundamentals"), docs: "https://www.cisa.gov/topics/cybersecurity-best-practices", docsLabel: "CISA Best Practices" },
+  cy_nmap: { desc: "The standard tool for network discovery and port scanning.", youtube: yt("nmap tutorial for beginners"), docs: "https://nmap.org/book/man.html", docsLabel: "Nmap Docs" },
+  cy_burp: { desc: "An interception proxy for testing and exploiting web applications.", youtube: yt("burp suite tutorial"), docs: "https://portswigger.net/burp/documentation", docsLabel: "PortSwigger Docs" },
+  cy_msf: { desc: "A framework for developing and running exploits against target systems.", youtube: yt("metasploit tutorial for beginners"), docs: "https://docs.metasploit.com/", docsLabel: "Metasploit Docs" },
+  cy_wireshark: { desc: "Capture and inspect raw network traffic packet by packet.", youtube: yt("wireshark tutorial for beginners"), docs: "https://www.wireshark.org/docs/", docsLabel: "Wireshark Docs" },
+  cy_kali: { desc: "A Linux distribution pre-loaded with penetration testing tools.", youtube: yt("kali linux full course"), docs: "https://www.kali.org/docs/", docsLabel: "Kali Docs" },
+  cy_grc: { desc: "Governance, risk, and compliance frameworks orgs are measured against.", youtube: yt("governance risk compliance grc explained"), docs: "https://www.iso.org/isoiec-27001-information-security.html", docsLabel: "ISO 27001 Overview" },
+  cy_cert: { desc: "Industry certifications that validate your skills to employers.", youtube: yt("security+ ceh oscp certification roadmap"), docs: "https://www.comptia.org/certifications/security", docsLabel: "CompTIA Security+" },
+};
+
+/* ------------------------------------------------------------------ */
+/*  LAYOUT ENGINE                                                     */
+/* ------------------------------------------------------------------ */
+
+const CANVAS_W = 1120;
+const NODE_W = 196;
+const NODE_H = 58;
+const LEVEL_GAP = 148;
+const TOP_PAD = 70;
+const SIB_GAP = 224;
+
+function layoutTrack(levels) {
+  const positioned = {};
+  const nodes = [];
+
+  levels.forEach((levelNodes, li) => {
+    const count = levelNodes.length;
+    const totalW = (count - 1) * SIB_GAP;
+    const startX = CANVAS_W / 2 - totalW / 2;
+    const y = TOP_PAD + li * LEVEL_GAP;
+
+    levelNodes.forEach((n, idx) => {
+      const x = startX + idx * SIB_GAP;
+      const pos = { ...n, x, y, level: li };
+      positioned[n.id] = pos;
+      nodes.push(pos);
+    });
+  });
+
+  const edges = [];
+  nodes.forEach((n) => {
+    n.parents.forEach((pid) => {
+      const p = positioned[pid];
+      if (p) edges.push({ from: p, to: n });
+    });
+  });
+
+  const height = TOP_PAD + (levels.length - 1) * LEVEL_GAP + NODE_H + 60;
+  return { nodes, edges, width: CANVAS_W, height };
+}
+
+/* ------------------------------------------------------------------ */
+/*  UI SUBCOMPONENTS                                                  */
+/* ------------------------------------------------------------------ */
+
+function GridBackdrop({ color }) {
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        backgroundImage: `linear-gradient(${color}14 1px, transparent 1px), linear-gradient(90deg, ${color}14 1px, transparent 1px)`,
+        backgroundSize: "34px 34px",
+        maskImage: "radial-gradient(ellipse 80% 60% at 50% 20%, black 40%, transparent 90%)",
+        WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 20%, black 40%, transparent 90%)",
+      }}
+    />
+  );
+}
+
+function Edge({ edge, color }) {
+  const x1 = edge.from.x;
+  const y1 = edge.from.y + NODE_H / 2;
+  const x2 = edge.to.x;
+  const y2 = edge.to.y - NODE_H / 2;
+  const midY = (y1 + y2) / 2;
+  const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+  return (
+    <path
+      d={d}
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeOpacity="0.45"
+      strokeLinecap="round"
+      strokeDasharray="1 8"
+      className="roadmap-edge"
+    />
+  );
+}
+
+function Node({ node, color, onSelect, isDone }) {
+  return (
+    <button
+      onClick={() => onSelect(node)}
+      className="absolute flex items-center gap-2.5 rounded-xl px-4 text-left transition-transform duration-150 group"
+      style={{
+        left: node.x - NODE_W / 2,
+        top: node.y - NODE_H / 2,
+        width: NODE_W,
+        height: NODE_H,
+        background: CM.surface,
+        border: `1px solid ${color}3d`,
+        boxShadow: `0 0 0 0 ${color}00`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = `0 0 22px -4px ${color}80`;
+        e.currentTarget.style.borderColor = color;
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = `0 0 0 0 ${color}00`;
+        e.currentTarget.style.borderColor = `${color}3d`;
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      <span
+        className="flex h-2 w-2 shrink-0 rounded-full"
+        style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+      />
+      <span
+        className="text-[13px] leading-tight truncate"
+        style={{ color: CM.text, fontFamily: "'JetBrains Mono', monospace" }}
+      >
+        {node.label}
+      </span>
+    </button>
+  );
+}
+
+function ResourceModal({ node, track, onClose }) {
+  const r = RESOURCES[node.id] || {};
+  const color = track.color;
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:${CM.surface};}
-        ::-webkit-scrollbar-thumb{background:${CM.border2};border-radius:3px;}
-        @keyframes slideIn{from{transform:translateX(24px);opacity:0;}to{transform:translateX(0);opacity:1;}}
-        button{font-family:inherit;}
-      `}</style>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(3,5,8,0.75)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl overflow-hidden"
+        style={{ background: CM.bg, border: `1px solid ${color}55` }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-3"
+          style={{ borderBottom: `1px solid ${color}2a`, background: `${color}0f` }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ background: "#ff5f57" }} />
+            <span className="h-2 w-2 rounded-full" style={{ background: "#febc2e" }} />
+            <span className="h-2 w-2 rounded-full" style={{ background: "#28c840" }} />
+            <span
+              className="ml-2 text-[11px] uppercase tracking-widest"
+              style={{ color, fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              {track.label}
+            </span>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-200 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
 
-      <div style={{ background: CM.bg, minHeight: "100vh", color: CM.text, fontFamily: "'Segoe UI',-apple-system,sans-serif" }}>
+        <div className="px-6 py-6">
+          <h3
+            className="text-xl font-semibold mb-2"
+            style={{ color: CM.text, fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            {node.label}
+          </h3>
+          <p className="text-sm leading-relaxed mb-6" style={{ color: CM.muted }}>
+            {r.desc}
+          </p>
 
-        {/* ── TOPBAR ── */}
-        <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, height: 48, display: "flex", alignItems: "center", padding: "0 20px", gap: 10, position: "sticky", top: 0, zIndex: 20 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg,#ffa116,#ff6b00)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#0d1117" }}>⌨</div>
-          <NavLink to={"/"}>
-            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3, color: CM.text }}>CodeMaster</span>
-          </NavLink>
-          <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px" }} />
-          <span style={{ fontFamily: MONO, fontSize: 11, color: CM.muted }}>
-            <NavLink to={"/explore"} style={{ color: CM.muted, textDecoration: "none" }}>Explore</NavLink> / <span style={{ color: CM.accent }}>Roadmaps</span>
-          </span>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-            <Badge label="Interactive" color={CM.green} />
-            <Badge label={`${ROADMAP_NAMES.length} Roadmaps`} color={CM.accent} />
-            <a href="https://roadmap.sh" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-              <Badge label="roadmap.sh ↗" color={CM.purple} />
+          <div className="flex flex-col gap-3">
+            <a
+              href={r.youtube}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between rounded-lg px-4 py-3 transition-colors"
+              style={{ background: "#1a1006", border: "1px solid #ff000033" }}
+            >
+              <span className="flex items-center gap-3 text-sm font-medium" style={{ color: "#ff5c5c" }}>
+                <PlayCircle size={18} /> Watch on YouTube
+              </span>
+              <ArrowRight size={16} style={{ color: "#ff5c5c99" }} />
+            </a>
+
+            <a
+              href={r.docs}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between rounded-lg px-4 py-3 transition-colors"
+              style={{ background: `${color}12`, border: `1px solid ${color}40` }}
+            >
+              <span className="flex items-center gap-3 text-sm font-medium" style={{ color }}>
+                <BookOpen size={18} /> {r.docsLabel || "Documentation"}
+              </span>
+              <ArrowRight size={16} style={{ color: `${color}99` }} />
             </a>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* ── ROADMAP TABS ── */}
-        <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, display: "flex", overflowX: "auto", padding: "0 4px" }}>
-          {ROADMAP_NAMES.map(name => {
-            const m = ROADMAPS[name];
+/* ------------------------------------------------------------------ */
+/*  MAIN COMPONENT                                                    */
+/* ------------------------------------------------------------------ */
+
+export default function RoadmapExplorer() {
+  const [activeId, setActiveId] = useState("fullstack");
+  const [selectedNode, setSelectedNode] = useState(null);
+  const scrollRef = useRef(null);
+  const location = useLocation();
+
+  const track = TRACKS[activeId];
+  const layout = useMemo(() => layoutTrack(track.levels), [activeId]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [activeId]);
+
+  const nodeCount = layout.nodes.length;
+
+  return (
+    <div
+      className="w-full min-h-screen"
+      style={{
+        background: CM.bg,
+        fontFamily: "'Inter', ui-sans-serif, system-ui",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+        .roadmap-edge { animation: dashflow 16s linear infinite; }
+        @keyframes dashflow { to { stroke-dashoffset: -400; } }
+        .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: ${CM.border2}; border-radius: 8px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+      `}</style>
+
+      {/* ── NAVBAR (CodeMaster design system) ── */}
+      <div style={{
+        background: CM.surface,
+        borderBottom: `1px solid ${CM.border}`,
+        position: "sticky",
+        top: 0,
+        zIndex: 30,
+      }}>
+        <div style={{
+          height: 48,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 20px",
+          gap: 10,
+          maxWidth: 1280,
+          margin: "0 auto",
+        }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 6,
+            background: "linear-gradient(135deg,#ffa116,#ff6b00)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14, fontWeight: 800, color: "#0d1117", flexShrink: 0,
+          }}>⌨</div>
+
+          <NavLink to="/" style={{ textDecoration: "none" }}>
+            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3, color: CM.text }}>
+              CodeMaster
+            </span>
+          </NavLink>
+
+          <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px", flexShrink: 0 }} />
+
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: CM.muted, whiteSpace: "nowrap" }}>
+            <NavLink to="/explore" style={{ color: CM.muted, textDecoration: "none" }}>
+              Explore
+            </NavLink>
+            {" / "}
+            <span style={{ color: CM.accent }}>Roadmap</span>
+          </span>
+
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <Badge label="Live Paths" color={CM.green} />
+            <Badge label={`${nodeCount} Nodes`} color={CM.accent} />
+          </div>
+        </div>
+
+        {/* Track tabs (styled as second nav row, like the language strip) */}
+        <div style={{
+          display: "flex",
+          overflowX: "auto",
+          padding: "0 20px",
+          borderTop: `1px solid ${CM.border}`,
+          maxWidth: 1280,
+          margin: "0 auto",
+        }}>
+          {Object.entries(TRACKS).map(([id, t]) => {
+            const Icon = t.icon;
+            const active = id === activeId;
             return (
-              <button key={name} onClick={() => setActiveMap(name)} style={{
-                padding: "10px 16px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
-                background: "transparent", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 6,
-                color: activeMap === name ? m.color : CM.muted,
-                borderBottom: activeMap === name ? `2px solid ${m.color}` : "2px solid transparent",
-                fontFamily: MONO, letterSpacing: 0.3, transition: "all 0.15s",
-              }}>
-                <span>{m.icon}</span>{name}
+              <button
+                key={id}
+                onClick={() => setActiveId(id)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "12px 16px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: "pointer",
+                  background: "transparent",
+                  whiteSpace: "nowrap",
+                  color: active ? t.color : CM.muted,
+                  borderBottom: active ? `2px solid ${t.color}` : "2px solid transparent",
+                  fontFamily: "'JetBrains Mono', monospace",
+                  letterSpacing: 0.3,
+                  transition: "all 0.15s",
+                }}
+              >
+                <Icon size={14} />
+                {t.label}
               </button>
             );
           })}
         </div>
-
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "26px 20px 70px" }}>
-
-          {/* ── Roadmap header ── */}
-          <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 12, padding: "20px 22px", marginBottom: 22 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontSize: 22 }}>{roadmap.icon}</span>
-                  <h2 style={{ fontSize: 21, fontWeight: 800, margin: 0 }}>{activeMap} Roadmap</h2>
-                </div>
-                <p style={{ fontSize: 12.5, color: CM.muted, lineHeight: 1.6, margin: "0 0 10px", maxWidth: 560 }}>{roadmap.description}</p>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <Badge label={roadmap.level} color={roadmap.color} />
-                  <Badge label={`~${roadmap.duration}`} color={CM.blue} />
-                  <Badge label={`${totals.total} Topics`} color={CM.dim} bg={CM.surface2} bdr={CM.border2} />
-                  <a href={roadmap.liveLink} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                    <Badge label="View on roadmap.sh ↗" color={CM.teal} />
-                  </a>
-                </div>
-              </div>
-
-              <div style={{ minWidth: 160 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: CM.dim, letterSpacing: 1 }}>PROGRESS</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: roadmap.color }}>{totals.pct}%</span>
-                </div>
-                <div style={{ width: 160, height: 7, borderRadius: 4, background: CM.bg, border: `1px solid ${CM.border2}`, overflow: "hidden" }}>
-                  <div style={{ width: `${totals.pct}%`, height: "100%", background: roadmap.color, transition: "width 0.3s", boxShadow: `0 0 8px ${roadmap.color}66` }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, alignItems: "center" }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: CM.dim }}>{totals.done}/{totals.total} done</span>
-                  <button onClick={resetProgress} style={{ background: "none", border: "none", color: CM.dim, fontFamily: MONO, fontSize: 10, cursor: "pointer", textDecoration: "underline" }}>reset</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <SectionLabel color={roadmap.color} right={<span style={{ fontFamily: MONO, fontSize: 10, color: CM.dim }}>click a node ↴</span>}>
-            Learning Path
-          </SectionLabel>
-
-          {/* ── Connected node-graph roadmap ── */}
-          <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 12, padding: "18px 10px" }}>
-            <RoadmapCanvas
-              stages={roadmap.stages}
-              roadmapColor={roadmap.color}
-              progress={mapProgress}
-              onOpenTopic={(t, stageTitle) => setPanel({ topic: t, stageTitle })}
-            />
-          </div>
-
-          {/* ── Legend ── */}
-          <div style={{ marginTop: 16, background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "14px 16px" }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: CM.dim, letterSpacing: 1, marginBottom: 10, textTransform: "uppercase" }}>Resource Key</div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {Object.entries(RTYPE).map(([k, t]) => (
-                <div key={k} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, display: "inline-block" }} />
-                  <span style={{ fontSize: 11, color: CM.muted, fontFamily: MONO }}>{t.label}</span>
-                </div>
-              ))}
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 14, height: 14, borderRadius: 4, border: `1.5px dashed ${CM.border}`, display: "inline-block" }} />
-                <span style={{ fontSize: 11, color: CM.muted, fontFamily: MONO }}>Optional topic</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
       </div>
 
-      {panel && (
-        <TopicPanel
-          topic={panel.topic}
-          stageTitle={panel.stageTitle}
-          roadmapColor={roadmap.color}
-          done={!!mapProgress[panel.topic.id]}
-          onToggleDone={() => toggleDone(panel.topic.id)}
-          onClose={() => setPanel(null)}
-        />
+      <main className="max-w-6xl mx-auto px-6 py-10">
+        {/* Hero */}
+        <div className="mb-8">
+          <p
+            className="text-xs uppercase tracking-[0.2em] mb-3"
+            style={{ color: CM.dim, fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            choose_a_track()
+          </p>
+          <h1
+            className="text-3xl md:text-4xl font-bold mb-2 tracking-tight"
+            style={{ color: CM.text, fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            Engineering Learning Paths
+          </h1>
+          <p className="text-sm max-w-xl" style={{ color: CM.muted }}>
+            Pick a track, follow the wired-up path, and tap any node to pull up its
+            YouTube playlist and official docs.
+          </p>
+        </div>
+
+        {/* Editor-style window chrome around the graph */}
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ border: `1px solid ${CM.border}`, background: CM.bg }}
+        >
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: `1px solid ${CM.border}`, background: CM.surface }}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#ff5f57" }} />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#febc2e" }} />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#28c840" }} />
+              <span
+                className="ml-3 text-xs"
+                style={{ color: CM.dim, fontFamily: "'JetBrains Mono', monospace" }}
+              >
+                ~/roadmaps/{activeId}
+              </span>
+            </div>
+            <span
+              className="text-[11px]"
+              style={{ color: track.color, fontFamily: "'JetBrains Mono', monospace" }}
+            >
+              {nodeCount} nodes
+            </span>
+          </div>
+
+          <div
+            ref={scrollRef}
+            className="relative overflow-auto scrollbar-thin"
+            style={{ maxHeight: "70vh" }}
+          >
+            <GridBackdrop color={track.color} />
+            <div
+              className="relative"
+              style={{ width: layout.width, height: layout.height, margin: "0 auto" }}
+            >
+              <svg
+                width={layout.width}
+                height={layout.height}
+                className="absolute inset-0"
+                style={{ pointerEvents: "none" }}
+              >
+                {layout.edges.map((e, i) => (
+                  <Edge key={i} edge={e} color={track.color} />
+                ))}
+              </svg>
+              {layout.nodes.map((n) => (
+                <Node key={n.id} node={n} color={track.color} onSelect={setSelectedNode} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Legend / footer strip */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs" style={{ color: CM.dim }}>
+          <span className="flex items-center gap-2">
+            <CircleDot size={13} style={{ color: track.color }} /> {track.tagline}
+          </span>
+          <span className="flex items-center gap-2">
+            <Check size={13} /> Tap any node for a YouTube playlist + official docs
+          </span>
+        </div>
+      </main>
+
+      {selectedNode && (
+        <ResourceModal node={selectedNode} track={track} onClose={() => setSelectedNode(null)} />
       )}
-    </>
+    </div>
   );
 }

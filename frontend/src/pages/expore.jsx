@@ -2,12 +2,28 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../component/navbar";
 
+// Order matters — this is the order cards render in "All".
+// Roadmap first (it's the front door for most learners), then the two
+// interactive visualizers, then the reference material, support last.
 const exploreCards = [
+  {
+    id: "roadmap",
+    tag: "PATH",
+    title: "Structured Roadmap",
+    desc: "A guided, topic-by-topic path from fundamentals to advanced patterns — always know exactly what to learn next.",
+    icon: "◆",
+    accent: "#ff8a00",
+    accentBg: "#1f1207",
+    accentBorder: "#3d260d",
+    accentGlow: "rgba(255,138,0,0.14)",
+    items: ["Beginner to Advanced", "Topic-wise Tracks", "Progress Tracking", "Milestone Badges"],
+    route: "/explore/roadmap",
+  },
   {
     id: "dsa-visualizer",
     tag: "INTERACTIVE",
     title: "Visualize DSA Algorithms",
-    desc: "Watch sorting, searching, and graph algorithms animate step-by-step in real time.",
+    desc: "Watch sorting, searching, and graph algorithms animate step-by-step in real time — see the logic, not just the code.",
     icon: "◈",
     accent: "#ffa116",
     accentBg: "#1e1608",
@@ -15,19 +31,6 @@ const exploreCards = [
     accentGlow: "rgba(255,161,22,0.14)",
     items: ["Sorting Algorithms", "Graph Traversal", "Tree Operations", "Dynamic Programming"],
     route: "/explore/dsa-visualizer",
-  },
-  {
-    id: "cheatsheet",
-    tag: "CURATED",
-    title: "Cheat Sheet",
-    desc: "Quick-reference sheets for syntax, patterns, and formulas — everything you need before an interview, on one page.",
-    icon: "◎",
-    accent: "#ff8a00",
-    accentBg: "#1f1207",
-    accentBorder: "#3d260d",
-    accentGlow: "rgba(255,138,0,0.14)",
-    items: ["Big-O Reference", "Pattern Recognition", "Syntax Snippets", "Formula Sheet"],
-    route: "/explore/cheatsheet",
   },
   {
     id: "complexity",
@@ -39,22 +42,42 @@ const exploreCards = [
     accentBg: "#201607",
     accentBorder: "#3f2c0e",
     accentGlow: "rgba(255,184,77,0.14)",
-    items: ["Big O Notation", "Growth Curves", "Space Complexity", "Algorithm Comparison"],
+    items: ["Big-O Notation", "Growth Curves", "Space Complexity", "Algorithm Comparison"],
     route: "/explore/complexity",
+  },
+  {
+    id: "cheatsheet",
+    tag: "CURATED",
+    title: "Cheat Sheets",
+    desc: "Quick-reference sheets for syntax, patterns, and formulas — everything you need before an interview, on one page.",
+    icon: "◎",
+    accent: "#ff8a00",
+    accentBg: "#1f1207",
+    accentBorder: "#3d260d",
+    accentGlow: "rgba(255,138,0,0.14)",
+    items: ["Big-O Reference", "Pattern Recognition", "Syntax Snippets", "Formula Sheet"],
+    route: "/explore/cheatsheet",
   },
   {
     id: "talk-admin",
     tag: "DAILY",
     title: "Talk to an Admin",
     desc: "Stuck on a problem? Start a live chat with an available admin or mentor and get real-time help with your doubts.",
-    icon: "◆",
+    icon: "◉",
     accent: "#ff6b00",
     accentBg: "#1f1006",
     accentBorder: "#3d220c",
     accentGlow: "rgba(255,107,0,0.14)",
     items: ["Live Chat", "Real-time Help", "Doubt Solving", "1-on-1 Support"],
     route: "/explore/talkadmin",
+    live: true,
   },
+];
+
+const heroStats = [
+  { label: "LEARNING_PATHS", value: "5", icon: "◆" },
+  { label: "TOPICS_COVERED", value: "80+", icon: "◈" },
+  { label: "ADMINS_ONLINE", value: "LIVE", icon: "◉", live: true },
 ];
 
 // Faint node/edge map drawn behind the hero — a graph quietly traversing itself,
@@ -96,13 +119,46 @@ function GraphField() {
   );
 }
 
+// Terminal-chrome preview — the same signature device as the home page's
+// "Arena" panel, here listing the explore directory instead of a challenge.
+function ExploreTerminal() {
+  return (
+    <div className="ex-terminal">
+      <div className="ex-terminal-bar">
+        <div className="ex-terminal-dots">
+          <span className="ex-dot ex-dot-red" />
+          <span className="ex-dot ex-dot-yellow" />
+          <span className="ex-dot ex-dot-green" />
+        </div>
+        <span className="ex-terminal-path">~/explore</span>
+        <span className="ex-terminal-live"><i /> LIVE</span>
+      </div>
+      <div className="ex-terminal-body">
+        <div className="ex-terminal-line">
+          <span className="ex-t-prompt">$</span> ls -la ~/explore
+        </div>
+        {exploreCards.map((c, i) => (
+          <div className="ex-terminal-line ex-t-file" key={c.id} style={{ animationDelay: `${0.5 + i * 0.12}s` }}>
+            <span className="ex-t-arrow">→</span> {c.id}/
+            <span className="ex-t-comment">  # {c.tag.toLowerCase()}</span>
+          </div>
+        ))}
+        <div className="ex-terminal-line ex-t-cursor-line">
+          <span className="ex-t-prompt">$</span>
+          <span className="ex-t-cursor" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Explore() {
   const [filter, setFilter] = useState("All");
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
   const cardRefs = useRef([]);
 
-  const filters = ["All", "Interactive", "Curated", "Daily"];
+  const filters = ["All", "Path", "Interactive", "Curated", "Daily"];
   const filtered =
     filter === "All"
       ? exploreCards
@@ -134,8 +190,12 @@ export default function Explore() {
           min-height: 100vh;
           background: #0a0a0a;
           background-image:
-            radial-gradient(circle at 15% 0%, rgba(255,138,0,0.07), transparent 40%),
+            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+            radial-gradient(circle at 15% 0%, rgba(255,138,0,0.08), transparent 40%),
             radial-gradient(circle at 85% 15%, rgba(255,107,0,0.05), transparent 35%);
+          background-size: 34px 34px, 34px 34px, auto, auto;
+          background-position: -1px -1px, -1px -1px, 0 0, 0 0;
           color: #f2f2f2;
           font-family: 'Inter', -apple-system, sans-serif;
           overflow-x: hidden;
@@ -151,25 +211,31 @@ export default function Explore() {
         }
 
         /* ── HERO ── */
-        .ex-hero { position: relative; padding: 64px 24px 40px; max-width: 1000px; margin: 0 auto; }
+        .ex-hero {
+          position: relative; max-width: 1100px; margin: 0 auto;
+          padding: 60px 24px 0;
+          display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center;
+        }
 
         .ex-graph {
-          position: absolute; top: -10px; right: -40px;
-          width: 480px; height: 260px; opacity: 0.55;
-          pointer-events: none;
+          position: absolute; top: -30px; left: 0;
+          width: 480px; height: 260px; opacity: 0.4;
+          pointer-events: none; z-index: 0;
         }
         .ex-graph-edge {
           stroke: #ff8a00; stroke-width: 1; opacity: 0;
           stroke-dasharray: 6 4;
           animation: ex-edge-in 0.9s ease forwards;
         }
-        @keyframes ex-edge-in { from { opacity: 0; } to { opacity: 0.28; } }
+        @keyframes ex-edge-in { from { opacity: 0; } to { opacity: 0.22; } }
         .ex-graph-node {
           fill: #ffb84d; opacity: 0;
           animation: ex-node-in 0.6s ease forwards;
         }
-        @keyframes ex-node-in { from { opacity: 0; r: 1; } to { opacity: 0.85; r: 3.2; } }
+        @keyframes ex-node-in { from { opacity: 0; r: 1; } to { opacity: 0.75; r: 3.2; } }
         .ex-graph-pulse { fill: #ff6b00; filter: drop-shadow(0 0 5px #ff6b00); }
+
+        .ex-hero-left { position: relative; z-index: 1; }
 
         .ex-hero-tag {
           display: inline-flex; align-items: center; gap: 7px;
@@ -189,10 +255,10 @@ export default function Explore() {
         @keyframes ex-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
         .ex-hero-h1 {
-          font-size: clamp(30px, 4.2vw, 44px);
+          font-size: clamp(30px, 4vw, 46px);
           font-weight: 800; letter-spacing: -1.2px;
           color: #f7f7f7; line-height: 1.12;
-          margin-bottom: 16px; max-width: 620px;
+          margin-bottom: 16px; max-width: 560px;
           opacity: 0; transform: translateY(14px);
           transition: opacity 0.6s ease 0.08s, transform 0.6s ease 0.08s;
         }
@@ -207,18 +273,86 @@ export default function Explore() {
 
         .ex-hero-sub {
           font-size: 15px; color: #9a9a9a; line-height: 1.75;
-          max-width: 480px; margin-bottom: 0;
+          max-width: 460px; margin-bottom: 28px;
           opacity: 0; transform: translateY(14px);
           transition: opacity 0.6s ease 0.16s, transform 0.6s ease 0.16s;
         }
 
         .ex-root.loaded .ex-hero-tag,
         .ex-root.loaded .ex-hero-h1,
-        .ex-root.loaded .ex-hero-sub { opacity: 1; transform: translateY(0); }
+        .ex-root.loaded .ex-hero-sub,
+        .ex-root.loaded .ex-hero-right { opacity: 1; transform: translateY(0); }
 
-        .ex-divider { height: 1px; background: linear-gradient(90deg, #232323, transparent); margin: 40px 0 32px; }
+        /* ── HERO STATS ── */
+        .ex-stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .ex-stat-card {
+          flex: 1; min-width: 130px;
+          background: #121212; border: 1px solid #232323; border-radius: 12px;
+          padding: 14px 16px;
+        }
+        .ex-stat-label {
+          display: flex; align-items: center; gap: 6px;
+          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600;
+          letter-spacing: 1.4px; text-transform: uppercase; color: #777; margin-bottom: 10px;
+        }
+        .ex-stat-value { font-size: 21px; font-weight: 800; color: #f7f7f7; letter-spacing: -0.4px; }
+        .ex-stat-value.is-live { color: #ff8a00; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
+        .ex-stat-value.is-live::before {
+          content: ''; width: 6px; height: 6px; border-radius: 50%; background: #ff8a00;
+          box-shadow: 0 0 8px #ff8a00; animation: ex-blink 2s ease-in-out infinite;
+        }
 
-        .ex-main { position: relative; max-width: 1000px; margin: 0 auto; padding: 0 24px 90px; }
+        /* ── HERO TERMINAL ── */
+        .ex-hero-right {
+          position: relative; z-index: 1;
+          opacity: 0; transform: translateY(14px);
+          transition: opacity 0.6s ease 0.22s, transform 0.6s ease 0.22s;
+        }
+        .ex-terminal {
+          background: #101010; border: 1px solid #232323; border-radius: 14px;
+          overflow: hidden; box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+        }
+        .ex-terminal-bar {
+          display: flex; align-items: center; gap: 10px;
+          padding: 11px 14px; border-bottom: 1px solid #1d1d1d; background: #131313;
+        }
+        .ex-terminal-dots { display: flex; gap: 6px; }
+        .ex-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+        .ex-dot-red { background: #ff5f56; }
+        .ex-dot-yellow { background: #ffbd2e; }
+        .ex-dot-green { background: #27c93f; }
+        .ex-terminal-path {
+          font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #777; margin-left: 2px;
+        }
+        .ex-terminal-live {
+          margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
+          letter-spacing: 1px; color: #ff8a00; background: rgba(255,138,0,0.1);
+          border: 1px solid rgba(255,138,0,0.25); border-radius: 20px; padding: 3px 9px;
+        }
+        .ex-terminal-live i {
+          width: 5px; height: 5px; border-radius: 50%; background: #ff8a00;
+          box-shadow: 0 0 6px #ff8a00; display: inline-block; animation: ex-blink 2s ease-in-out infinite;
+        }
+        .ex-terminal-body { padding: 18px 18px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 2.1; }
+        .ex-t-prompt { color: #ff8a00; margin-right: 8px; }
+        .ex-terminal-line { color: #ccc; white-space: nowrap; }
+        .ex-t-file {
+          color: #d8d8d8; opacity: 0; transform: translateX(-6px);
+          animation: ex-t-file-in 0.45s ease forwards;
+        }
+        @keyframes ex-t-file-in { to { opacity: 1; transform: translateX(0); } }
+        .ex-t-arrow { color: #ffa116; margin-right: 6px; }
+        .ex-t-comment { color: #555; }
+        .ex-t-cursor-line { margin-top: 4px; }
+        .ex-t-cursor {
+          display: inline-block; width: 7px; height: 14px; background: #ff8a00;
+          vertical-align: middle; animation: ex-blink 1s step-end infinite;
+        }
+
+        .ex-divider { height: 1px; background: linear-gradient(90deg, #232323, transparent); margin: 44px 0 32px; }
+
+        .ex-main { position: relative; max-width: 1100px; margin: 0 auto; padding: 0 24px 90px; }
 
         /* ── FILTERS ── */
         .ex-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
@@ -278,6 +412,18 @@ export default function Explore() {
         }
         .ex-card:hover .ex-card-icon-wrap { transform: scale(1.1) rotate(-6deg); background: var(--accent-border); }
 
+        .ex-card-badge-live {
+          position: relative; z-index: 1;
+          display: inline-flex; align-items: center; gap: 5px;
+          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
+          letter-spacing: 1px; color: #ff8a00; background: rgba(255,138,0,0.1);
+          border: 1px solid rgba(255,138,0,0.25); border-radius: 20px; padding: 4px 9px;
+        }
+        .ex-card-badge-live i {
+          width: 5px; height: 5px; border-radius: 50%; background: #ff8a00;
+          box-shadow: 0 0 6px #ff8a00; display: inline-block; animation: ex-blink 2s ease-in-out infinite;
+        }
+
         .ex-card-tag {
           position: relative; z-index: 1;
           font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
@@ -323,9 +469,14 @@ export default function Explore() {
         }
         .ex-section-label-line { flex: 1; height: 1px; background: #232323; }
 
-        @media (max-width: 640px) {
+        @media (max-width: 900px) {
+          .ex-hero { grid-template-columns: 1fr; }
+          .ex-hero-right { order: -1; }
           .ex-graph { display: none; }
+        }
+        @media (max-width: 640px) {
           .ex-card.featured { flex-direction: column; align-items: flex-start; }
+          .ex-terminal-line { white-space: normal; }
         }
       `}</style>
 
@@ -334,14 +485,29 @@ export default function Explore() {
 
         <div className="ex-hero">
           <GraphField />
-          <div className="ex-hero-tag">Explore CodeMaster</div>
-          <h1 className="ex-hero-h1">
-            Everything you need to<br />
-            <em>ace your next interview</em>
-          </h1>
-          <p className="ex-hero-sub">
-            From DSA visualizations to curated FAANG problem sets — pick a path and start building real skills today.
-          </p>
+
+          <div className="ex-hero-left">
+            <div className="ex-hero-tag">Explore CodeMaster</div>
+            <h1 className="ex-hero-h1">
+              Everything you need to<br />
+              <em>ace your next interview</em>
+            </h1>
+            <p className="ex-hero-sub">
+              From live DSA visualizations to a curated interview roadmap — pick a path below and start building real skills today.
+            </p>
+            <div className="ex-stats-row">
+              {heroStats.map((s) => (
+                <div className="ex-stat-card" key={s.label}>
+                  <div className="ex-stat-label">{s.icon} {s.label}</div>
+                  <div className={`ex-stat-value${s.live ? " is-live" : ""}`}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="ex-hero-right">
+            <ExploreTerminal />
+          </div>
         </div>
 
         <div className="ex-main">
@@ -404,6 +570,9 @@ export default function Explore() {
                   <>
                     <div className="ex-card-head">
                       <div className="ex-card-icon-wrap">{card.icon}</div>
+                      {card.live && (
+                        <span className="ex-card-badge-live"><i /> LIVE</span>
+                      )}
                     </div>
                     <div className="ex-card-tag">{card.tag}</div>
                     <div className="ex-card-title">{card.title}</div>
