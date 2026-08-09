@@ -1,7 +1,7 @@
 const redisClient = require("../config/redis");
 
 const windowSize = 3600; // 1 hour
-const MaxRequest = 600;
+const MaxRequest = 100;
 
 const rateLimiter = async (req, res, next) => {
     try {
@@ -15,8 +15,6 @@ const rateLimiter = async (req, res, next) => {
 
         // Count requests in current window
         const numberOfRequest = await redisClient.zCard(key);
-        console.log(numberOfRequest);
-
         // Check limit
         if (numberOfRequest >= MaxRequest) {
             return res.status(429).json({

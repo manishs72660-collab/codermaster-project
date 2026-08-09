@@ -46,9 +46,9 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(cookieparser());
-app.use(rateLimiter);
+//app.use(rateLimiter);
 app.set("io", io);
-app.use("/auth", authRouter);
+app.use("/auth", rateLimiter,authRouter);
 app.use("/problem", problemRouter);
 app.use("/code", submitroute);
 app.use("/ai", airoute);

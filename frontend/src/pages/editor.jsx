@@ -828,8 +828,17 @@ const ProblemPage = () => {
         }
         .cm-example:hover { border-left-color: var(--ac); }
         .cm-ex-label { font-size: 9px; font-weight: 700; color: var(--di); letter-spacing: 0.8px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; margin-bottom: 8px; }
-        .cm-ex-row { font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.8; color: var(--mu); }
-        .cm-ex-row span { color: var(--tx); }
+        .cm-ex-row {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--mu);
+  white-space: pre-wrap;   /* ADD THIS */
+}
+.cm-ex-row span {
+  color: var(--tx);
+  white-space: pre-wrap;   /* ADD THIS TOO, span inherits normally but be explicit */
+}
         .cm-ex-expl { font-size: 10px; color: var(--di); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--b1); font-family: 'JetBrains Mono', monospace; font-style: italic; }
 
         .cm-code-block { background: var(--bg); border: 1px solid var(--b1); border-radius: var(--r2); overflow: hidden; margin-bottom: 12px; }
