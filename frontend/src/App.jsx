@@ -46,6 +46,9 @@ import MakeAdmin from "./component/MakeAdmin";
 import CollegeLeaderboard from "./pages/CollegeLeaderboard";
 import RoadmapExplorer from "./pages/roadmap";
 import DuelSpectate from "./pages/Duelspectate"
+import McqContestCreate from "./component/Mcqcontestcreate";
+import McqContestPlay from "./component/Mcqcontestplay";
+import AdminManageMcqContests from "./component/AdminManageMcqContests";
 //frontend/src/pages/Collegeadmindashboard.jsx
 //frontend/src/pages/Collegerequests.jsxF
 //frontend/src/pages/CollegeLeaderboard.jsx
@@ -148,6 +151,9 @@ function App(){
     <Route path="/community" element={<Community />} />
 <Route path="/community/post/:id" element={<CommunityPostDetail />} />
 <Route path="/explore/roadmap" element={<RoadmapExplorer></RoadmapExplorer>}></Route>
+<Route path="/admin/mcq-contest/create" element={<McqContestCreate />} />
+<Route path="/mcq-contest/:id" element={<McqContestPlay />} />
+<Route path="/admin/mcq-contest/manage" element={<AdminManageMcqContests />} />
     </Routes>
   </>
   )

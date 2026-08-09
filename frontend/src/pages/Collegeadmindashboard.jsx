@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'motion/react';
-import { Search, ShieldCheck, X, Code2, Trophy, ExternalLink, ListChecks } from 'lucide-react';
+import { Search, ShieldCheck, X, Code2, Trophy, ExternalLink, ListChecks, Settings } from 'lucide-react';
 
 // Swap this for your project's real axios wrapper if the path differs.
 import axiosClient from '../utils/axiosClient';
@@ -31,8 +31,9 @@ function CollegeAdminDashboard() {
   // A platform Admin drilling into someone else's college via
   // /admin/colleges/:collegeId is viewing, not managing — hide the
   // contest-management shortcuts in that case since they're scoped to
-  // "my own college" and an Admin should use /admin/contest/manage instead
-  // (which already shows every college, with a college badge per contest).
+  // "my own college" and an Admin should use /admin/contest/manage or
+  // /admin/mcq-contest/manage instead (those already show every college,
+  // with a college badge per contest, and are ownership-scoped there too).
   const isOwnCollegeAdmin = user?.role === 'CollageAdmin';
 
   const [students, setStudents] = useState([]);
@@ -141,6 +142,12 @@ function CollegeAdminDashboard() {
                 >
                   <ListChecks className="h-3.5 w-3.5" /> Manage Contests
                 </button>
+                <button
+                  onClick={() => navigate('/admin/mcq-contest/manage')}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cyan-500/25 bg-cyan-500/[0.08] px-3.5 py-2 text-xs font-medium text-cyan-300 transition-colors hover:border-cyan-500/45 hover:bg-cyan-500/15"
+                >
+                  <Settings className="h-3.5 w-3.5" /> Manage MCQ Contests
+                </button>
               </>
             )}
             <button
@@ -148,6 +155,12 @@ function CollegeAdminDashboard() {
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-violet-500/25 bg-violet-500/[0.08] px-3.5 py-2 text-xs font-medium text-violet-300 transition-colors hover:border-violet-500/45 hover:bg-violet-500/15"
             >
               <Trophy className="h-3.5 w-3.5" /> Create Contest
+            </button>
+            <button
+              onClick={() => navigate('/admin/mcq-contest/create')}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/[0.08] px-3.5 py-2 text-xs font-medium text-fuchsia-300 transition-colors hover:border-fuchsia-500/45 hover:bg-fuchsia-500/15"
+            >
+              <ListChecks className="h-3.5 w-3.5" /> Create MCQ Contest
             </button>
           </div>
         </motion.div>

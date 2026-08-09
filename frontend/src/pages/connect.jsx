@@ -370,6 +370,8 @@ function NewPostModal({ open, onClose, onCreated }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]       = useState('');
 
+  const BODY_LIMIT = 200;
+
   const reset = () => {
     setTitle(''); setBody(''); setTag('general');
     setCodeOpen(false); setCodeLang('javascript'); setCodeContent('');
@@ -456,14 +458,24 @@ function NewPostModal({ open, onClose, onCreated }) {
                 className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all"
               />
 
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="What's on your mind?"
-                maxLength={5000}
-                rows={5}
-                className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all resize-none"
-              />
+              <div>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value.slice(0, BODY_LIMIT))}
+                  placeholder="What's on your mind?"
+                  maxLength={BODY_LIMIT}
+                  rows={5}
+                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all resize-none"
+                />
+                <div className="flex justify-end mt-1">
+                  <span className={cn(
+                    "text-[11px] font-semibold tabular-nums",
+                    body.length >= BODY_LIMIT ? "text-rose-400" : "text-white/20"
+                  )}>
+                    {body.length}/{BODY_LIMIT}
+                  </span>
+                </div>
+              </div>
 
               {/* optional code snippet toggle */}
               <button

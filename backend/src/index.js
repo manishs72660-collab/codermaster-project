@@ -22,7 +22,8 @@ const postrouter = require("./routes/solutionpost");
 const collagerouter = require("./routes/Collegeroutes")
 const profileRouter = require("./routes/profileRoute");
 const communityRouter = require("./routes/Communityroute");
-const discussionRouter=require("./routes/Discussionrouter")
+const discussionRouter=require("./routes/Discussionrouter");
+const mcqrouter=require("./routes/Mcqcontest")
 const cors = require('cors');
 
 const app = express();
@@ -61,6 +62,7 @@ app.use("/collage", collagerouter)
 app.use("/profile", profileRouter);
 app.use("/community", communityRouter);
 app.use("/discuss",discussionRouter);
+app.use("/mcq-contest",mcqrouter);
 initializeSocket(io);
 
 const InitlizeConnection = async () => {

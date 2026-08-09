@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, ShieldCheck, Video, Trophy, Settings, Building2, Inbox } from 'lucide-react';
+import { Plus, Edit, Trash2, ShieldCheck, Video, Trophy, Settings, Building2, Inbox, ListChecks } from 'lucide-react';
 import { NavLink } from 'react-router';
 
 function Admin() {
@@ -73,6 +73,28 @@ function Admin() {
       accentBorder: '#3a1a2e',
       tag: 'CONTEST',
     },
+    {
+      id: 'contest-mcq-create',
+      title: 'Create MCQ Contest',
+      description: 'Build a quiz-style contest — up to 20 questions, 4 options each',
+      icon: ListChecks,
+      route: '/admin/mcq-contest/create',
+      accent: '#22d3ee',
+      accentBg: '#0a2226',
+      accentBorder: '#123a3f',
+      tag: 'MCQ',
+    },
+    {
+  id: 'contest-mcq-manage',
+  title: 'Manage MCQ Contests',
+  description: 'Edit questions, options, correct answers, or delete MCQ contests',
+  icon: Settings,
+  route: '/admin/mcq-contest/manage',
+  accent: '#22d3ee',
+  accentBg: '#0a2226',
+  accentBorder: '#123a3f',
+  tag: 'MCQ',
+},
     // ── COLLEGE CARDS ──
     {
       id: 'manage-colleges',
@@ -249,6 +271,7 @@ function Admin() {
         .adm-card:nth-child(5) { animation-delay: 0.20s; }
         .adm-card:nth-child(6) { animation-delay: 0.24s; }
         .adm-card:nth-child(7) { animation-delay: 0.28s; }
+        .adm-card:nth-child(8) { animation-delay: 0.32s; }
 
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #161b22; }
@@ -306,7 +329,7 @@ function Admin() {
             })}
           </div>
 
-          {/* Contests section */}
+          {/* Contests section — coding contests + MCQ contests live here together */}
           <div className="adm-section-label">
             <div className="adm-section-bar" style={{ background: '#c084fc' }} />
             <span className="adm-section-text">Contests</span>
@@ -369,7 +392,7 @@ function Admin() {
           <div className="adm-stats">
             <div className="adm-stat">
               <span className="adm-stat-label">Operations</span>
-              <span className="adm-stat-val">10</span>
+              <span className="adm-stat-val">{adminOptions.length}</span>
               <span className="adm-stat-sub">available actions</span>
             </div>
             <div className="adm-stat">

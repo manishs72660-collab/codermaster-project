@@ -256,24 +256,34 @@ export default function CommunityPostDetail() {
               </div>
 
               {/* add comment */}
-              <form onSubmit={handleAddComment} className="flex items-start gap-3 mb-6">
-                <input
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder={user ? 'Add a comment…' : 'Log in to comment'}
-                  disabled={!user}
-                  maxLength={1000}
-                  className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.05] transition-all disabled:opacity-40"
-                />
-                <button
-                  type="submit"
-                  disabled={posting || !commentText.trim() || !user}
-                  className="flex items-center justify-center gap-1.5 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-4 py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {posting
-                    ? <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-                    : <Send className="w-4 h-4" />}
-                </button>
+              <form onSubmit={handleAddComment} className="flex flex-col gap-1.5 mb-6">
+                <div className="flex items-start gap-3">
+                  <input
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value.slice(0, 200))}
+                    placeholder={user ? 'Add a comment…' : 'Log in to comment'}
+                    disabled={!user}
+                    maxLength={200}
+                    className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.05] transition-all disabled:opacity-40"
+                  />
+                  <button
+                    type="submit"
+                    disabled={posting || !commentText.trim() || !user}
+                    className="flex items-center justify-center gap-1.5 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-4 py-2.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {posting
+                      ? <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                      : <Send className="w-4 h-4" />}
+                  </button>
+                </div>
+                {user && (
+                  <span className={cn(
+                    "self-end text-[11px] font-semibold tabular-nums pr-1",
+                    commentText.length >= 200 ? "text-rose-400" : "text-white/20"
+                  )}>
+                    {commentText.length}/200
+                  </span>
+                )}
               </form>
 
               {/* comment list */}

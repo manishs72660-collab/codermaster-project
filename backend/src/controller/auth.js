@@ -234,7 +234,6 @@ const googleAuth = async (req, res) => {
         emailId,
         password: randomPassword, // schema requires a password; Google users never use it to log in
         role: "User",
-        ...(photoURL ? { profileImage: photoURL } : {}),
       };
       if (collegeId) userData.collegeId = collegeId;
       user = await User.create(userData);

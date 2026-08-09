@@ -14,6 +14,7 @@ import {
   Timer,
   KeyRound,
   X,
+  ListChecks,
 } from 'lucide-react';
 import Navbar from '../component/navbar';
 import axiosClient from '../utils/axiosClient';
@@ -76,13 +77,22 @@ export default function Contest() {
   const [joining, setJoining]             = useState(false);
   const [joinError, setJoinError]         = useState('');
   // when set, the modal was opened by clicking a specific private card
-  // (so we know which title to show, though the code itself decides the contest)
+  // (so we know both the title AND which endpoint to hit)
   const [joinTarget, setJoinTarget]       = useState(null);
 
   useEffect(() => {
-    axiosClient.get('/contest/all')
-      .then(({ data }) => setContests(Array.isArray(data) ? data : []))
-      .catch(() => setContests([]))
+    // Coding contests and MCQ contests are separate collections/endpoints —
+    // fetch both and merge into one list, tagged by `type` so the card and
+    // the click-through routing both know which flavor they're dealing with.
+    Promise.all([
+      axiosClient.get('/contest/all').catch(() => ({ data: [] })),
+      axiosClient.get('/mcq-contest/all').catch(() => ({ data: [] })),
+    ])
+      .then(([codeRes, mcqRes]) => {
+        const code = (Array.isArray(codeRes.data) ? codeRes.data : []).map((c) => ({ ...c, type: 'code' }));
+        const mcq  = (Array.isArray(mcqRes.data)  ? mcqRes.data  : []).map((c) => ({ ...c, type: 'mcq' }));
+        setContests([...code, ...mcq]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -91,17 +101,31 @@ export default function Contest() {
     if (!joinCode.trim()) return;
     setJoining(true);
     setJoinError('');
-    try {
-      const { data } = await axiosClient.post('/contest/join', { code: joinCode.trim() });
-      setShowJoinModal(false);
-      setJoinCode('');
-      setJoinTarget(null);
-      navigate(`/contest/${data.contestId}`);
-    } catch (err) {
-      setJoinError(err?.response?.data?.message || 'Invalid or expired code');
-    } finally {
-      setJoining(false);
+
+    // If the modal was opened from a specific card we already know the type.
+    // Otherwise (generic "Join with code" button) try coding contests first,
+    // then fall back to MCQ contests if the code isn't found there.
+    const attempts =
+      joinTarget?.type === 'mcq' ? ['/mcq-contest/join'] :
+      joinTarget?.type === 'code' ? ['/contest/join'] :
+      ['/contest/join', '/mcq-contest/join'];
+
+    let lastError = 'Invalid or expired code';
+    for (const endpoint of attempts) {
+      try {
+        const { data } = await axiosClient.post(endpoint, { code: joinCode.trim() });
+        setShowJoinModal(false);
+        setJoinCode('');
+        setJoinTarget(null);
+        navigate(endpoint.startsWith('/mcq') ? `/mcq-contest/${data.contestId}` : `/contest/${data.contestId}`);
+        setJoining(false);
+        return;
+      } catch (err) {
+        lastError = err?.response?.data?.message || lastError;
+      }
     }
+    setJoinError(lastError);
+    setJoining(false);
   };
 
   const openJoinModal = (contest) => {
@@ -238,7 +262,7 @@ export default function Contest() {
 
                 <h2 className="font-display text-2xl font-700 text-white mb-2">Join a Contest</h2>
                 <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-sm">
-                  Timed coding battles with live leaderboards. Solve the most problems fastest to reach the top.
+                  Timed coding battles and quiz-style MCQ contests, both with live leaderboards.
                 </p>
 
                 <div className="flex items-center gap-4 mb-6">
@@ -348,7 +372,7 @@ export default function Contest() {
               <div className="space-y-3">
                 <AnimatePresence mode="popLayout">
                   {filtered.map((contest, index) => (
-                    <ContestCard key={contest._id} contest={contest} index={index} onRequestJoin={openJoinModal} />
+                    <ContestCard key={`${contest.type}-${contest._id}`} contest={contest} index={index} onRequestJoin={openJoinModal} />
                   ))}
                 </AnimatePresence>
               </div>
@@ -434,6 +458,7 @@ function ContestCard({ contest, index, onRequestJoin }) {
   const status    = getStatusStyle(contest.computedStatus);
   const isOngoing = contest.computedStatus === 'ongoing';
   const isUpcoming = contest.computedStatus === 'upcoming';
+  const isMcq      = contest.type === 'mcq';
   const isPrivate  = contest.isPublic === false;
   const isLocked   = isPrivate && !contest.isRegistered;
 
@@ -443,9 +468,12 @@ function ContestCard({ contest, index, onRequestJoin }) {
     if (isLocked) {
       onRequestJoin?.(contest);
     } else {
-      navigate(`/contest/${contest._id}`);
+      navigate(isMcq ? `/mcq-contest/${contest._id}` : `/contest/${contest._id}`);
     }
   };
+
+  const itemCount = isMcq ? contest.totalQuestions : contest.totalProblems;
+  const itemLabel = isMcq ? 'questions' : 'problems';
 
   return (
     <motion.div
@@ -497,6 +525,13 @@ function ContestCard({ contest, index, onRequestJoin }) {
                 {status.label}
               </span>
 
+              {isMcq && (
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
+                  <ListChecks className="w-2.5 h-2.5" />
+                  MCQ
+                </span>
+              )}
+
               {isPrivate && (
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border bg-purple-500/10 border-purple-500/20 text-purple-400">
                   <Lock className="w-2.5 h-2.5" />
@@ -515,8 +550,8 @@ function ContestCard({ contest, index, onRequestJoin }) {
               </span>
 
               <span className="flex items-center gap-1 text-[11px] text-white/25">
-                <Code2 className="w-3 h-3" />
-                {contest.totalProblems ?? 0} problems
+                {isMcq ? <ListChecks className="w-3 h-3" /> : <Code2 className="w-3 h-3" />}
+                {itemCount ?? 0} {itemLabel}
               </span>
 
               <span className="hidden md:flex items-center gap-1 text-[11px] text-white/20">

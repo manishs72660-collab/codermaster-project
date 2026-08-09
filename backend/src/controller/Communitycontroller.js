@@ -158,10 +158,15 @@ const addComment = async (req, res) => {
       return res.status(400).json({ message: "Comment body is required" });
     }
 
+    const trimmedBody = body.trim();
+    if (trimmedBody.length > 200) {
+      return res.status(400).json({ message: "Comment cannot exceed 200 characters" });
+    }
+
     const post = await Post.findById(id);
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    post.comments.push({ author: userId, body: body.trim() });
+    post.comments.push({ author: userId, body: trimmedBody });
     await post.save();
 
     const populated = await post.populate("comments.author", "firstName lastName emailId");
