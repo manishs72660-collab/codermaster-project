@@ -186,6 +186,7 @@ function AdminListPage() {
                 {admins.map((admin) => {
                   const status = requestStatus[admin._id];
                   const collegeName = admin.collegeId?.Collage_name;
+                  const isPlatformAdmin = admin.role === "Admin";
 
                   return (
                     <li
@@ -209,6 +210,11 @@ function AdminListPage() {
                             <p className="font-medium text-neutral-100 truncate">
                               {admin.firstName || admin.emailId || admin._id}
                             </p>
+                            {isPlatformAdmin && (
+                              <span className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30">
+                                Super Admin
+                              </span>
+                            )}
                             {showCollegeName && collegeName && (
                               <span className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400 border border-neutral-700">
                                 {collegeName}

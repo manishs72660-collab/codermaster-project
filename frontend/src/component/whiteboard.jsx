@@ -72,6 +72,36 @@ function normaliseRect(x1, y1, x2, y2) {
   return { x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) };
 }
 
+/* ─────────────────────────────  localStorage helpers  ───────────────────────────── */
+function readBoardFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.error("Failed to read board from localStorage:", err);
+    return null;
+  }
+}
+
+function writeBoardToLocalStorage(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch (err) {
+    // Most likely quota exceeded (large canvas PNGs add up fast in localStorage's ~5-10MB cap)
+    console.error("Failed to save board to localStorage:", err);
+    return false;
+  }
+}
+
+function clearBoardFromLocalStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (err) {
+    console.error("Failed to clear board from localStorage:", err);
+  }
+}
+
 /* ─────────────────────────────  Component  ───────────────────────────── */
 export default function CodeBoard({ height = 640 }) {
   const baseRef    = useRef(null);
@@ -126,51 +156,39 @@ export default function CodeBoard({ height = 640 }) {
     bc.height = oc.height = CANVAS_H;
   }, []);
 
-  /* ── Load from persistent storage ──────────────────────────────────── */
+  /* ── Load from localStorage ─────────────────────────────────────────── */
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await window.storage.get(STORAGE_KEY, false);
-        if (res && res.value) {
-          const data = JSON.parse(res.value);
-          if (data.title) setTitle(data.title);
-          if (data.img) {
-            const img = new Image();
-            img.onload = () => {
-              const bc = baseRef.current;
-              if (!bc) return;
-              const ctx = bc.getContext("2d");
-              ctx.clearRect(0, 0, bc.width, bc.height);
-              ctx.drawImage(img, 0, 0);
-            };
-            img.src = data.img;
-          }
-        }
-      } catch (err) {
-        // no saved board yet — that's fine
-      } finally {
-        setLoaded(true);
+    const data = readBoardFromLocalStorage();
+    if (data) {
+      if (data.title) setTitle(data.title);
+      if (data.img) {
+        const img = new Image();
+        img.onload = () => {
+          const bc = baseRef.current;
+          if (!bc) return;
+          const ctx = bc.getContext("2d");
+          ctx.clearRect(0, 0, bc.width, bc.height);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = data.img;
       }
-    })();
+    }
+    setLoaded(true);
   }, []);
 
   /* ── Autosave (debounced, only when dirty) ─────────────────────────── */
   useEffect(() => {
     if (!loaded) return;
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
       if (!dirtyRef.current) return;
       const bc = baseRef.current;
       if (!bc) return;
       dirtyRef.current = false;
       setSaveState("saving");
-      try {
-        const img = bc.toDataURL("image/png");
-        await window.storage.set(STORAGE_KEY, JSON.stringify({ img, title }), false);
-        setSaveState("saved");
-        setTimeout(() => setSaveState("idle"), 1200);
-      } catch (err) {
-        setSaveState("idle");
-      }
+      const img = bc.toDataURL("image/png");
+      const ok = writeBoardToLocalStorage({ img, title });
+      setSaveState(ok ? "saved" : "idle");
+      if (ok) setTimeout(() => setSaveState("idle"), 1200);
     }, 1800);
     return () => clearInterval(interval);
   }, [loaded, title]);
@@ -340,12 +358,12 @@ export default function CodeBoard({ height = 640 }) {
     updUI(); markDirty();
   }, [commitText, deselect, saveSnap, updUI, markDirty]);
 
-  const clearAll = useCallback(async () => {
+  const clearAll = useCallback(() => {
     commitText(); deselect(); pushHist();
     const bc = baseRef.current;
     bc.getContext("2d").clearRect(0, 0, bc.width, bc.height);
     overlayRef.current.getContext("2d").clearRect(0, 0, overlayRef.current.width, overlayRef.current.height);
-    try { await window.storage.delete(STORAGE_KEY, false); } catch (err) { /* nothing to delete */ }
+    clearBoardFromLocalStorage();
   }, [commitText, deselect, pushHist]);
 
   const exportPNG = useCallback(() => {

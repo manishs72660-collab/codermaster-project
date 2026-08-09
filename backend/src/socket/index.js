@@ -17,7 +17,7 @@ function initializeSocket(io) {
 
         await client.hSet("online_users", userId, socket.id);
 
-        if (role === "CollageAdmin") {
+        if (role === "CollageAdmin" || role === "Admin") {
           await client.sAdd("online_admins", userId);
           io.emit("admin:status_update", { userId, status: "online" });
         }
@@ -181,7 +181,7 @@ function initializeSocket(io) {
       });
     });
 
-    // ✅ NEW: LIVE CODE STREAM — a player's editor changes are relayed ONLY to
+    // LIVE CODE STREAM — a player's editor changes are relayed ONLY to
     // the spec-{roomCode} room (spectators), never to the opponent's socket.
     // This keeps the actual duel fair (no one can see their opponent's code
     // live) while still letting spectators watch both editors update in
@@ -198,7 +198,7 @@ function initializeSocket(io) {
     socket.on("duel:spectate_join", ({ roomCode, userId }) => {
       try {
         socket.join(roomCode);
-        socket.join(`spec-${roomCode}`); // ✅ NEW
+        socket.join(`spec-${roomCode}`);
         socket.isSpectator = true;
         socket.spectatingRoom = roomCode;
 
@@ -215,7 +215,7 @@ function initializeSocket(io) {
     socket.on("duel:spectate_leave", ({ roomCode, userId }) => {
       try {
         socket.leave(roomCode);
-        socket.leave(`spec-${roomCode}`); // ✅ NEW
+        socket.leave(`spec-${roomCode}`);
         if (spectatorRooms[roomCode]) {
           spectatorRooms[roomCode].delete(socket.id);
           io.to(roomCode).emit("duel:spectator_count", { count: spectatorRooms[roomCode].size });
@@ -260,7 +260,7 @@ function initializeSocket(io) {
         if (socket.userId) {
           await client.hDel("online_users", socket.userId);
 
-          if (socket.role === "CollageAdmin") {
+          if (socket.role === "CollageAdmin" || socket.role === "Admin") {
             await client.sRem("online_admins", socket.userId);
             io.emit("admin:status_update", { userId: socket.userId, status: "offline" });
             await client.del(`admin_busy:${socket.userId}`);

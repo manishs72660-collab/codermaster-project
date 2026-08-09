@@ -11,16 +11,30 @@ router.get("/admins", userAuth, async (req, res) => {
   try {
     const requester = req.result;
 
-    const filter = {
-      role: "CollageAdmin",
-      _id: { $ne: requester._id }, // NEW: exclude yourself from your own admin list
-    };
+    let filter;
 
-    if (requester.role !== "Admin") {
-      if (!requester.collegeId) {
-        return res.json([]);
-      }
-      filter.collegeId = requester.collegeId;
+    if (requester.role === "Admin") {
+      // Platform admins only see other platform admins
+      filter = {
+        role: "Admin",
+        _id: { $ne: requester._id },
+      };
+    } else if (requester.collegeId) {
+      // Users/CollegeAdmins with a college: see their college's CollegeAdmins
+      // PLUS all platform Admins (global, regardless of college)
+      filter = {
+        _id: { $ne: requester._id },
+        $or: [
+          { role: "CollageAdmin", collegeId: requester.collegeId },
+          { role: "Admin" },
+        ],
+      };
+    } else {
+      // No college attached: only platform Admins
+      filter = {
+        role: "Admin",
+        _id: { $ne: requester._id },
+      };
     }
 
     const admins = await User.find(filter)
