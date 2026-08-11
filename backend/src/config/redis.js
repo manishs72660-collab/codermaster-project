@@ -2,9 +2,9 @@ const{ createClient } =require("redis");
 
 const client = createClient({
     username: "default",
-    password: "gFY9FPqpbma90oSjAdwRZBIGPgVkhXLU",
+    password: process.env.REDISH_KEY,
     socket: {
-        host: 'redis-15248.c275.us-east-1-4.ec2.cloud.redislabs.com',
+        host: process.env.REDISH_HOST,
         port: 15248
     },
 });
