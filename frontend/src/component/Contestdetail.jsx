@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { motion } from 'motion/react';
 import {
   Trophy, Clock, Users, ChevronRight, Code2,
-  LogOut, User as UserIcon, CalendarDays, Zap,
+  CalendarDays, Zap,
   Lock, Timer, CheckCircle2, Crown, Medal, KeyRound, Copy, Check,
   AlertCircle, RefreshCw
 } from 'lucide-react';
@@ -184,12 +184,12 @@ export default function ContestDetail() {
   }, [contest, contestId]);
 
   // ── LEADERBOARD FETCH ──
-  // Previously this failed silently on any error (auth, network, unexpected
-  // shape) leaving `leaderboard` stuck at []. Now every outcome is visible:
-  // loading / error / empty-but-successful / populated are all distinct states.
+  // Open to everyone once the contest has ended — registration is no longer
+  // required to view it. Every outcome is visible: loading / error /
+  // empty-but-successful / populated are all distinct states.
   useEffect(() => {
     if (!contest) return;
-    if (!(now > new Date(contest.endTime) && contest.isRegistered)) return;
+    if (!(now > new Date(contest.endTime))) return;
 
     let cancelled = false;
     setLeaderboardLoading(true);
@@ -210,7 +210,8 @@ export default function ContestDetail() {
       .catch((err) => {
         if (cancelled) return;
         // Surface the real cause instead of swallowing it. Common culprits:
-        // - 401/403: axiosClient not sending the auth cookie/token that Postman has saved
+        // - 401/403: auth cookie/token not sent, or the server still gates
+        //   this route behind registration and needs to be opened up
         // - CORS blocked (check the Network tab / console for a CORS error)
         // - wrong path/base URL
         const status = err?.response?.status;
@@ -242,6 +243,15 @@ export default function ContestDetail() {
   useEffect(() => {
     if (contest?.isDisqualified) setDisqualified(true);
   }, [contest]);
+
+  // ── Unregistered visitors landing on an ended contest have nothing to do
+  // on the "Problems" tab — send them straight to the leaderboard instead.
+  useEffect(() => {
+    if (contest && isEnded && !contest.isRegistered) {
+      setTab('leaderboard');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contest, isEnded]);
 
   // ── Anti-cheat: detect tab switch / minimize while the contest is live.
   // Every time the tab goes hidden and then becomes visible again counts as
@@ -382,36 +392,37 @@ export default function ContestDetail() {
         </div>
 
         {/* ── NAV ── */}
+        {/* Simplified breadcrumb navbar: logo + CodeMaster / Contests / <title>,
+            with small status pills on the right instead of a profile button. */}
         <nav className={cn(
           "sticky top-0 z-50 transition-all duration-300",
           scrolled ? "border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl" : "border-b border-transparent"
         )}>
           <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <NavLink to="/" className="flex items-center gap-2.5 group">
+            <div className="flex items-center gap-3 min-w-0">
+              <NavLink to="/" className="flex items-center gap-2.5 group flex-shrink-0">
                 <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
                   <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
                 </div>
                 <span className="font-display text-[17px] font-800 tracking-tight text-white italic">CodeMaster</span>
               </NavLink>
-              <span className="text-white/20 text-sm">/</span>
-              <NavLink to="/contest" className="text-white/40 hover:text-white text-sm transition-colors">Contests</NavLink>
-              <span className="text-white/20 text-sm">/</span>
-              <span className="text-white/60 text-sm truncate max-w-[200px]">{contest.title}</span>
+              <span className="text-white/20 text-sm flex-shrink-0">/</span>
+              <NavLink to="/contest" className="text-white/40 hover:text-white text-sm transition-colors flex-shrink-0">Contests</NavLink>
+              <span className="text-white/20 text-sm flex-shrink-0">/</span>
+              <span className="text-orange-400 text-sm font-medium truncate">{contest.title}</span>
             </div>
-            {user && (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-[9px] font-black text-orange-500 uppercase tracking-[0.18em]">Master</span>
-                  <span className="text-sm font-semibold text-white leading-tight">{user?.firstName}</span>
-                </div>
-                <NavLink to="/profile">
-                  <button className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center hover:bg-white/10 transition-all">
-                    <UserIcon className="w-4 h-4 text-white/70" />
-                  </button>
-                </NavLink>
-              </div>
-            )}
+
+            <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+              <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                {contest.type === 'mcq' ? 'MCQ' : 'Coding'}
+              </span>
+              <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1 rounded-full">
+                {(problems.length || contest.totalProblems || 0)} Problems
+              </span>
+              <span className="text-[11px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full">
+                {contest.totalParticipants ?? 0} Participants
+              </span>
+            </div>
           </div>
         </nav>
 
@@ -565,7 +576,7 @@ export default function ContestDetail() {
           <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.07] rounded-xl mb-6 w-fit">
             {[
               { key: 'problems',     label: 'Problems',       count: problems.length },
-              ...(isEnded && contest.isRegistered ? [{ key: 'leaderboard',  label: 'Leaderboard',    count: leaderboard.length }] : []),
+              ...(isEnded ? [{ key: 'leaderboard',  label: 'Leaderboard',    count: leaderboard.length }] : []),
               ...(contest.isRegistered             ? [{ key: 'submissions', label: 'My Submissions', count: mySubmissions.length }] : []),
             ].map(({ key, label, count }) => (
               <button key={key} onClick={() => setTab(key)}
@@ -589,12 +600,22 @@ export default function ContestDetail() {
                   <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
                     <Lock className="w-7 h-7 text-white/15" />
                   </div>
-                  <h3 className="font-display text-lg font-700 text-white/30 mb-2">Register to see problems</h3>
+                  <h3 className="font-display text-lg font-700 text-white/30 mb-2">
+                    {isEnded ? 'This contest has ended' : 'Register to see problems'}
+                  </h3>
                   <p className="text-sm text-white/20 mb-6">
-                    {isPrivate
-                      ? 'Join this private contest with your invite code to unlock problems.'
-                      : 'Problems are revealed only to registered participants.'}
+                    {isEnded
+                      ? 'Problems were only visible to participants, but the leaderboard is open to everyone.'
+                      : isPrivate
+                        ? 'Join this private contest with your invite code to unlock problems.'
+                        : 'Problems are revealed only to registered participants.'}
                   </p>
+                  {isEnded && (
+                    <button onClick={() => setTab('leaderboard')}
+                      className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-6 py-2.5 rounded-xl transition-all">
+                      <Trophy className="w-4 h-4" /> View Leaderboard
+                    </button>
+                  )}
                   {!isEnded && !isPrivate && (
                     <button onClick={handleRegister} disabled={registering}
                       className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-6 py-2.5 rounded-xl transition-all">
