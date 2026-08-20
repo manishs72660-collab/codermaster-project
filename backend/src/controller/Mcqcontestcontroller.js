@@ -1,7 +1,7 @@
 const crypto = require('crypto');
-const McqContest = require('../models/McqContest');
-const McqSubmission = require('../models/McqSubmission');
-const McqContestRank = require('../models/McqContestRank');
+const McqContest = require('../models/Mcqcontest');
+const McqSubmission = require('../models/Mcqsubmission');
+const McqContestRank = require('../models/Mcqcontestrank');
 
 const MAX_QUESTIONS = 20;
 

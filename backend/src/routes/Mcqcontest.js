@@ -9,7 +9,7 @@ const {
     mcqContestStarted,
     mcqContestOngoing,
     isMcqRegistered,
-} = require('../middleware/McqContestMiddleware');
+} = require('../middleware/Mcqcontestmiddleware');
 
 const {
     createMcqContest,
@@ -25,7 +25,7 @@ const {
     getMyMcqSubmission,
     reportMcqViolation,
     getMcqContestForEdit,
-} = require('../controller/McqContestController');
+} = require('../controller/Mcqcontestcontroller');
 
 
 // ════════════════════════════════════════════════════

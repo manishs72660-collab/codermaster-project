@@ -43,7 +43,7 @@ import CollegeAdminDashboard from "./pages/Collegeadmindashboard"
 import RegisterCollege from "./component/Registercollege";
 import CollegeRequests from "./pages/Collegerequests";
 import MakeAdmin from "./component/MakeAdmin";
-import CollegeLeaderboard from "./pages/CollegeLeaderboard";
+import CollegeLeaderboard from "./pages/Collegeleaderboard";
 import RoadmapExplorer from "./pages/roadmap";
 import DuelSpectate from "./pages/Duelspectate"
 import McqContestCreate from "./component/Mcqcontestcreate";

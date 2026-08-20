@@ -1,17 +1,10 @@
 const express = require('express');
 const discussionRouter = express.Router();
-
-// NOTE: adjust this import to match your actual auth middleware/path.
-// It should populate `req.result` (or similar) with the logged-in user,
-// the same way it's done for your existing /code and /solution routes.
 const userauth = require("../middleware/userauth");
 
 const Discussion = require('../models/Discussion');
 const DiscussionReply = require('../models/Discussionreply');
-const Problem = require('../models/problemschema'); // adjust path/name if different
-
-// UserSchema only has firstName/lastName/profileImage — there is no `name`
-// field, so every populate() below selects the fields that actually exist.
+const Problem = require('../models/problemschema'); 
 const USER_POPULATE_FIELDS = 'firstName lastName profileImage role';
 
 // ── POST /discuss/post ── create a new discussion message

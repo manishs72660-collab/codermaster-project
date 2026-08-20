@@ -5,7 +5,7 @@ import Editor from '@monaco-editor/react';
 import axiosClient from '../utils/axiosClient';
 import socket from '../utils/socket';
 import Backbutton from '../component/backbutton';
-import DuelChatPanel from '../component/DuelChatPanel';
+import DuelChatPanel from '../component/Duelchatpanel';
 
 const LANGUAGES = {
   javascript: 'javascript',

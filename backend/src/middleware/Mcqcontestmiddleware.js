@@ -1,4 +1,4 @@
-const McqContest = require('../models/McqContest');
+const McqContest = require('../models/Mcqcontest');
 
 // Loads the contest into req.mcqContest. Must run before any of the
 // checks below, which all depend on it.
