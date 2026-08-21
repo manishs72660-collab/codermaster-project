@@ -93,10 +93,7 @@ function App(){
 
   return(
   <>
-    {/* Shows an Accept/Decline popup to admins whenever a user requests a chat.
-        Mounted here (outside <Routes>) so it works no matter which page the admin is on. */}
   {isAuthenticated && (user?.role === "CollageAdmin" || user?.role === "Admin") && <IncomingChatPopup />}
-
     <Routes>
       <Route path="/" element={isAuthenticated ?<Homepage></Homepage>:<Navigate to="/signup" />}></Route>
       <Route path="/login" element={isAuthenticated?<Navigate to="/" />:<Login></Login>}></Route>
