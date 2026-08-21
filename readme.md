@@ -113,7 +113,7 @@ npm install
 Create a `.env` file in the `backend/` directory:
 
 ```env
-PORT=5000
+PORT=3000
 CONNECT_STRING=your_mongodb_connection_string
 REDISH_HOST=your_redis_host
 REDISH_KEY=your_redis_password
