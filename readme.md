@@ -283,7 +283,7 @@ Distributed under the MIT License. See the [LICENSE](LICENSE) file for more info
 
 ## 📧 Contact
 
-- **Project Lead:** [Your Name] – your.email@example.com
+- **Project Lead:** [manish singh] – manishs72660@gmail.com
 - **GitHub Issues:** [Open an issue](../../issues)
 
 ⭐ **Star this repository if you find it useful!**
