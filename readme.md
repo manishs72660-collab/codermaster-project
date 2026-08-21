@@ -145,7 +145,7 @@ Start the backend server:
 npm run dev
 ```
 
-The API will run on `http://localhost:5000`.
+The API will run on `http://localhost:3000`.
 
 ### 3. Frontend Setup
 
@@ -159,8 +159,8 @@ npm install
 Create a `.env` file in the `frontend/` directory:
 
 ```env
-VITE_API_URL=http://localhost:5000
-VITE_SOCKET_URL=http://localhost:5000
+VITE_API_URL=http://localhost:3000
+VITE_SOCKET_URL=http://localhost:3000
 ```
 
 Start the frontend development server:
@@ -183,8 +183,7 @@ npm run seed   # Add this script to your package.json if not already present
 ### 5. Test the Setup
 
 - Frontend: `http://localhost:5173`
-- Backend health check: `http://localhost:5000/` (returns `{ status: "Server is running" }`)
-- API Docs (if Swagger integrated): `http://localhost:5000/api-docs`
+- Backend health check: `http://localhost:3000/` (returns `{ status: "Server is running" }`)
 
 ---
 
