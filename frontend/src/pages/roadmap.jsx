@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { NavLink, useLocation } from "react-router";
+import mylogo from "../assets/my logo.png";
 import {
   X,
   PlayCircle,
@@ -557,42 +558,32 @@ export default function RoadmapExplorer() {
         zIndex: 30,
       }}>
         <div style={{
-          height: 48,
-          display: "flex",
-          alignItems: "center",
-          padding: "0 20px",
-          gap: 10,
-          maxWidth: 1280,
-          margin: "0 auto",
-        }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 6,
-            background: "linear-gradient(135deg,#ffa116,#ff6b00)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14, fontWeight: 800, color: "#0d1117", flexShrink: 0,
-          }}>⌨</div>
+  height: 48,
+  display: "flex",
+  alignItems: "center",
+  padding: "0 20px 0 36px",
+  gap: 10,
+  maxWidth: 1280,
+  margin: "0 auto",
+}}>
+  <NavLink to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
+    <img
+      src={mylogo}
+      alt="CodeMaster logo"
+      style={{ width: 34, height: 34, objectFit: "contain" }}
+    />
+  </NavLink>
 
-          <NavLink to="/" style={{ textDecoration: "none" }}>
-            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3, color: CM.text }}>
-              CodeMaster
-            </span>
-          </NavLink>
+  <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px", flexShrink: 0 }} />
 
-          <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px", flexShrink: 0 }} />
-
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: CM.muted, whiteSpace: "nowrap" }}>
-            <NavLink to="/explore" style={{ color: CM.muted, textDecoration: "none" }}>
-              Explore
-            </NavLink>
-            {" / "}
-            <span style={{ color: CM.accent }}>Roadmap</span>
-          </span>
-
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <Badge label="Live Paths" color={CM.green} />
-            <Badge label={`${nodeCount} Nodes`} color={CM.accent} />
-          </div>
-        </div>
+  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: CM.muted, whiteSpace: "nowrap" }}>
+    <NavLink to="/explore" style={{ color: CM.muted, textDecoration: "none" }}>
+      Explore
+    </NavLink>
+    {" / "}
+    <span style={{ color: CM.accent }}>Roadmap</span>
+  </span>
+</div>
 
         {/* Track tabs (styled as second nav row, like the language strip) */}
         <div style={{

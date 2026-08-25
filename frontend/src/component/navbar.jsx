@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Trophy,
 } from 'lucide-react';
+import mylogo from "../assets/my logo.png"
 import { cn } from '../utils/cn';
 import { logoutUser } from '../authSlice';
 import { fetchUserProfile } from '../profileSlice';
@@ -102,17 +103,18 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
         {/* logo */}
         <div className="flex items-center gap-8">
-          <NavLink to="/" end className="flex items-center gap-2.5 group">
-            <div className="relative">
-              <div className="w-9 h-9 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.45)]">
-                <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
-              </div>
-              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-[#08090b]" />
-            </div>
-            <span className="font-display text-[17px] font-800 tracking-tight text-white italic">
-              CodeMaster
-            </span>
-          </NavLink>
+       <NavLink to="/" end className="flex items-center gap-2.5 group">
+  <div className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center">
+    <img
+      src={mylogo}
+      alt="CodeMaster logo"
+      className="w-full h-full object-contain"
+    />
+  </div>
+  <span className="font-display text-[17px] font-800 tracking-tight text-white italic">
+    CodeMaster
+  </span>
+</NavLink>
 
           <div className="hidden md:flex items-center gap-1">
             {[

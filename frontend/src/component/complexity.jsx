@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { NavLink } from "react-router";
-
+import mylogo from "../assets/my logo.png";
 // ─── CodeMaster Color Palette (matches DSAVisualizer) ─────────────────────────
 const CM = {
   bg:        "#0d1117",
@@ -463,21 +463,19 @@ export default function ComplexityVisualizer() {
       <div style={{ background: CM.bg, minHeight: "100vh", color: CM.text, fontFamily: "'Segoe UI',-apple-system,sans-serif" }}>
 
         {/* ── TOPBAR ── */}
-        <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, height: 48, display: "flex", alignItems: "center", padding: "0 20px", gap: 10, position: "sticky", top: 0, zIndex: 20 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 6, background: "linear-gradient(135deg,#ffa116,#ff6b00)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#0d1117" }}>⌨</div>
-          <NavLink to={"/"}>
-            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3, color: CM.text }}>CodeMaster</span>
-          </NavLink>
-          <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px" }} />
-          <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.muted }}>
-            <NavLink to={"/explore"}>Explore</NavLink> / <span style={{ color: CM.accent }}>Complexity Visualizer</span>
-          </span>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-            <Badge label="Time + Space" color={CM.green} />
-            <Badge label={`${ALGORITHMS.length} Algorithms`} color={CM.accent} />
-          </div>
-        </div>
-
+<div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, height: 48, display: "flex", alignItems: "center", padding: "0 20px 0 36px", gap: 10, position: "sticky", top: 0, zIndex: 20 }}>
+  <NavLink to={"/"} style={{ display: "flex", alignItems: "center" }}>
+    <img
+      src={mylogo}
+      alt="CodeMaster logo"
+      style={{ width: 34, height: 34, objectFit: "contain" }}
+    />
+  </NavLink>
+  <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px" }} />
+  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.muted }}>
+    <NavLink to={"/explore"}>Explore</NavLink> / <span style={{ color: CM.accent }}>Complexity Visualizer</span>
+  </span>
+</div>
         {/* ── TAB STRIP ── */}
         <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, display: "flex", overflowX: "auto", padding: "0 4px" }}>
           {TABS.map((t, i) => (

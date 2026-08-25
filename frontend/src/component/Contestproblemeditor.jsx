@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { useParams, useNavigate } from 'react-router';
 import axiosClient from '../utils/axiosClient';
+import mylogo from "../assets/my logo.png"
 
 /* language metadata — color-coded per language so the pill + editor identity stays consistent */
 const LANGUAGES = [
@@ -381,10 +382,8 @@ const ContestProblemEditor = () => {
         .cm-root.is-fullscreen { position:fixed; inset:0; z-index:1000; }
 
         /* TOPBAR */
-        .cm-topbar { height:48px; background:var(--s1); border-bottom:1px solid var(--b1); display:flex; align-items:center; justify-content:space-between; padding:0 16px; flex-shrink:0; z-index:200; position:relative; }
-        .cm-logo { display:flex; align-items:center; gap:8px; }
-        .cm-logo-mark { width:28px; height:28px; background:var(--ac); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; color:#000; box-shadow:0 0 0 1px rgba(255,161,22,0.25), 0 4px 12px rgba(255,161,22,0.15); }
-        .cm-logo-name { font-size:15px; font-weight:800; letter-spacing:-0.4px; color:var(--tx); }
+    .cm-topbar { height:48px; background:var(--s1); border-bottom:1px solid var(--b1); display:flex; align-items:center; justify-content:space-between; padding:0 26px; flex-shrink:0; z-index:200; position:relative; }
+.cm-logo-img { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
         .cm-back-btn { display:inline-flex; align-items:center; gap:5px; background:var(--s3); color:var(--mu); border:1px solid var(--b1); border-radius:var(--r); cursor:pointer; font-family:'Outfit',system-ui,sans-serif; font-size:11px; font-weight:700; padding:6px 11px; transition:all 0.15s; text-decoration:none; }
         .cm-back-btn:hover { color:var(--tx); border-color:var(--b2); }
         .cm-contest-badge { display:inline-flex; align-items:center; gap:5px; background:rgba(139,92,246,0.1); color:#a78bfa; border:1px solid rgba(139,92,246,0.2); border-radius:20px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; padding:3px 10px; letter-spacing:0.5px; }
@@ -526,9 +525,8 @@ const ContestProblemEditor = () => {
         {/* ── TOPBAR ── */}
         <div className="cm-topbar">
           <div className="cm-logo">
-            <div className="cm-logo-mark">⌨</div>
-            <span className="cm-logo-name">CodeMaster</span>
-          </div>
+  <img src={mylogo} alt="CodeMaster logo" className="cm-logo-img" />
+</div>
 
           {problem && (
             <div className="cm-top-center">

@@ -28,8 +28,8 @@ const SubmissionHistory = ({ problemId }) => {
   // ── Helpers ────────────────────────────────────────────────────────────────
   const statusStyle = (status) => {
     switch (status) {
-      case 'accepted': return { color: '#00b86b', bg: '#0d2218', bdr: '#1a3a2a', label: 'Accepted',     icon: '✓' };
-      case 'wrong':    return { color: '#ff4444', bg: '#1a0808', bdr: '#3a1a1a', label: 'Wrong Answer', icon: '✗' };
+      case 'accepted': return { color: '#00b86b', bg: '#0d2218', bdr: '#1a3a2a', label: 'Accepted',     icon: '' };
+      case 'wrong':    return { color: '#ff4444', bg: '#1a0808', bdr: '#3a1a1a', label: 'Wrong Answer', icon: '' };
       case 'error':    return { color: '#ffa116', bg: '#1e1608', bdr: '#3a2e0f', label: 'Error',        icon: '⚠' };
       case 'pending':  return { color: '#4493f8', bg: '#0a1220', bdr: '#1c2a3a', label: 'Pending',      icon: '…' };
       default:         return { color: '#8b949e', bg: '#161b22', bdr: '#21262d', label: status,         icon: '?' };
@@ -93,7 +93,7 @@ const SubmissionHistory = ({ problemId }) => {
     <>
       <style>{STYLES}</style>
       <div style={{ margin:20, background:'#1a0808', border:'1px solid #3a1a1a', borderRadius:10, padding:'16px 20px', display:'flex', alignItems:'center', gap:12 }}>
-        <span style={{ fontSize:18 }}>✗</span>
+        <span style={{ fontSize:18 }}></span>
         <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:'#ff4444' }}>{error}</span>
       </div>
     </>

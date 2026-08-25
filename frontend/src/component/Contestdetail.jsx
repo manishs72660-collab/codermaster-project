@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import mylogo from "../assets/my logo.png"
 
 /* ─── helpers ─── */
 const formatDate = (d) => {
@@ -398,14 +399,11 @@ export default function ContestDetail() {
           "sticky top-0 z-50 transition-all duration-300",
           scrolled ? "border-b border-white/[0.06] bg-[#050505]/90 backdrop-blur-xl" : "border-b border-transparent"
         )}>
-          <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto pl-9 pr-5 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <NavLink to="/" className="flex items-center gap-2.5 group flex-shrink-0">
-                <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-all duration-300 shadow-[0_0_20px_rgba(249,115,22,0.4)]">
-                  <Code2 className="w-[18px] h-[18px] text-black" strokeWidth={2.5} />
-                </div>
-                <span className="font-display text-[17px] font-800 tracking-tight text-white italic">CodeMaster</span>
-              </NavLink>
+              <NavLink to="/" className="flex items-center flex-shrink-0">
+  <img src={mylogo} alt="CodeMaster logo" className="w-9 h-9 object-contain" />
+</NavLink>
               <span className="text-white/20 text-sm flex-shrink-0">/</span>
               <NavLink to="/contest" className="text-white/40 hover:text-white text-sm transition-colors flex-shrink-0">Contests</NavLink>
               <span className="text-white/20 text-sm flex-shrink-0">/</span>

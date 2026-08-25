@@ -8,6 +8,7 @@ import SubmissionHistory from '../component/subbsion';
 import CodeBoard from '../component/whiteboard';
 import ChatAi from '../component/chatai';
 import ShareOnLinkedIn from '../component/Sharelinkdin';
+import mylogo from "../assets/my logo.png";
 
 // ── Count-up hook: animates a numeric value from 0 to `target` whenever `trigger` changes ──
 const useCountUp = (target, trigger, duration = 900) => {
@@ -633,29 +634,25 @@ const ProblemPage = () => {
 
         /* ── TOPBAR ── */
         .cm-topbar {
-          height: 48px;
-          background: rgba(10,10,10,0.85);
-          backdrop-filter: blur(10px);
-          border-bottom: 1px solid var(--b1);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 16px;
-          flex-shrink: 0;
-          z-index: 200;
-          position: relative;
-        }
+  height: 48px;
+  background: rgba(10,10,10,0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--b1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 36px;
+  flex-shrink: 0;
+  z-index: 200;
+  position: relative;
+}
 
         .cm-logo { display: flex; align-items: center; gap: 8px; }
-        .cm-logo-mark {
-          width: 28px; height: 28px;
-          background: linear-gradient(135deg, var(--ac), #ff8a3d);
-          box-shadow: 0 2px 12px rgba(255,91,31,0.4);
-          border-radius: 8px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 13px; font-weight: 900; color: #180800;
-          flex-shrink: 0;
-        }
+.cm-logo-img {
+  width: 34px; height: 34px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
         .cm-logo-name {
           font-size: 15px; font-weight: 800; letter-spacing: -0.4px; color: var(--tx);
         }
@@ -1501,13 +1498,11 @@ const ProblemPage = () => {
 
         {/* ── TOPBAR ── */}
         <div className="cm-topbar">
-          <div className="cm-logo">
-            <div className="cm-logo-mark">⌨</div>
-            <NavLink to={"/"}>
-            <span className="cm-logo-name">CodeMaster</span>
-            </NavLink>
-          </div>
-
+         <div className="cm-logo">
+  <NavLink to={"/"} style={{ display: 'flex', alignItems: 'center' }}>
+    <img src={mylogo} alt="CodeMaster logo" className="cm-logo-img" />
+  </NavLink>
+</div>
           {problem && (
             <div className="cm-top-center">
               {problem.id && <span className="cm-prob-id">#{problem.id}</span>}
@@ -2080,7 +2075,7 @@ const ProblemPage = () => {
                             <div className="cm-tc-head">
                               <span className="cm-tc-num">Case {i + 1}</span>
                               <span className={`cm-tc-verdict ${passed ? 'p' : 'f'}`}>
-                                {passed ? '✓ Passed' : '✗ Failed'}
+                                {passed ? 'Passed' : 'Failed'}
                               </span>
                             </div>
                             <div className="cm-tc-row">Input: <span>{tc.stdin}</span></div>
