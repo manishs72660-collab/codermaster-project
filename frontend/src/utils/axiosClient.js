@@ -1,12 +1,14 @@
 import axios from "axios";
 
+
 const axiosClient = axios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
 
 // --- silent refresh on expired access token -----------------------------
 // userAuth middleware responds 401 with { code: "TOKEN_EXPIRED" } when the
