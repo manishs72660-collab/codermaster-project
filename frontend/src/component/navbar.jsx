@@ -10,7 +10,7 @@ import {
   ChevronDown,
   Trophy,
 } from 'lucide-react';
-import mylogo from "../assets/my logo.png"
+import mylogo from "../assets/mylogo.png"
 import { cn } from '../utils/cn';
 import { logoutUser } from '../authSlice';
 import { fetchUserProfile } from '../profileSlice';

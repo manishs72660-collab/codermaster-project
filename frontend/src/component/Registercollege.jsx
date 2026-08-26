@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 import { Building2, CheckCircle2 } from 'lucide-react';
-
+import mylogo from "../assets/mylogo.png";
 // Swap for your real axios wrapper if the path differs.
 import axiosClient from '../utils/axiosClient';
 
@@ -47,12 +47,13 @@ function RegisterCollege() {
     <div className="rc-root">
       <style>{styles}</style>
 
-      <div className="rc-topbar">
-        <div className="rc-logo-icon">⌨</div>
-        <span className="rc-logo-text"><NavLink to="/">CodeMaster</NavLink></span>
-        <div className="rc-topbar-sep" />
-        <span className="rc-topbar-crumb"><NavLink to="/admin/colleges">Colleges /</NavLink> <span>Register</span></span>
-      </div>
+     <div className="mc-topbar">
+  <NavLink to="/" style={{ display: 'flex', alignItems: 'center' }}>
+    <img src={mylogo} alt="CodeMaster logo" className="mc-logo-img" />
+  </NavLink>
+  <div className="mc-topbar-sep" />
+  <span className="mc-topbar-crumb"><NavLink to="/admin">Admin /</NavLink> <span>Colleges</span></span>
+</div>
 
       <div className="rc-main">
         <div className="rc-header">
@@ -123,10 +124,8 @@ const styles = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   .rc-root { min-height: 100vh; background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', -apple-system, sans-serif; }
-  .rc-topbar { background: #161b22; border-bottom: 1px solid #21262d; height: 48px; display: flex; align-items: center; padding: 0 16px; gap: 8px; position: sticky; top: 0; z-index: 10; }
-  .rc-logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #ffa116, #ff6b00); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: #0d1117; flex-shrink: 0; }
-  .rc-logo-text { font-weight: 700; font-size: 15px; color: #e6edf3; }
-  .rc-logo-text a { color: inherit; text-decoration: none; }
+ .mc-topbar { background: #161b22; border-bottom: 1px solid #21262d; height: 48px; display: flex; align-items: center; padding: 0 16px 0 36px; gap: 8px; position: sticky; top: 0; z-index: 10; }
+.mc-logo-img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
   .rc-topbar-sep { width: 1px; height: 20px; background: #21262d; margin: 0 8px; }
   .rc-topbar-crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; }
   .rc-topbar-crumb a { color: inherit; text-decoration: none; }

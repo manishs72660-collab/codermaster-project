@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { NavLink } from "react-router";
-import mylogo from "../assets/my logo.png";
+import mylogo from "../assets/mylogo.png";
 // ─── CodeMaster Color Palette (matches DSAVisualizer) ─────────────────────────
 const CM = {
   bg:        "#0d1117",

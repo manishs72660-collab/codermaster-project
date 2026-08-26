@@ -5,10 +5,11 @@ import { z } from 'zod';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, NavLink } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { Eye, EyeOff, Code2, UserPlus, School, Send, Loader2, CheckCircle2, X, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, School, Send, Loader2, CheckCircle2, X, AlertCircle } from 'lucide-react';
 import { registerUser, googleSignIn } from '../authSlice';
 import AuthVisualPanel from '../component/Authvisualpanel';
 import FormField from '../component/Formfield';
+import Logo from '../component/Logo';
 // Swap this import path if your axios wrapper lives somewhere else.
 import axiosClient from '../utils/axiosClient';
 
@@ -170,7 +171,7 @@ function RegisterCollegeModal({ open, onClose }) {
                     />
 
                     <div>
-                      <label className="mb-1.5 block font-code text-[11px] text-white/30">Message (optional)</label>
+                      <label className="mb-1.5 block font-body text-[11px] text-white/30">Message (optional)</label>
                       <textarea
                         rows={3}
                         name="message"
@@ -182,7 +183,7 @@ function RegisterCollegeModal({ open, onClose }) {
                     </div>
 
                     {status === 'error' && (
-                      <div className="flex items-center gap-2 rounded-lg border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-2.5 font-code text-xs text-rose-300">
+                      <div className="flex items-center gap-2 rounded-lg border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-2.5 text-xs text-rose-300">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                         {errorMsg}
                       </div>
@@ -191,7 +192,7 @@ function RegisterCollegeModal({ open, onClose }) {
                     <button
                       type="submit"
                       disabled={status === 'sending'}
-                      className="font-code flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-3 text-sm font-semibold text-black transition-shadow hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-3 text-sm font-semibold text-black transition-shadow hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {status === 'sending' ? (
                         <>
@@ -259,13 +260,8 @@ function Signup() {
 
       <div className="relative z-10 flex w-full flex-1 items-center justify-center px-5 py-12 lg:w-1/2">
         <div className="w-full max-w-md">
-          <div className="mb-8 flex items-center justify-center gap-2 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
-              <Code2 className="h-4 w-4" />
-            </div>
-            <span className="font-display text-base font-800 text-white">
-              Code<span className="text-orange-500">Master</span>
-            </span>
+          <div className="mb-9 flex items-center justify-center lg:hidden">
+            <Logo size="sm" />
           </div>
 
           <motion.div variants={cardVariants} initial="hidden" animate="show" className="relative">
@@ -273,10 +269,10 @@ function Signup() {
             <span className="absolute -right-2 -bottom-2 h-5 w-5 border-r-2 border-b-2 border-orange-500/40 rounded-br-md" />
 
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-8">
-              <motion.div variants={itemVariants} className="flex items-center gap-1.5 font-code text-[11px] uppercase tracking-[0.15em] text-orange-400/70">
+              <motion.div variants={itemVariants} className="flex items-center gap-1.5 font-body text-[11px] font-semibold uppercase tracking-[0.15em] text-orange-400/70">
                 <UserPlus className="h-3 w-3" /> Sign up
               </motion.div>
-              <motion.h2 variants={itemVariants} className="font-display mt-2 text-2xl font-800 tracking-tight text-white">
+              <motion.h2 variants={itemVariants} className="font-display mt-2 text-2xl font-700 tracking-tight text-white">
                 Create your account
               </motion.h2>
               <motion.p variants={itemVariants} className="mt-1 text-sm text-white/40">
@@ -287,7 +283,7 @@ function Signup() {
                 <motion.div
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-5 flex items-start gap-2 rounded-lg border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-2.5 font-code text-xs text-rose-300"
+                  className="mt-5 flex items-start gap-2 rounded-lg border border-rose-500/25 bg-rose-500/[0.06] px-3.5 py-2.5 text-xs text-rose-300"
                 >
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   {error}
@@ -303,7 +299,7 @@ function Signup() {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={loading}
-                className="font-code mt-6 flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <GoogleIcon />
                 Continue with Google
@@ -311,7 +307,7 @@ function Signup() {
 
               <div className="my-5 flex items-center gap-3">
                 <div className="h-px flex-1 bg-white/[0.08]" />
-                <span className="font-code text-[11px] uppercase tracking-wide text-white/25">or</span>
+                <span className="font-body text-[11px] font-semibold uppercase tracking-wide text-white/25">or</span>
                 <div className="h-px flex-1 bg-white/[0.08]" />
               </div>
 
@@ -365,7 +361,7 @@ function Signup() {
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={loading}
-                  className="font-code mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-3 text-sm font-semibold text-black transition-shadow hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:ring-offset-2 focus:ring-offset-[#0a0a0a] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 py-3 text-sm font-semibold text-black transition-shadow hover:shadow-[0_0_18px_rgba(249,115,22,0.4)] focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:ring-offset-2 focus:ring-offset-[#0a0a0a] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? (
                     <>
@@ -395,7 +391,7 @@ function Signup() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5, duration: 0.4 }}
             onClick={() => setShowCollegeModal(true)}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 font-code text-sm text-white/60 transition-all hover:border-orange-500/30 hover:text-orange-300"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] py-2.5 text-sm text-white/60 transition-all hover:border-orange-500/30 hover:text-orange-300"
           >
             <School className="h-3.5 w-3.5" />
             Register your college

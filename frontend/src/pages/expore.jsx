@@ -1,524 +1,303 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../component/navbar";
 
-// Order matters — this is the order cards render in "All".
-// Roadmap first (it's the front door for most learners), then the two
-// interactive visualizers, then the reference material, support last.
 const exploreCards = [
   {
     id: "roadmap",
-    tag: "PATH",
+    tag: "Path",
     title: "Structured Roadmap",
     desc: "A guided, topic-by-topic path from fundamentals to advanced patterns — always know exactly what to learn next.",
-    icon: "◆",
-    accent: "#ff8a00",
-    accentBg: "#1f1207",
-    accentBorder: "#3d260d",
-    accentGlow: "rgba(255,138,0,0.14)",
-    items: ["Beginner to Advanced", "Topic-wise Tracks", "Progress Tracking", "Milestone Badges"],
+    items: ["Beginner to Advanced", "Topic-wise Tracks", "Progress Tracking"],
     route: "/explore/roadmap",
+    span: 7,
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <circle cx="4" cy="19" r="2" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="12" cy="7" r="2" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="20" cy="15" r="2" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M5.6 17.6L10.6 8.7M13.5 8.3L18.5 13.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="1 3.4" />
+      </svg>
+    ),
   },
   {
     id: "dsa-visualizer",
-    tag: "INTERACTIVE",
+    tag: "Interactive",
     title: "Visualize DSA Algorithms",
-    desc: "Watch sorting, searching, and graph algorithms animate step-by-step in real time — see the logic, not just the code.",
-    icon: "◈",
-    accent: "#ffa116",
-    accentBg: "#1e1608",
-    accentBorder: "#3a2e0f",
-    accentGlow: "rgba(255,161,22,0.14)",
-    items: ["Sorting Algorithms", "Graph Traversal", "Tree Operations", "Dynamic Programming"],
+    desc: "Watch sorting, searching, and graph algorithms animate step-by-step — see the logic, not just the code.",
+    items: ["Sorting", "Graph Traversal", "Trees", "DP"],
     route: "/explore/dsa-visualizer",
+    span: 5,
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path d="M4 20V13M10.5 20V7M17 20V15.5M4 10.5V4M10.5 4v0M17 12V4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
   },
   {
     id: "complexity",
-    tag: "INTERACTIVE",
+    tag: "Interactive",
     title: "Visualize Time Complexity",
-    desc: "See how algorithms scale with interactive Big-O growth curves — compare runtime and space complexity side by side.",
-    icon: "◇",
-    accent: "#ffb84d",
-    accentBg: "#201607",
-    accentBorder: "#3f2c0e",
-    accentGlow: "rgba(255,184,77,0.14)",
-    items: ["Big-O Notation", "Growth Curves", "Space Complexity", "Algorithm Comparison"],
+    desc: "See how algorithms scale with interactive Big-O growth curves — compare space and runtime side by side.",
+    items: ["Big-O", "Growth Curves", "Comparisons"],
     route: "/explore/complexity",
+    span: 4,
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path d="M4 20H20" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M4 20C7 20 8 6 14 6C18 6 18 12 20 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
   },
   {
     id: "cheatsheet",
-    tag: "CURATED",
+    tag: "Curated",
     title: "Cheat Sheets",
-    desc: "Quick-reference sheets for syntax, patterns, and formulas — everything you need before an interview, on one page.",
-    icon: "◎",
-    accent: "#ff8a00",
-    accentBg: "#1f1207",
-    accentBorder: "#3d260d",
-    accentGlow: "rgba(255,138,0,0.14)",
-    items: ["Big-O Reference", "Pattern Recognition", "Syntax Snippets", "Formula Sheet"],
+    desc: "Quick-reference sheets for syntax, patterns, and formulas — everything before an interview, on one page.",
+    items: ["Patterns", "Syntax", "Formulas"],
     route: "/explore/cheatsheet",
+    span: 4,
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <rect x="5" y="3.5" width="14" height="17" rx="1.4" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M8.2 8.5H15.8M8.2 12H15.8M8.2 15.5H12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
   },
   {
     id: "talk-admin",
-    tag: "DAILY",
+    tag: "Daily",
     title: "Talk to an Admin",
-    desc: "Stuck on a problem? Start a live chat with an available admin or mentor and get real-time help with your doubts.",
-    icon: "◉",
-    accent: "#ff6b00",
-    accentBg: "#1f1006",
-    accentBorder: "#3d220c",
-    accentGlow: "rgba(255,107,0,0.14)",
-    items: ["Live Chat", "Real-time Help", "Doubt Solving", "1-on-1 Support"],
+    desc: "Stuck on a problem? Start a live chat with an available mentor and get real-time help with your doubts.",
+    items: ["Live Chat", "1-on-1 Support"],
     route: "/explore/talkadmin",
+    span: 4,
     live: true,
+    icon: (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path d="M4 6.8C4 5.25 5.25 4 6.8 4h10.4C18.75 4 20 5.25 20 6.8v6.4c0 1.55-1.25 2.8-2.8 2.8H10l-4 3.4v-3.4H6.8C5.25 16 4 14.75 4 13.2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      </svg>
+    ),
   },
 ];
-
-const heroStats = [
-  { label: "LEARNING_PATHS", value: "5", icon: "◆" },
-  { label: "TOPICS_COVERED", value: "80+", icon: "◈" },
-  { label: "ADMINS_ONLINE", value: "LIVE", icon: "◉", live: true },
-];
-
-// Faint node/edge map drawn behind the hero — a graph quietly traversing itself,
-// a nod to what the platform actually teaches.
-const graphNodes = [
-  { x: 60, y: 40 }, { x: 200, y: 20 }, { x: 340, y: 70 },
-  { x: 120, y: 130 }, { x: 280, y: 150 }, { x: 420, y: 110 },
-  { x: 40, y: 210 }, { x: 380, y: 220 },
-];
-const graphEdges = [
-  [0, 1], [1, 2], [0, 3], [3, 4], [4, 2], [4, 5], [3, 6], [4, 7],
-];
-
-function GraphField() {
-  return (
-    <svg className="ex-graph" viewBox="0 0 460 250" preserveAspectRatio="none" aria-hidden="true">
-      {graphEdges.map(([a, b], i) => {
-        const n1 = graphNodes[a], n2 = graphNodes[b];
-        return (
-          <line
-            key={i}
-            x1={n1.x} y1={n1.y} x2={n2.x} y2={n2.y}
-            className="ex-graph-edge"
-            style={{ animationDelay: `${i * 0.35}s` }}
-          />
-        );
-      })}
-      {graphNodes.map((n, i) => (
-        <circle key={i} cx={n.x} cy={n.y} r="3.2" className="ex-graph-node" style={{ animationDelay: `${i * 0.22}s` }} />
-      ))}
-      <circle r="3.5" className="ex-graph-pulse">
-        <animateMotion
-          dur="7s"
-          repeatCount="indefinite"
-          path="M60,40 L200,20 L340,70 L280,150 L120,130 L40,210"
-        />
-      </circle>
-    </svg>
-  );
-}
-
-// Terminal-chrome preview — the same signature device as the home page's
-// "Arena" panel, here listing the explore directory instead of a challenge.
-function ExploreTerminal() {
-  return (
-    <div className="ex-terminal">
-      <div className="ex-terminal-bar">
-        <div className="ex-terminal-dots">
-          <span className="ex-dot ex-dot-red" />
-          <span className="ex-dot ex-dot-yellow" />
-          <span className="ex-dot ex-dot-green" />
-        </div>
-        <span className="ex-terminal-path">~/explore</span>
-        <span className="ex-terminal-live"><i /> LIVE</span>
-      </div>
-      <div className="ex-terminal-body">
-        <div className="ex-terminal-line">
-          <span className="ex-t-prompt">$</span> ls -la ~/explore
-        </div>
-        {exploreCards.map((c, i) => (
-          <div className="ex-terminal-line ex-t-file" key={c.id} style={{ animationDelay: `${0.5 + i * 0.12}s` }}>
-            <span className="ex-t-arrow">→</span> {c.id}/
-            <span className="ex-t-comment">  # {c.tag.toLowerCase()}</span>
-          </div>
-        ))}
-        <div className="ex-terminal-line ex-t-cursor-line">
-          <span className="ex-t-prompt">$</span>
-          <span className="ex-t-cursor" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Explore() {
   const [filter, setFilter] = useState("All");
   const [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
-  const cardRefs = useRef([]);
 
   const filters = ["All", "Path", "Interactive", "Curated", "Daily"];
   const filtered =
-    filter === "All"
-      ? exploreCards
-      : exploreCards.filter((c) => c.tag.toLowerCase() === filter.toLowerCase());
+    filter === "All" ? exploreCards : exploreCards.filter((c) => c.tag === filter);
+  const isBento = filter === "All";
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setLoaded(true));
     return () => cancelAnimationFrame(t);
   }, []);
 
-  const handleMove = (e, id) => {
-    const el = cardRefs.current[id];
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const mx = ((e.clientX - r.left) / r.width) * 100;
-    const my = ((e.clientY - r.top) / r.height) * 100;
-    el.style.setProperty("--mx", `${mx}%`);
-    el.style.setProperty("--my", `${my}%`);
-  };
-
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Manrope:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
 
         * { box-sizing: border-box; }
 
-        .ex-root {
+        .bx-root {
           min-height: 100vh;
-          background: #0a0a0a;
+          background-color: #0a0806;
           background-image:
-            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
-            radial-gradient(circle at 15% 0%, rgba(255,138,0,0.08), transparent 40%),
-            radial-gradient(circle at 85% 15%, rgba(255,107,0,0.05), transparent 35%);
-          background-size: 34px 34px, 34px 34px, auto, auto;
-          background-position: -1px -1px, -1px -1px, 0 0, 0 0;
-          color: #f2f2f2;
-          font-family: 'Inter', -apple-system, sans-serif;
-          overflow-x: hidden;
+            linear-gradient(rgba(246,241,231,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(246,241,231,0.035) 1px, transparent 1px);
+          background-size: 36px 36px;
+          background-position: -1px -1px;
+          color: #f6f1e7;
+          font-family: 'Manrope', -apple-system, sans-serif;
         }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #111; }
-        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #ff8a00; }
+        ::-webkit-scrollbar-track { background: #110e0a; }
+        ::-webkit-scrollbar-thumb { background: #2a2419; border-radius: 3px; }
 
         @media (prefers-reduced-motion: reduce) {
-          * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+          * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
 
         /* ── HERO ── */
-        .ex-hero {
-          position: relative; max-width: 1100px; margin: 0 auto;
-          padding: 60px 24px 0;
-          display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center;
+        .bx-hero { max-width: 1120px; margin: 0 auto; padding: 84px 28px 46px; }
+
+        .bx-eyebrow {
+          font-family: 'Space Mono', monospace;
+          font-size: 11px; font-weight: 700; letter-spacing: 3px;
+          text-transform: uppercase; color: #e8632c;
+          margin-bottom: 20px;
+          opacity: 0; transform: translateY(8px);
+          transition: opacity 0.6s ease, transform 0.6s ease;
         }
 
-        .ex-graph {
-          position: absolute; top: -30px; left: 0;
-          width: 480px; height: 260px; opacity: 0.4;
-          pointer-events: none; z-index: 0;
-        }
-        .ex-graph-edge {
-          stroke: #ff8a00; stroke-width: 1; opacity: 0;
-          stroke-dasharray: 6 4;
-          animation: ex-edge-in 0.9s ease forwards;
-        }
-        @keyframes ex-edge-in { from { opacity: 0; } to { opacity: 0.22; } }
-        .ex-graph-node {
-          fill: #ffb84d; opacity: 0;
-          animation: ex-node-in 0.6s ease forwards;
-        }
-        @keyframes ex-node-in { from { opacity: 0; r: 1; } to { opacity: 0.75; r: 3.2; } }
-        .ex-graph-pulse { fill: #ff6b00; filter: drop-shadow(0 0 5px #ff6b00); }
-
-        .ex-hero-left { position: relative; z-index: 1; }
-
-        .ex-hero-tag {
-          display: inline-flex; align-items: center; gap: 7px;
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 10px; font-weight: 600; letter-spacing: 2px;
-          text-transform: uppercase; color: #ff8a00;
-          background: rgba(255,138,0,0.08); border: 1px solid rgba(255,138,0,0.25);
-          border-radius: 20px; padding: 5px 12px 5px 10px; margin-bottom: 22px;
+        .bx-h1 {
+          font-family: 'Bricolage Grotesque', sans-serif;
+          font-weight: 600;
+          font-size: clamp(36px, 5vw, 58px);
+          letter-spacing: -1.2px;
+          line-height: 1.08;
+          color: #f8f4ea;
+          margin: 0 0 20px;
+          max-width: 700px;
           opacity: 0; transform: translateY(10px);
-          transition: opacity 0.5s ease, transform 0.5s ease;
+          transition: opacity 0.65s ease 0.06s, transform 0.65s ease 0.06s;
         }
-        .ex-hero-tag::before {
-          content: ''; width: 6px; height: 6px; border-radius: 50%;
-          background: #ff8a00; box-shadow: 0 0 8px #ff8a00;
-          animation: ex-blink 2s ease-in-out infinite;
-        }
-        @keyframes ex-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-
-        .ex-hero-h1 {
-          font-size: clamp(30px, 4vw, 46px);
-          font-weight: 800; letter-spacing: -1.2px;
-          color: #f7f7f7; line-height: 1.12;
-          margin-bottom: 16px; max-width: 560px;
-          opacity: 0; transform: translateY(14px);
-          transition: opacity 0.6s ease 0.08s, transform 0.6s ease 0.08s;
-        }
-        .ex-hero-h1 em {
-          font-style: normal;
-          background: linear-gradient(90deg, #ffb84d, #ff6b00);
+        .bx-h1 span {
+          background: linear-gradient(100deg, #ff8a3d, #e8632c 60%);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-          background-size: 200% 100%;
-          animation: ex-gradient-shift 6s ease infinite;
-        }
-        @keyframes ex-gradient-shift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-
-        .ex-hero-sub {
-          font-size: 15px; color: #9a9a9a; line-height: 1.75;
-          max-width: 460px; margin-bottom: 28px;
-          opacity: 0; transform: translateY(14px);
-          transition: opacity 0.6s ease 0.16s, transform 0.6s ease 0.16s;
         }
 
-        .ex-root.loaded .ex-hero-tag,
-        .ex-root.loaded .ex-hero-h1,
-        .ex-root.loaded .ex-hero-sub,
-        .ex-root.loaded .ex-hero-right { opacity: 1; transform: translateY(0); }
-
-        /* ── HERO STATS ── */
-        .ex-stats-row { display: flex; gap: 12px; flex-wrap: wrap; }
-        .ex-stat-card {
-          flex: 1; min-width: 130px;
-          background: #121212; border: 1px solid #232323; border-radius: 12px;
-          padding: 14px 16px;
-        }
-        .ex-stat-label {
-          display: flex; align-items: center; gap: 6px;
-          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600;
-          letter-spacing: 1.4px; text-transform: uppercase; color: #777; margin-bottom: 10px;
-        }
-        .ex-stat-value { font-size: 21px; font-weight: 800; color: #f7f7f7; letter-spacing: -0.4px; }
-        .ex-stat-value.is-live { color: #ff8a00; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
-        .ex-stat-value.is-live::before {
-          content: ''; width: 6px; height: 6px; border-radius: 50%; background: #ff8a00;
-          box-shadow: 0 0 8px #ff8a00; animation: ex-blink 2s ease-in-out infinite;
+        .bx-sub {
+          font-size: 16.5px; line-height: 1.7; color: #a89f8e;
+          max-width: 520px; margin: 0;
+          opacity: 0; transform: translateY(10px);
+          transition: opacity 0.65s ease 0.12s, transform 0.65s ease 0.12s;
         }
 
-        /* ── HERO TERMINAL ── */
-        .ex-hero-right {
-          position: relative; z-index: 1;
-          opacity: 0; transform: translateY(14px);
-          transition: opacity 0.6s ease 0.22s, transform 0.6s ease 0.22s;
-        }
-        .ex-terminal {
-          background: #101010; border: 1px solid #232323; border-radius: 14px;
-          overflow: hidden; box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
-        }
-        .ex-terminal-bar {
-          display: flex; align-items: center; gap: 10px;
-          padding: 11px 14px; border-bottom: 1px solid #1d1d1d; background: #131313;
-        }
-        .ex-terminal-dots { display: flex; gap: 6px; }
-        .ex-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-        .ex-dot-red { background: #ff5f56; }
-        .ex-dot-yellow { background: #ffbd2e; }
-        .ex-dot-green { background: #27c93f; }
-        .ex-terminal-path {
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #777; margin-left: 2px;
-        }
-        .ex-terminal-live {
-          margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
-          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
-          letter-spacing: 1px; color: #ff8a00; background: rgba(255,138,0,0.1);
-          border: 1px solid rgba(255,138,0,0.25); border-radius: 20px; padding: 3px 9px;
-        }
-        .ex-terminal-live i {
-          width: 5px; height: 5px; border-radius: 50%; background: #ff8a00;
-          box-shadow: 0 0 6px #ff8a00; display: inline-block; animation: ex-blink 2s ease-in-out infinite;
-        }
-        .ex-terminal-body { padding: 18px 18px 20px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 2.1; }
-        .ex-t-prompt { color: #ff8a00; margin-right: 8px; }
-        .ex-terminal-line { color: #ccc; white-space: nowrap; }
-        .ex-t-file {
-          color: #d8d8d8; opacity: 0; transform: translateX(-6px);
-          animation: ex-t-file-in 0.45s ease forwards;
-        }
-        @keyframes ex-t-file-in { to { opacity: 1; transform: translateX(0); } }
-        .ex-t-arrow { color: #ffa116; margin-right: 6px; }
-        .ex-t-comment { color: #555; }
-        .ex-t-cursor-line { margin-top: 4px; }
-        .ex-t-cursor {
-          display: inline-block; width: 7px; height: 14px; background: #ff8a00;
-          vertical-align: middle; animation: ex-blink 1s step-end infinite;
-        }
-
-        .ex-divider { height: 1px; background: linear-gradient(90deg, #232323, transparent); margin: 44px 0 32px; }
-
-        .ex-main { position: relative; max-width: 1100px; margin: 0 auto; padding: 0 24px 90px; }
+        .bx-root.loaded .bx-eyebrow,
+        .bx-root.loaded .bx-h1,
+        .bx-root.loaded .bx-sub { opacity: 1; transform: translateY(0); }
 
         /* ── FILTERS ── */
-        .ex-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
-        .ex-filter-label {
-          font-family: 'JetBrains Mono', monospace; font-size: 10px;
-          color: #666; letter-spacing: 1px; text-transform: uppercase; margin-right: 6px;
+        .bx-main { max-width: 1120px; margin: 0 auto; padding: 0 28px 110px; }
+
+        .bx-filters {
+          display: inline-flex; gap: 4px; padding: 4px;
+          background: #17140f; border: 1px solid #2a2419; border-radius: 12px;
+          margin-bottom: 40px;
         }
-        .ex-filter-btn {
-          position: relative;
-          background: #131313; border: 1px solid #232323; border-radius: 20px;
-          cursor: pointer; padding: 6px 14px;
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500;
-          color: #999; transition: all 0.15s;
+        .bx-filter-btn {
+          background: none; border: none; cursor: pointer;
+          padding: 8px 16px; border-radius: 9px;
+          font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 600;
+          color: #a89f8e; transition: color 0.2s ease, background 0.2s ease;
         }
-        .ex-filter-btn:hover { border-color: #ff8a00; color: #f7f7f7; }
-        .ex-filter-btn.active {
-          background: linear-gradient(135deg, #ff8a00, #ff6b00);
-          color: #0a0a0a; border-color: transparent; font-weight: 700;
-        }
+        .bx-filter-btn:hover { color: #f6f1e7; }
+        .bx-filter-btn.active { color: #110e0a; background: #e8632c; }
 
         /* ── GRID ── */
-        .ex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .bx-grid {
+          display: grid;
+          grid-template-columns: repeat(12, 1fr);
+          gap: 18px;
+        }
+        .bx-grid.bx-grid-auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 
         /* ── CARD ── */
-        .ex-card {
-          position: relative; overflow: hidden;
-          background: #121212; border: 1px solid #232323; border-radius: 16px;
-          padding: 24px 22px 22px; color: #f2f2f2;
-          display: flex; flex-direction: column; cursor: pointer;
-          transition: border-color 0.25s, transform 0.3s cubic-bezier(.22,1,.36,1), background 0.25s, box-shadow 0.3s;
-          opacity: 0; transform: translateY(18px);
-          animation: ex-card-in 0.55s cubic-bezier(.22,1,.36,1) forwards;
+        .bx-card {
+          position: relative;
+          grid-column: span 12;
+          background: #17140f;
+          border: 1px solid #2a2419;
+          border-radius: 18px;
+          padding: 30px 28px 26px;
+          cursor: pointer;
+          display: flex; flex-direction: column;
+          transition: border-color 0.25s ease, transform 0.3s cubic-bezier(.22,1,.36,1), background 0.25s ease;
+          opacity: 0; transform: translateY(16px);
+          animation: bx-in 0.55s cubic-bezier(.22,1,.36,1) forwards;
         }
-        @keyframes ex-card-in { to { opacity: 1; transform: translateY(0); } }
+        @keyframes bx-in { to { opacity: 1; transform: translateY(0); } }
 
-        .ex-card::before {
-          content: ''; position: absolute; inset: 0; border-radius: inherit;
-          background: radial-gradient(240px circle at var(--mx,50%) var(--my,50%), var(--glow), transparent 65%);
-          opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
+        .bx-card:hover {
+          border-color: #4a3520;
+          background: #1c1811;
+          transform: translateY(-4px);
         }
-        .ex-card:hover::before { opacity: 1; }
-        .ex-card:hover {
-          border-color: var(--accent-border);
-          background: var(--accent-bg);
-          transform: translateY(-5px);
-          box-shadow: 0 18px 40px -18px rgba(0,0,0,0.55);
-        }
-        .ex-card:active { transform: translateY(-2px); }
+        .bx-card:focus-visible { outline: 2px solid #e8632c; outline-offset: 2px; }
 
-        .ex-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; position: relative; z-index: 1; }
-        .ex-card-icon-wrap {
-          width: 44px; height: 44px; border-radius: 12px;
+        .bx-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+
+        .bx-card-icon {
+          width: 46px; height: 46px; border-radius: 12px;
           display: flex; align-items: center; justify-content: center;
-          background: var(--accent-bg); border: 1px solid var(--accent-border);
-          font-size: 21px; color: var(--accent); flex-shrink: 0;
-          transition: transform 0.3s cubic-bezier(.22,1,.36,1), background 0.15s;
+          background: rgba(232,99,44,0.1); border: 1px solid rgba(232,99,44,0.22);
+          color: #e8862c;
+          transition: transform 0.3s cubic-bezier(.22,1,.36,1);
         }
-        .ex-card:hover .ex-card-icon-wrap { transform: scale(1.1) rotate(-6deg); background: var(--accent-border); }
+        .bx-card:hover .bx-card-icon { transform: scale(1.06) rotate(-4deg); }
 
-        .ex-card-badge-live {
-          position: relative; z-index: 1;
-          display: inline-flex; align-items: center; gap: 5px;
-          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
-          letter-spacing: 1px; color: #ff8a00; background: rgba(255,138,0,0.1);
-          border: 1px solid rgba(255,138,0,0.25); border-radius: 20px; padding: 4px 9px;
-        }
-        .ex-card-badge-live i {
-          width: 5px; height: 5px; border-radius: 50%; background: #ff8a00;
-          box-shadow: 0 0 6px #ff8a00; display: inline-block; animation: ex-blink 2s ease-in-out infinite;
-        }
-
-        .ex-card-tag {
-          position: relative; z-index: 1;
-          font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
-          letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent);
-          margin-bottom: 7px; opacity: 0.85;
-        }
-        .ex-card-title { position: relative; z-index: 1; font-size: 16px; font-weight: 700; color: #f7f7f7; letter-spacing: -0.3px; margin-bottom: 9px; line-height: 1.3; }
-        .ex-card-desc { position: relative; z-index: 1; font-size: 12.5px; color: #999; line-height: 1.7; margin-bottom: 18px; flex: 1; }
-
-        .ex-card-items { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
-        .ex-card-item {
-          font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #888;
-          background: #0a0a0a; border: 1px solid #232323; border-radius: 6px; padding: 3px 9px;
-          transition: color 0.15s, border-color 0.15s;
-        }
-        .ex-card:hover .ex-card-item { color: var(--accent); border-color: var(--accent-border); }
-
-        .ex-card-cta {
-          position: relative; z-index: 1;
+        .bx-card-live {
           display: inline-flex; align-items: center; gap: 6px;
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
-          color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-border);
-          border-radius: 8px; padding: 8px 15px; width: fit-content;
-          transition: gap 0.15s, background 0.15s;
+          font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
+          letter-spacing: 1px; color: #e8632c;
         }
-        .ex-card:hover .ex-card-cta { gap: 11px; background: var(--accent-border); }
-        .ex-card-cta-arrow { display: inline-block; transition: transform 0.15s; }
-        .ex-card:hover .ex-card-cta-arrow { transform: translateX(3px); }
+        .bx-card-live::before {
+          content: ''; width: 6px; height: 6px; border-radius: 50%; background: #e8632c;
+          animation: bx-pulse 2.4s ease-in-out infinite;
+        }
+        @keyframes bx-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        /* ── FEATURED ── */
-        .ex-card.featured {
-          grid-column: 1 / -1; flex-direction: row; gap: 34px; padding: 30px 30px; align-items: center;
+        .bx-card-tag {
+          font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700;
+          letter-spacing: 1.6px; text-transform: uppercase; color: #77705f;
+          margin-bottom: 10px;
         }
-        .ex-card.featured .ex-card-left { flex: 1; position: relative; z-index: 1; }
-        .ex-card.featured .ex-card-icon-wrap { width: 68px; height: 68px; border-radius: 16px; font-size: 32px; flex-shrink: 0; }
-        .ex-card.featured .ex-card-title { font-size: 19px; }
-        .ex-card.featured .ex-card-desc { font-size: 13.5px; }
 
-        .ex-section-label { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-        .ex-section-label-text {
-          font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600;
-          letter-spacing: 1.5px; text-transform: uppercase; color: #666; white-space: nowrap;
+        .bx-card-title {
+          font-family: 'Bricolage Grotesque', sans-serif; font-weight: 600;
+          font-size: 21px; letter-spacing: -0.3px; color: #f6f1e7;
+          margin: 0 0 10px; line-height: 1.25;
         }
-        .ex-section-label-line { flex: 1; height: 1px; background: #232323; }
+        .bx-card[data-span="7"] .bx-card-title { font-size: 26px; }
 
-        @media (max-width: 900px) {
-          .ex-hero { grid-template-columns: 1fr; }
-          .ex-hero-right { order: -1; }
-          .ex-graph { display: none; }
+        .bx-card-desc {
+          font-size: 14px; line-height: 1.65; color: #948e7d;
+          margin: 0 0 20px; flex: 1;
         }
+
+        .bx-card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+        .bx-card-tags span {
+          font-family: 'Space Mono', monospace; font-size: 10.5px; color: #948e7d;
+          background: #110e0a; border: 1px solid #2a2419; border-radius: 6px;
+          padding: 4px 10px;
+        }
+
+        .bx-card-cta {
+          display: inline-flex; align-items: center; gap: 7px;
+          font-size: 13px; font-weight: 600; color: #e8862c;
+          margin-top: auto; width: fit-content;
+        }
+        .bx-card-cta svg { transition: transform 0.2s ease; }
+        .bx-card:hover .bx-card-cta svg { transform: translate(2px, -2px); }
+
+        @media (min-width: 860px) {
+          .bx-card[data-span="7"] { grid-column: span 7; }
+          .bx-card[data-span="5"] { grid-column: span 5; }
+          .bx-card[data-span="4"] { grid-column: span 4; }
+        }
+
         @media (max-width: 640px) {
-          .ex-card.featured { flex-direction: column; align-items: flex-start; }
-          .ex-terminal-line { white-space: normal; }
+          .bx-hero { padding: 60px 20px 36px; }
+          .bx-main { padding: 0 20px 80px; }
         }
       `}</style>
 
-      <div className={`ex-root${loaded ? " loaded" : ""}`}>
+      <div className={`bx-root${loaded ? " loaded" : ""}`}>
         <Navbar />
 
-        <div className="ex-hero">
-          <GraphField />
-
-          <div className="ex-hero-left">
-            <div className="ex-hero-tag">Explore CodeMaster</div>
-            <h1 className="ex-hero-h1">
-              Everything you need to<br />
-              <em>ace your next interview</em>
-            </h1>
-            <p className="ex-hero-sub">
-              From live DSA visualizations to a curated interview roadmap — pick a path below and start building real skills today.
-            </p>
-            <div className="ex-stats-row">
-              {heroStats.map((s) => (
-                <div className="ex-stat-card" key={s.label}>
-                  <div className="ex-stat-label">{s.icon} {s.label}</div>
-                  <div className={`ex-stat-value${s.live ? " is-live" : ""}`}>{s.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="ex-hero-right">
-            <ExploreTerminal />
-          </div>
+        <div className="bx-hero">
+          <div className="bx-eyebrow">Explore</div>
+          <h1 className="bx-h1">
+            Everything you need to <span>ace your next interview</span>
+          </h1>
+          <p className="bx-sub">
+            A guided path through fundamentals, live visualizers, and
+            reference material — pick where to start.
+          </p>
         </div>
 
-        <div className="ex-main">
-          <div className="ex-divider" />
-
-          <div className="ex-filter-row">
-            <span className="ex-filter-label">Filter:</span>
+        <div className="bx-main">
+          <div className="bx-filters">
             {filters.map((f) => (
               <button
                 key={f}
-                className={`ex-filter-btn${filter === f ? " active" : ""}`}
+                className={`bx-filter-btn${filter === f ? " active" : ""}`}
                 onClick={() => setFilter(f)}
               >
                 {f}
@@ -526,67 +305,36 @@ export default function Explore() {
             ))}
           </div>
 
-          <div className="ex-section-label">
-            <span className="ex-section-label-text">
-              {filtered.length} {filter === "All" ? "collections" : filter.toLowerCase()} available
-            </span>
-            <div className="ex-section-label-line" />
-          </div>
-
-          <div className="ex-grid">
+          <div className={`bx-grid${isBento ? "" : " bx-grid-auto"}`}>
             {filtered.map((card, i) => (
               <div
                 key={card.id}
-                ref={(el) => (cardRefs.current[card.id] = el)}
-                className={`ex-card${i === 0 && filter === "All" ? " featured" : ""}`}
-                style={{
-                  "--accent": card.accent,
-                  "--accent-bg": card.accentBg,
-                  "--accent-border": card.accentBorder,
-                  "--glow": card.accentGlow,
-                  animationDelay: `${0.25 + i * 0.08}s`,
-                }}
-                onMouseMove={(e) => handleMove(e, card.id)}
+                className="bx-card"
+                data-span={isBento ? card.span : undefined}
+                role="button"
+                tabIndex={0}
+                style={{ animationDelay: `${0.2 + i * 0.07}s` }}
                 onClick={() => navigate(card.route)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(card.route)}
               >
-                {i === 0 && filter === "All" ? (
-                  <>
-                    <div className="ex-card-icon-wrap">{card.icon}</div>
-                    <div className="ex-card-left">
-                      <div className="ex-card-tag">{card.tag}</div>
-                      <div className="ex-card-title">{card.title}</div>
-                      <div className="ex-card-desc">{card.desc}</div>
-                      <div className="ex-card-items">
-                        {card.items.map((item) => (
-                          <span key={item} className="ex-card-item">{item}</span>
-                        ))}
-                      </div>
-                      <span className="ex-card-cta">
-                        Explore now <span className="ex-card-cta-arrow">→</span>
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="ex-card-head">
-                      <div className="ex-card-icon-wrap">{card.icon}</div>
-                      {card.live && (
-                        <span className="ex-card-badge-live"><i /> LIVE</span>
-                      )}
-                    </div>
-                    <div className="ex-card-tag">{card.tag}</div>
-                    <div className="ex-card-title">{card.title}</div>
-                    <div className="ex-card-desc">{card.desc}</div>
-                    <div className="ex-card-items">
-                      {card.items.map((item) => (
-                        <span key={item} className="ex-card-item">{item}</span>
-                      ))}
-                    </div>
-                    <span className="ex-card-cta">
-                      Explore <span className="ex-card-cta-arrow">→</span>
-                    </span>
-                  </>
-                )}
+                <div className="bx-card-top">
+                  <div className="bx-card-icon">{card.icon}</div>
+                  {card.live && <span className="bx-card-live">Live</span>}
+                </div>
+                <div className="bx-card-tag">{card.tag}</div>
+                <h3 className="bx-card-title">{card.title}</h3>
+                <p className="bx-card-desc">{card.desc}</p>
+                <div className="bx-card-tags">
+                  {card.items.map((item) => (
+                    <span key={item}>{item}</span>
+                  ))}
+                </div>
+                <span className="bx-card-cta">
+                  Explore
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 12L12 4M12 4H5M12 4V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
               </div>
             ))}
           </div>

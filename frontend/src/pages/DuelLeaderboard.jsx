@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router';
 import axiosClient from '../utils/axiosClient';
-
+import mylogo from "../assets/mylogo.png";
 /* ------------------------------------------------------------------ */
 /*  CodeMaster Color Palette (matches RoadmapExplorer / DuelPage /    */
 /*  DuelLobby)                                                        */
@@ -64,11 +64,17 @@ function LeaderboardNavbar() {
         maxWidth: 1280, margin: "0 auto",
       }}>
         <div style={{
-          width: 28, height: 28, borderRadius: 6,
-          background: "linear-gradient(135deg,#ffa116,#ff6b00)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, fontWeight: 800, color: "#0d1117", flexShrink: 0,
-        }}>⌨</div>
+  width: 28, height: 28, borderRadius: 6,
+  overflow: "hidden",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  flexShrink: 0,
+}}>
+  <img
+    src={mylogo}
+    alt="CodeMaster logo"
+    style={{ width: "100%", height: "100%", objectFit: "contain" }}
+  />
+</div>
 
         <NavLink to="/" style={{ textDecoration: "none" }}>
           <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3, color: CM.text }}>

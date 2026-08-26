@@ -5,7 +5,7 @@ import { Search, X, Loader2 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { fetchProblems } from '../problemslice';
 import BackButton from '../component/backbutton';
-
+import mylogo from "../assets/mylogo.png";
 const PROBLEM_FETCH_LIMIT = 200;
 
 /* ------------------------------------------------------------------ */
@@ -66,37 +66,23 @@ function DuelLobbyNavbar() {
   return (
     <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, flexShrink: 0, zIndex: 100 }}>
       <div style={{
-        height: 48, display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
-        maxWidth: 1280, margin: "0 auto",
-      }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: 6,
-          background: "linear-gradient(135deg,#ffa116,#ff6b00)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, fontWeight: 800, color: "#0d1117", flexShrink: 0,
-        }}>⌨</div>
+  height: 48, display: "flex", alignItems: "center", padding: "0 20px 0 36px", gap: 10,
+  maxWidth: 1280, margin: "0 auto",
+}}>
+  <NavLink to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
+    <img src={mylogo} alt="CodeMaster logo" style={{ width: 34, height: 34, objectFit: "contain" }} />
+  </NavLink>
 
-        <NavLink to="/" style={{ textDecoration: "none" }}>
-          <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3, color: CM.text }}>
-            CodeMaster
-          </span>
-        </NavLink>
+  <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px", flexShrink: 0 }} />
 
-        <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px", flexShrink: 0 }} />
-
-        <span style={{ fontFamily: MONO, fontSize: 11, color: CM.muted, whiteSpace: "nowrap" }}>
-          <NavLink to="/explore" style={{ color: CM.muted, textDecoration: "none" }}>
-            Explore
-          </NavLink>
-          {" / "}
-          <span style={{ color: CM.accent }}>Duel Lobby</span>
-        </span>
-
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <Badge label="Ranked" color={CM.green} />
-          <Badge label="1v1" color={CM.accent} />
-        </div>
-      </div>
+  <span style={{ fontFamily: MONO, fontSize: 11, color: CM.muted, whiteSpace: "nowrap" }}>
+    <NavLink to="/contest" style={{ color: CM.muted, textDecoration: "none" }}>
+      contest
+    </NavLink>
+    {" / "}
+    <span style={{ color: CM.accent }}>Duel Lobby</span>
+  </span>
+</div>
     </div>
   );
 }

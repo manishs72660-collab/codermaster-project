@@ -11,7 +11,6 @@ import {
   Trophy,
   Target,
   Loader2,
-  TerminalSquare,
   GraduationCap,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
@@ -23,30 +22,30 @@ const PAGE_LIMIT = 20;
 
 /* ─── tiny helpers ─── */
 const DIFF = {
-  easy:   { label: 'easy',   dot: 'bg-emerald-400', text: 'text-emerald-400', bg: 'bg-emerald-500/8',  border: 'border-emerald-500/20' },
-  medium: { label: 'medium', dot: 'bg-amber-400',    text: 'text-amber-400',  bg: 'bg-amber-500/8',    border: 'border-amber-500/20' },
-  hard:   { label: 'hard',   dot: 'bg-rose-400',     text: 'text-rose-400',   bg: 'bg-rose-500/8',     border: 'border-rose-500/20' },
+  easy:   { label: 'Easy',   text: 'text-emerald-400' },
+  medium: { label: 'Medium', text: 'text-amber-400' },
+  hard:   { label: 'Hard',   text: 'text-rose-400' },
 };
-const diffMeta = (d) => DIFF[String(d || '').toLowerCase()] || { label: d || '—', dot: 'bg-white/20', text: 'text-white/40', bg: 'bg-white/5', border: 'border-white/10' };
+const diffMeta = (d) => DIFF[String(d || '').toLowerCase()] || { label: d || '—', text: 'text-white/35' };
 
 const TAG_OPTIONS = [
-  { label: 'all',    value: 'all' },
-  { label: 'array',  value: 'array' },
-  { label: 'string', value: 'string' },
-  { label: 'math',   value: 'math' },
+  { label: 'All',    value: 'all' },
+  { label: 'Array',  value: 'array' },
+  { label: 'String', value: 'string' },
+  { label: 'Math',   value: 'math' },
 ];
 
 const STATUS_OPTIONS = [
-  { label: 'all',      value: 'all' },
-  { label: 'solved',   value: 'solved' },
-  { label: 'unsolved', value: 'unsolved' },
+  { label: 'All',      value: 'all' },
+  { label: 'Solved',   value: 'solved' },
+  { label: 'Unsolved', value: 'unsolved' },
 ];
 
 const DIFF_OPTIONS = [
-  { label: 'all',    value: 'all' },
-  { label: 'easy',   value: 'easy' },
-  { label: 'medium', value: 'medium' },
-  { label: 'hard',   value: 'hard' },
+  { label: 'All',    value: 'all' },
+  { label: 'Easy',   value: 'easy' },
+  { label: 'Medium', value: 'medium' },
+  { label: 'Hard',   value: 'hard' },
 ];
 
 /* tags can come back as a string ("array, two-pointers") or an array
@@ -62,7 +61,7 @@ const tagMatches = (tags, filterTag) => {
 };
 
 /* ══════════════════════════════════════════
-   HOMEPAGE — terminal / IDE style
+   HOMEPAGE — clean dark dashboard
 ══════════════════════════════════════════ */
 function Homepage() {
   const dispatch = useDispatch();
@@ -158,177 +157,126 @@ function Homepage() {
 
   useEffect(() => () => observerRef.current?.disconnect(), []);
 
-  const barBlocks = 24;
-  const filledBlocks = Math.round((solvedPercent / 100) * barBlocks);
-
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@400;500;600;700&display=swap');
-        .font-mono-display { font-family: 'JetBrains Mono', monospace; }
-        .font-body { font-family: 'Inter', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-data { font-family: 'IBM Plex Mono', monospace; }
 
-        .hero-grid {
+        .subtle-grid {
           background-image:
-            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-          background-size: 48px 48px;
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
         }
-        .noise::after {
-          content: '';
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-          opacity: 0.55;
-        }
-        @keyframes glow-pulse { 0%,100% { opacity: 0.35; } 50% { opacity: 0.55; } }
-        .glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
 
-        @keyframes caret-blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
-        .caret { animation: caret-blink 1s step-end infinite; }
-
-        @keyframes row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .row-in { animation: row-in 0.35s ease forwards; }
+        @keyframes row-in { from { opacity: 0; } to { opacity: 1; } }
+        .row-in { animation: row-in 0.2s ease forwards; }
 
         @keyframes spin-slow { to { transform: rotate(360deg); } }
         .spin-slow { animation: spin-slow 0.8s linear infinite; }
 
-        @keyframes badge-in { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
-        .badge-in { animation: badge-in 0.4s ease forwards; }
-
-        @keyframes shimmer-sweep { 0% { transform: translateX(-120%); } 100% { transform: translateX(220%); } }
-        .shimmer-sweep { animation: shimmer-sweep 3.2s ease-in-out infinite; }
-
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: #ffffff14; border-radius: 2px; }
       `}</style>
 
-      <div className="noise min-h-screen bg-[#050505] text-[#e5e5e5] font-body antialiased">
-
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="glow-pulse absolute top-[-15%] left-[-8%] w-[500px] h-[500px] bg-orange-500/[0.06] blur-[130px] rounded-full" />
-          <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-blue-500/[0.05] blur-[130px] rounded-full" />
-        </div>
+      <div className="min-h-screen bg-[#0B0B0C] text-[#EAE8E3] font-body antialiased">
 
         <Navbar></Navbar>
 
-        {/* ── college spotlight billboard (only if user belongs to a college) ── */}
-        <CollegeSpotlight college={college} />
+        {/* ── college banner ── */}
+        <CollegeBanner college={college} />
 
-        {/* ── terminal chrome hero ── */}
-        <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
-          <div className="max-w-6xl mx-auto px-5 py-12 relative z-10">
+        {/* ── hero ── */}
+        <div className="subtle-grid border-b border-white/[0.06]">
+          <div className="max-w-5xl mx-auto px-6 py-16">
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45 }}
-              className="rounded-2xl border border-white/[0.08] bg-white/[0.015] overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.4)]"
+              transition={{ duration: 0.4 }}
             >
-              {/* window bar */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
-                <span className="ml-3 flex items-center gap-1.5 text-[11px] font-mono-display text-white/30">
-                  <TerminalSquare className="w-3 h-3" />
-                  ~/arena/problems
+              <span className="inline-flex items-center gap-2 mb-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                <span className="text-[11px] font-medium text-orange-400/90 uppercase tracking-[0.15em]">
+                  {totalCount} problems available
                 </span>
-                <span className="ml-auto flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 px-2.5 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-                    <span className="text-[9px] font-mono-display font-bold text-orange-400 uppercase tracking-[0.15em]">live</span>
-                  </span>
-                </span>
-              </div>
-
-              {/* faux code */}
-              <div className="px-6 py-8 font-mono-display text-sm leading-relaxed">
-                <p className="text-white/25"><span className="text-orange-500/70">01</span>&nbsp;&nbsp;<span className="text-blue-400/70">class</span> <span className="text-emerald-400/80">Arena</span> <span className="text-blue-400/70">extends</span> <span className="text-white/60">You</span> {'{'}</p>
-                <p className="text-white/40 pl-6"><span className="text-orange-500/40">02</span>&nbsp;&nbsp;<span className="text-white/50">// {totalCount} challenges waiting for a solve</span></p>
-                <p className="pl-6"><span className="text-orange-500/40">03</span>&nbsp;&nbsp;<span className="text-white/80 text-2xl md:text-3xl font-bold">sharpen()<span className="text-orange-500 caret">|</span></span></p>
-                <p className="text-white/25"><span className="text-orange-500/70">04</span>&nbsp;&nbsp;{'}'}</p>
-              </div>
+              </span>
+              <h1 className="font-display font-extrabold text-[2.5rem] sm:text-5xl leading-[1.08] text-white mb-3">
+                Practice. Track. Improve.
+              </h1>
+              <p className="text-white/45 text-[15px] max-w-md">
+                Work through a curated set of coding problems and watch your rank climb.
+              </p>
             </motion.div>
           </div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-5 py-10 relative z-10">
+        <div className="max-w-5xl mx-auto px-6 py-10">
 
-          {/* ── stats: rank + solved only ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-            <StatReadout
-              icon={<Trophy className="w-4 h-4" />}
-              label="global_rank"
-              value={`#${stats?.rank ?? '—'}`}
-              delay={0}
-            />
-            <StatReadout
-              icon={<Target className="w-4 h-4" />}
-              label="problems_solved"
-              value={`${solvedCount}/${totalCount}`}
-              barBlocks={barBlocks}
-              filledBlocks={filledBlocks}
-              percent={solvedPercent}
-              delay={0.06}
-            />
+          {/* ── stats ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <StatCard icon={<Trophy className="w-4 h-4" />} label="Global rank" value={`#${stats?.rank ?? '—'}`} delay={0} />
+            <StatCard icon={<Target className="w-4 h-4" />} label="Problems solved" value={`${solvedCount} / ${totalCount}`} percent={solvedPercent} delay={0.05} />
           </div>
 
-          {/* ── command bar: search + filters ── */}
+          {/* ── search + filters ── */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="mb-6 rounded-xl border border-white/[0.08] bg-white/[0.015] overflow-hidden"
+            transition={{ delay: 0.1 }}
+            className="mb-6 rounded-xl border border-white/[0.08] bg-white/[0.02]"
           >
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
-              <span className="font-mono-display text-orange-500/70 text-sm select-none">$</span>
-              <span className="font-mono-display text-white/30 text-sm select-none">find --title</span>
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.06]">
+              <Search className="w-4 h-4 text-white/30 shrink-0" />
               <input
                 type="text"
-                placeholder="type to search…"
+                placeholder="Search problems…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-transparent font-mono-display text-sm text-white/80 focus:outline-none placeholder:text-white/15"
+                className="flex-1 bg-transparent text-sm text-white/85 focus:outline-none placeholder:text-white/25"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-white/20 hover:text-white/60 transition-colors text-xs font-mono-display">
-                  clear
+                <button onClick={() => setSearchQuery('')} className="text-white/25 hover:text-white/60 transition-colors text-xs">
+                  Clear
                 </button>
               )}
-              <span className="text-[10px] font-mono-display text-white/25 px-2 py-0.5 rounded bg-white/[0.04] border border-white/[0.06]">
-                {filteredProblems.length} results
+              <span className="text-[11px] font-data text-white/30 px-2 py-0.5 rounded-full bg-white/[0.04]">
+                {filteredProblems.length}
               </span>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-              <FlagGroup label="--status" value={filters.status} options={STATUS_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
-              <FlagGroup label="--difficulty" value={filters.difficulty} options={DIFF_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, difficulty: v }))} />
-              <FlagGroup label="--tag" value={filters.tag} options={TAG_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, tag: v }))} />
+              <FilterGroup label="Status" value={filters.status} options={STATUS_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, status: v }))} />
+              <FilterGroup label="Difficulty" value={filters.difficulty} options={DIFF_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, difficulty: v }))} />
+              <FilterGroup label="Tag" value={filters.tag} options={TAG_OPTIONS} onChange={(v) => setFilters((f) => ({ ...f, tag: v }))} />
             </div>
           </motion.div>
 
           {/* ── column headers ── */}
-          <div className="hidden md:grid grid-cols-[2rem_1fr_6rem_5rem_6rem_2rem] gap-4 px-4 mb-2">
-            <span className="text-[10px] font-mono-display text-white/20">#</span>
-            <span className="text-[10px] font-mono-display text-white/20">title</span>
-            <span className="text-[10px] font-mono-display text-white/20">tag</span>
-            <span className="text-[10px] font-mono-display text-white/20">level</span>
-            <span className="text-[10px] font-mono-display text-white/20">status</span>
+          <div className="hidden md:grid grid-cols-[2.5rem_1fr_7rem_5.5rem_6rem_1.5rem] gap-4 px-4 mb-1.5">
+            <span className="text-[11px] text-white/25">#</span>
+            <span className="text-[11px] text-white/25">Title</span>
+            <span className="text-[11px] text-white/25">Tag</span>
+            <span className="text-[11px] text-white/25">Level</span>
+            <span className="text-[11px] text-white/25">Status</span>
             <span></span>
           </div>
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-28">
-              <Loader2 className="w-6 h-6 text-orange-500 spin-slow mb-3" />
-              <p className="text-sm font-mono-display text-white/25">loading_problems()…</p>
+              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
+              <p className="text-sm text-white/35">Loading problems…</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-28 text-center">
-              <p className="text-sm font-mono-display text-rose-400/70">// error: {error}</p>
+              <p className="text-sm text-rose-400/80">Couldn't load problems — {error}</p>
             </div>
           ) : (
             <>
-              <div className="rounded-xl border border-white/[0.07] bg-white/[0.01] overflow-hidden divide-y divide-white/[0.05]">
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.015] overflow-hidden divide-y divide-white/[0.05]">
                 <AnimatePresence mode="popLayout">
                   {filteredProblems.length > 0 ? (
                     filteredProblems.map((problem, index) => (
@@ -345,11 +293,11 @@ function Homepage() {
                       animate={{ opacity: 1 }}
                       className="flex flex-col items-center justify-center py-24 text-center"
                     >
-                      <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
-                        <Search className="w-6 h-6 text-white/15" />
+                      <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center mb-4">
+                        <Search className="w-5 h-5 text-white/20" />
                       </div>
-                      <h3 className="font-mono-display text-sm font-bold text-white/30 mb-1">no_results_found()</h3>
-                      <p className="text-xs font-mono-display text-white/20">// adjust filters or search query</p>
+                      <h3 className="font-display text-base font-semibold text-white/65 mb-1">No problems found</h3>
+                      <p className="text-xs text-white/30">Try adjusting your filters or search term.</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -359,12 +307,12 @@ function Homepage() {
 
               {loadingMore && (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-5 h-5 text-orange-500 spin-slow" />
+                  <Loader2 className="w-4 h-4 text-orange-500 spin-slow" />
                 </div>
               )}
 
               {!hasMore && problems.length > 0 && (
-                <p className="text-center text-white/20 text-xs font-mono-display py-8">// end_of_file — you've reached the bottom</p>
+                <p className="text-center text-white/25 text-xs py-8">You've reached the end of the list.</p>
               )}
             </>
           )}
@@ -375,84 +323,55 @@ function Homepage() {
 }
 
 /* ══════════════════════════════════════════
-   COLLEGE SPOTLIGHT — bold billboard banner,
-   rendered only when the user belongs to a college.
-   Uses the same dark-grid / noise language as the
-   hero, but scaled up and lit like an ad placement.
+   COLLEGE BANNER — centered, bold focal strip
 ══════════════════════════════════════════ */
-function CollegeSpotlight({ college }) {
+function CollegeBanner({ college }) {
   if (!college?.name) return null;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -14 }}
+      initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="relative hero-grid border-b border-white/[0.06] overflow-hidden"
+      transition={{ duration: 0.35 }}
+      className="border-b border-white/[0.06] bg-white/[0.02]"
     >
-      {/* ambient glow, centered behind the name */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="glow-pulse absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[640px] h-[280px] bg-blue-500/[0.12] blur-[120px] rounded-full" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[160px] bg-orange-500/[0.05] blur-[100px] rounded-full" />
-      </div>
-
-      {/* corner frame ticks, like a billboard mount */}
-      <div className="absolute top-3 left-3 w-3 h-3 border-t border-l border-blue-400/25" />
-      <div className="absolute top-3 right-3 w-3 h-3 border-t border-r border-blue-400/25" />
-      <div className="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-blue-400/25" />
-      <div className="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-blue-400/25" />
-
-      <div className="max-w-6xl mx-auto px-5 py-9 md:py-11 relative z-10 flex flex-col items-center text-center gap-3">
-        <span className="badge-in inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-blue-500/25 bg-blue-500/[0.08]">
-          <GraduationCap className="w-3.5 h-3.5 text-blue-400" strokeWidth={2.5} />
-          <span className="text-[10px] font-mono-display font-bold text-blue-400 uppercase tracking-[0.25em]">
-            representing
-          </span>
-        </span>
-
-        <div className="relative">
-          <h2 className="font-mono-display font-extrabold uppercase tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50 text-3xl sm:text-4xl md:text-5xl leading-[1.1] px-2 drop-shadow-[0_0_30px_rgba(96,165,250,0.15)]">
-            {college.name}
-          </h2>
-          {/* shimmer sweep across the name for that "advertisement" polish */}
-          <span
-            aria-hidden
-            className="shimmer-sweep pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg]"
-          />
+      <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col items-center text-center gap-2">
+        <div className="w-9 h-9 rounded-full bg-orange-500/10 flex items-center justify-center">
+          <GraduationCap className="w-4.5 h-4.5 text-orange-400" strokeWidth={2} />
         </div>
-
-        <span className="w-20 h-[2px] bg-gradient-to-r from-transparent via-blue-400/70 to-transparent" />
-
-        <p className="text-[11px] font-mono-display text-white/25 tracking-wide">
-          // every solve here counts toward the campus leaderboard
-        </p>
+        <span className="text-[11px] font-medium text-white/35 uppercase tracking-[0.15em]">
+          Representing
+        </span>
+        <h2 className="font-display font-extrabold text-white text-2xl sm:text-3xl leading-tight break-words max-w-2xl">
+          {college.name}
+        </h2>
       </div>
     </motion.div>
   );
 }
 
 /* ══════════════════════════════════════════
-   STAT READOUT (terminal-style, no rings)
+   STAT CARD
 ══════════════════════════════════════════ */
-function StatReadout({ icon, label, value, delay, barBlocks, filledBlocks, percent }) {
+function StatCard({ icon, label, value, delay, percent }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="rounded-xl border border-white/[0.08] bg-white/[0.015] px-5 py-4"
+      transition={{ delay, duration: 0.35 }}
+      className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-5 py-4"
     >
-      <div className="flex items-center gap-2 mb-3 text-orange-400/70">
+      <div className="flex items-center gap-2 mb-2.5 text-orange-400/80">
         {icon}
-        <span className="text-[10px] font-mono-display uppercase tracking-[0.15em] text-white/30">{label}</span>
+        <span className="text-[12px] font-medium text-white/40">{label}</span>
       </div>
-      <div className="font-mono-display text-2xl font-bold text-white/90 mb-1">{value}</div>
-      {barBlocks != null && (
+      <div className="font-display text-2xl font-bold text-white mb-2">{value}</div>
+      {percent != null && (
         <div className="flex items-center gap-2">
-          <span className="font-mono-display text-[11px] text-white/20 select-none">
-            [{Array.from({ length: barBlocks }).map((_, i) => (i < filledBlocks ? '█' : '░')).join('')}]
-          </span>
-          <span className="font-mono-display text-[11px] text-orange-400/70">{percent}%</span>
+          <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+            <div className="h-full rounded-full bg-orange-500 transition-all duration-500" style={{ width: `${percent}%` }} />
+          </div>
+          <span className="text-[11px] font-data text-white/35">{percent}%</span>
         </div>
       )}
     </motion.div>
@@ -460,12 +379,12 @@ function StatReadout({ icon, label, value, delay, barBlocks, filledBlocks, perce
 }
 
 /* ══════════════════════════════════════════
-   FLAG GROUP (filter pills styled as CLI flags)
+   FILTER GROUP
 ══════════════════════════════════════════ */
-function FlagGroup({ label, value, options, onChange }) {
+function FilterGroup({ label, value, options, onChange }) {
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="text-[10px] font-mono-display text-white/20">{label}</span>
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[12px] text-white/30">{label}</span>
       <div className="flex items-center gap-1">
         {options.map((opt) => {
           const active = value === opt.value;
@@ -474,10 +393,10 @@ function FlagGroup({ label, value, options, onChange }) {
               key={opt.value}
               onClick={() => onChange(opt.value)}
               className={cn(
-                'px-2.5 py-1 rounded-md text-[10px] font-mono-display font-semibold transition-all border',
+                'px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors',
                 active
-                  ? 'bg-orange-500/12 border-orange-500/30 text-orange-400'
-                  : 'bg-white/[0.02] border-white/[0.06] text-white/35 hover:text-white/60 hover:border-white/15'
+                  ? 'bg-orange-500/15 text-orange-400'
+                  : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
               )}
             >
               {opt.label}
@@ -490,7 +409,7 @@ function FlagGroup({ label, value, options, onChange }) {
 }
 
 /* ══════════════════════════════════════════
-   PROBLEM ROW (code-editor line style)
+   PROBLEM ROW
 ══════════════════════════════════════════ */
 function ProblemRow({ problem, isSolved, index }) {
   const meta = diffMeta(problem.difficulty);
@@ -501,44 +420,39 @@ function ProblemRow({ problem, isSolved, index }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ delay: (index % PAGE_LIMIT) * 0.015, duration: 0.25 }}
+      transition={{ delay: (index % PAGE_LIMIT) * 0.01, duration: 0.18 }}
       className="row-in"
     >
       <NavLink
         to={`/problem/${problem._id}`}
-        className="group relative grid grid-cols-[2rem_1fr] md:grid-cols-[2rem_1fr_6rem_5rem_6rem_2rem] items-center gap-4 px-4 py-3.5 hover:bg-white/[0.025] transition-colors duration-150"
+        className="group grid grid-cols-[2.5rem_1fr] md:grid-cols-[2.5rem_1fr_7rem_5.5rem_6rem_1.5rem] items-center gap-4 px-4 py-3.5 hover:bg-white/[0.03] transition-colors duration-150"
       >
-        {isSolved && (
-          <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-orange-500/70" />
-        )}
-
-        <span className="font-mono-display text-[11px] text-white/20 group-hover:text-orange-400/50 transition-colors">
-          {String(index + 1).padStart(2, '0')}
+        <span className="text-[13px] text-white/25">
+          {index + 1}
         </span>
 
-        <span className="text-[14px] font-medium text-white/75 group-hover:text-white transition-colors truncate">
+        <span className="text-[14px] font-medium text-white/80 group-hover:text-white transition-colors truncate">
           {problem.title}
         </span>
 
-        <span className="hidden md:block font-mono-display text-[11px] text-white/25 truncate">
-          {problem.tags ? `// ${Array.isArray(problem.tags) ? problem.tags.join(', ') : problem.tags}` : ''}
+        <span className="hidden md:block text-[12px] text-white/30 truncate">
+          {problem.tags ? (Array.isArray(problem.tags) ? problem.tags.join(', ') : problem.tags) : ''}
         </span>
 
-        <span className={cn('hidden md:inline-flex items-center gap-1.5 text-[10px] font-mono-display font-semibold', meta.text)}>
-          <span className={cn('w-1.5 h-1.5 rounded-full', meta.dot)} />
+        <span className={cn('hidden md:inline-flex text-[13px] font-medium', meta.text)}>
           {meta.label}
         </span>
 
-        <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] font-mono-display font-medium">
+        <span className="hidden md:inline-flex items-center gap-1.5 text-[12px] font-medium">
           {isSolved ? (
             <>
-              <CheckCircle2 className="w-3 h-3 text-orange-400" strokeWidth={2.5} />
-              <span className="text-orange-400/80">solved</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-orange-400" strokeWidth={2.5} />
+              <span className="text-orange-400/85">Solved</span>
             </>
           ) : (
             <>
-              <Circle className="w-3 h-3 text-white/20" strokeWidth={2.5} />
-              <span className="text-white/25">open</span>
+              <Circle className="w-3.5 h-3.5 text-white/20" strokeWidth={2} />
+              <span className="text-white/35">Open</span>
             </>
           )}
         </span>

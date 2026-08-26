@@ -3,7 +3,7 @@ import { useParams, NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'motion/react';
 import { Trophy, Medal, Code2, ChevronLeft, ChevronRight, ShieldCheck } from 'lucide-react';
-
+import mylogo from "../assets/mylogo.png";
 // Swap this for your project's real axios wrapper if the path differs.
 import axiosClient from '../utils/axiosClient';
 import { fetchUserProfile } from '../profileSlice';
@@ -86,12 +86,16 @@ function CollegeLeaderboard() {
   return (
     <div className="min-h-screen bg-[#050505] font-body text-[#e5e5e5] antialiased">
       <div className="flex h-16 items-center gap-3 border-b border-white/[0.06] bg-white/[0.02] px-5">
-        <NavLink to="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-500">
-            <Code2 className="h-4 w-4 text-black" strokeWidth={2.5} />
-          </div>
-          <span className="font-display text-[15px] font-800 italic tracking-tight text-white">CodeMaster</span>
-        </NavLink>
+      <NavLink to="/" className="flex items-center gap-2.5">
+  <div className="w-8 h-8 rounded-xl overflow-hidden flex items-center justify-center">
+    <img
+      src={mylogo}
+      alt="CodeMaster logo"
+      className="w-full h-full object-contain"
+    />
+  </div>
+  <span className="font-display text-[15px] font-800 italic tracking-tight text-white">CodeMaster</span>
+</NavLink>
         <div className="h-5 w-px bg-white/10" />
         <span className="font-mono text-[11px] text-white/30">
           dashboard / <span className="text-amber-400">leaderboard</span>

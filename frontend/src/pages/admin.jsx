@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, ShieldCheck, Video, Trophy, Settings, Building2, Inbox, ListChecks } from 'lucide-react';
 import { NavLink } from 'react-router';
-
+import mylogo from "../assets/mylogo.png";
 function Admin() {
   const [selectedOption, setSelectedOption] = useState(null);
 
@@ -150,21 +150,13 @@ function Admin() {
           height: 48px;
           display: flex;
           align-items: center;
-          padding: 0 16px;
+         padding: 0 16px 0 36px;
           gap: 8px;
           position: sticky;
           top: 0;
           z-index: 10;
         }
-        .adm-logo-icon {
-          width: 28px; height: 28px;
-          background: linear-gradient(135deg, #ffa116, #ff6b00);
-          border-radius: 6px;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: 800; color: #0d1117;
-          flex-shrink: 0;
-        }
-        .adm-logo-text { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; color: #e6edf3; }
+        .adm-logo-img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
         .adm-topbar-sep { width: 1px; height: 20px; background: #21262d; margin: 0 8px; }
         .adm-topbar-crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; letter-spacing: 0.5px; }
         .adm-topbar-crumb span { color: #ffa116; }
@@ -281,11 +273,12 @@ function Admin() {
       <div className="adm-root">
 
         <div className="adm-topbar">
-          <div className="adm-logo-icon">⌨</div>
-          <span className="adm-logo-text"><NavLink to={"/"}>CodeMaster </NavLink></span>
-          <div className="adm-topbar-sep" />
-          <span className="adm-topbar-crumb"><NavLink to={"/"}>Dashboard / </NavLink><span>Admin</span></span>
-        </div>
+  <NavLink to={"/"} style={{ display: 'flex', alignItems: 'center' }}>
+    <img src={mylogo} alt="CodeMaster logo" className="adm-logo-img" />
+  </NavLink>
+  <div className="adm-topbar-sep" />
+  <span className="adm-topbar-crumb"><NavLink to={"/"}>Dashboard / </NavLink><span>Admin</span></span>
+</div>
 
         <div className="adm-main">
 

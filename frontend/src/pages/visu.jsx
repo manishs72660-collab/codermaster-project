@@ -3,7 +3,7 @@ import { NavLink } from "react-router";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-import mylogo from "../assets/my logo.png";
+import mylogo from "../assets/mylogo.png";
 // ─── CodeMaster Color Palette ─────────────────────────────────────────────────
 const CM = {
   bg:        "#0d1117",

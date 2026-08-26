@@ -8,7 +8,7 @@ import SubmissionHistory from '../component/subbsion';
 import CodeBoard from '../component/whiteboard';
 import ChatAi from '../component/chatai';
 import ShareOnLinkedIn from '../component/Sharelinkdin';
-import mylogo from "../assets/my logo.png";
+import mylogo from "../assets/mylogo.png";
 
 // ── Count-up hook: animates a numeric value from 0 to `target` whenever `trigger` changes ──
 const useCountUp = (target, trigger, duration = 900) => {

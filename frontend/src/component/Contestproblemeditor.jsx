@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { useParams, useNavigate } from 'react-router';
 import axiosClient from '../utils/axiosClient';
-import mylogo from "../assets/my logo.png"
+import mylogo from "../assets/mylogo.png"
 
 /* language metadata — color-coded per language so the pill + editor identity stays consistent */
 const LANGUAGES = [

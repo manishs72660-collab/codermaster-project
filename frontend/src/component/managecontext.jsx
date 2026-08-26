@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Trash2, Edit, Trophy, Clock, Users, X, Check, Plus, Search, Lock, Building2, Eye } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { fetchProblems } from '../problemslice';
-
+import mylogo from "../assets/mylogo.png";
 // Same rationale as AdminCreateContest: a large limit so the edit-mode
 // problem picker effectively has "all" problems in one page.
 const PROBLEM_FETCH_LIMIT = 200;
@@ -174,9 +174,8 @@ export default function AdminManageContests() {
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         .adm-root { min-height: 100vh; background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', -apple-system, sans-serif; }
-        .adm-topbar { background: #161b22; border-bottom: 1px solid #21262d; height: 48px; display: flex; align-items: center; padding: 0 16px; gap: 8px; position: sticky; top: 0; z-index: 10; }
-        .adm-logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #ffa116, #ff6b00); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: #0d1117; }
-        .adm-logo-text { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
+        .adm-topbar { background: #161b22; border-bottom: 1px solid #21262d; height: 48px; display: flex; align-items: center; padding: 0 16px 0 36px; gap: 8px; position: sticky; top: 0; z-index: 10; }
+.adm-logo-img { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; }
         .adm-topbar-sep { width: 1px; height: 20px; background: #21262d; margin: 0 8px; }
         .adm-topbar-crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8b949e; }
         .adm-topbar-crumb span { color: #c084fc; }
@@ -193,17 +192,16 @@ export default function AdminManageContests() {
       `}</style>
 
       <div className="adm-root">
-        <div className="adm-topbar">
-          <div className="adm-logo-icon">⌨</div>
-          <span className="adm-logo-text">CodeMaster</span>
-          <div className="adm-topbar-sep" />
-          <span className="adm-topbar-crumb">
-            <NavLink to={isPlatformAdmin ? '/admin' : '/collegeadmin'} style={{ color: '#8b949e', textDecoration: 'none' }}>
-              {isPlatformAdmin ? 'Admin' : 'College Admin'}
-            </NavLink>
-            {' / '}<span>Manage Contests</span>
-          </span>
-        </div>
+      <div className="adm-topbar">
+  <NavLink to="/" style={{ display: 'flex', alignItems: 'center' }}>
+    <img src={mylogo} alt="CodeMaster logo" className="adm-logo-img" />
+  </NavLink>
+  <div className="adm-topbar-sep" />
+  <span className="adm-topbar-crumb">
+    <NavLink to="/admin" style={{ color: '#8b949e', textDecoration: 'none' }}>Admin</NavLink>
+    {' / '}<span>Manage Contest</span>
+  </span>
+</div>
 
         <div className="adm-main">
           <span className="adm-tag">Contest</span>

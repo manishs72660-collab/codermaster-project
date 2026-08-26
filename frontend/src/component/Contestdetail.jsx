@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
-import mylogo from "../assets/my logo.png"
+import mylogo from "../assets/mylogo.png"
 
 /* ─── helpers ─── */
 const formatDate = (d) => {

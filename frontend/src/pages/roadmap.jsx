@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { NavLink, useLocation } from "react-router";
-import mylogo from "../assets/my logo.png";
+import mylogo from "../assets/mylogo.png";
 import {
   X,
   PlayCircle,
