@@ -33,17 +33,20 @@ app.get("/", (req, res) => {
         status: "Server is running"
     });
 });
+const FRONTEND_URL = "https://codemaster-frontend-ruddy.vercel.app";
+
+console.log("CORS URL:", FRONTEND_URL);
+
+const corsOptions = {
+  origin: FRONTEND_URL,
+  credentials: true,
+};
+
 const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.FRONTEND_URL,
-    credentials: true
-  }
+  cors: corsOptions,
 });
 
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieparser());
 //app.use(rateLimiter);
