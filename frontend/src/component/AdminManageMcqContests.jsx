@@ -139,51 +139,56 @@ export default function AdminManageMcqContests() {
 
   /* save update */
   const saveEdit = async (id) => {
-    setError('');
-    if (!editForm.title || !editForm.description || !editForm.startTime || !editForm.endTime) {
-      setError('All fields required.'); return;
-    }
-    if (new Date(editForm.startTime) >= new Date(editForm.endTime)) {
-      setError('Start time must be before end time.'); return;
-    }
-    if (editQuestions.length === 0) {
-      setError('At least 1 question is required.'); return;
-    }
-    for (let i = 0; i < editQuestions.length; i++) {
-      const q = editQuestions[i];
-      if (!q.questionText.trim()) { setError(`Question ${i + 1}: text is required.`); return; }
-      if (q.options.some((o) => !o.text.trim())) { setError(`Question ${i + 1}: all 4 options are required.`); return; }
-      if (q.code && !q.code.content.trim()) { setError(`Question ${i + 1}: code block is empty — add code or remove it.`); return; }
-    }
+  setError('');
+  if (!editForm.title || !editForm.description || !editForm.startTime || !editForm.endTime) {
+    setError('All fields required.'); return;
+  }
+  if (new Date(editForm.startTime) >= new Date(editForm.endTime)) {
+    setError('Start time must be before end time.'); return;
+  }
+  if (editQuestions.length === 0) {
+    setError('At least 1 question is required.'); return;
+  }
+  for (let i = 0; i < editQuestions.length; i++) {
+    const q = editQuestions[i];
+    if (!q.questionText.trim()) { setError(`Question ${i + 1}: text is required.`); return; }
+    if (q.options.some((o) => !o.text.trim())) { setError(`Question ${i + 1}: all 4 options are required.`); return; }
+    if (q.code && !q.code.content.trim()) { setError(`Question ${i + 1}: code block is empty — add code or remove it.`); return; }
+  }
 
-    setSaving(true);
-    try {
-      await axiosClient.put(`/mcq-contest/${id}/update`, {
-        title: editForm.title,
-        description: editForm.description,
-        startTime: editForm.startTime,
-        endTime: editForm.endTime,
-        isPublic: editForm.isPublic,
-        durationMinutes: editForm.durationMinutes ? Number(editForm.durationMinutes) : null,
-        questions: editQuestions.map((q) => ({
-          questionText: q.questionText,
-          options: q.options,
-          correctOption: q.correctOption,
-          marks: q.marks,
-          explanation: q.explanation,
-          ...(q.code && q.code.content.trim()
-            ? { code: { language: q.code.language, content: q.code.content } }
-            : {}),
-        })),
-      });
-      cancelEdit();
-      fetchContests();
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Update failed.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  setSaving(true);
+  try {
+    await axiosClient.put(`/mcq-contest/${id}/update`, {
+      title: editForm.title,
+      description: editForm.description,
+      // Convert the ambiguous "local" datetime-local string into an
+      // unambiguous UTC ISO string before sending — same fix as the
+      // create page. Without this, a server running in UTC (vs. your
+      // IST dev machine) reinterprets the bare string and the saved
+      // time drifts by ~5:30 hours.
+      startTime: new Date(editForm.startTime).toISOString(),
+      endTime: new Date(editForm.endTime).toISOString(),
+      isPublic: editForm.isPublic,
+      durationMinutes: editForm.durationMinutes ? Number(editForm.durationMinutes) : null,
+      questions: editQuestions.map((q) => ({
+        questionText: q.questionText,
+        options: q.options,
+        correctOption: q.correctOption,
+        marks: q.marks,
+        explanation: q.explanation,
+        ...(q.code && q.code.content.trim()
+          ? { code: { language: q.code.language, content: q.code.content } }
+          : {}),
+      })),
+    });
+    cancelEdit();
+    fetchContests();
+  } catch (err) {
+    setError(err?.response?.data?.message || 'Update failed.');
+  } finally {
+    setSaving(false);
+  }
+};
 
   /* delete */
   const deleteContest = async (id) => {

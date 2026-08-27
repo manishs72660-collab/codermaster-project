@@ -14,6 +14,7 @@ const formatDate = (d) => {
   return new Date(d).toLocaleString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Kolkata', // don't rely on the viewer's OS/browser tz
   });
 };
 
@@ -106,27 +107,30 @@ export default function AdminManageContests() {
 
   /* save update */
   const saveEdit = async (id) => {
-    setError('');
-    if (!editForm.title || !editForm.description || !editForm.startTime || !editForm.endTime) {
-      setError('All fields required.'); return;
-    }
-    if (new Date(editForm.startTime) >= new Date(editForm.endTime)) {
-      setError('Start time must be before end time.'); return;
-    }
-    setSaving(true);
-    try {
-      await axiosClient.put(`/contest/${id}/update`, {
-        ...editForm,
-        problems: editProblems.map((p) => p._id),
-      });
-      cancelEdit();
-      fetchContests();
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Update failed.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  setError('');
+  if (!editForm.title || !editForm.description || !editForm.startTime || !editForm.endTime) {
+    setError('All fields required.'); return;
+  }
+  if (new Date(editForm.startTime) >= new Date(editForm.endTime)) {
+    setError('Start time must be before end time.'); return;
+  }
+  setSaving(true);
+  try {
+    await axiosClient.put(`/contest/${id}/update`, {
+      ...editForm,
+      // same fix as create — send unambiguous UTC, not a bare local string
+      startTime: new Date(editForm.startTime).toISOString(),
+      endTime: new Date(editForm.endTime).toISOString(),
+      problems: editProblems.map((p) => p._id),
+    });
+    cancelEdit();
+    fetchContests();
+  } catch (err) {
+    setError(err?.response?.data?.message || 'Update failed.');
+  } finally {
+    setSaving(false);
+  }
+};
 
   /* delete */
   const deleteContest = async (id) => {

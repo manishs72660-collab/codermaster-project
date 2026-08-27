@@ -72,32 +72,40 @@ export default function AdminCreateContest() {
   };
 
   const handleSubmit = async () => {
-    setError('');
-    const { title, description, startTime, endTime } = form;
-    if (!title || !description || !startTime || !endTime) {
-      setError('All fields are required.'); return;
-    }
-    if (new Date(startTime) >= new Date(endTime)) {
-      setError('Start time must be before end time.'); return;
-    }
-    if (selectedProblems.length === 0) {
-      setError('Add at least one problem to the contest.'); return;
-    }
+  setError('');
+  const { title, description, startTime, endTime } = form;
+  if (!title || !description || !startTime || !endTime) {
+    setError('All fields are required.'); return;
+  }
+  if (new Date(startTime) >= new Date(endTime)) {
+    setError('Start time must be before end time.'); return;
+  }
+  if (selectedProblems.length === 0) {
+    setError('Add at least one problem to the contest.'); return;
+  }
 
-    setSubmitting(true);
-    try {
-      const { data } = await axiosClient.post('/contest/create', {
-        ...form,
-        problems: selectedProblems.map((p) => p._id),
-      });
-      setCreatedContest(data.contest);
-      setSuccess(true);
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to create contest.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  setSubmitting(true);
+  try {
+    const { data } = await axiosClient.post('/contest/create', {
+      ...form,
+      // Convert the ambiguous "local" datetime-local string into an
+      // unambiguous UTC ISO string (e.g. "2026-08-27T04:30:00.000Z")
+      // BEFORE sending it — new Date(datetimeLocalString) is parsed using
+      // the browser's own local timezone, which is what we want, so
+      // .toISOString() locks that moment in regardless of what timezone
+      // the server happens to run in.
+      startTime: new Date(startTime).toISOString(),
+      endTime: new Date(endTime).toISOString(),
+      problems: selectedProblems.map((p) => p._id),
+    });
+    setCreatedContest(data.contest);
+    setSuccess(true);
+  } catch (err) {
+    setError(err?.response?.data?.message || 'Failed to create contest.');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleCopyCode = () => {
     if (!createdContest?.joinCode) return;

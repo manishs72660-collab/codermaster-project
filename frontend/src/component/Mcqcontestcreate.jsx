@@ -108,41 +108,46 @@ export default function McqContestCreate() {
     return null;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const err = validate();
-    if (err) {
-      setError(err);
-      return;
-    }
-    setError('');
-    setSubmitting(true);
-    try {
-      const { data } = await axiosClient.post('/mcq-contest/create', {
-        title,
-        description,
-        startTime,
-        endTime,
-        isPublic,
-        tags: [tag],
-        questions: questions.map((q) => ({
-          questionText: q.questionText.trim(),
-          options: q.options.map((o) => ({ text: o.trim() })),
-          correctOption: q.correctOption,
-          marks: q.marks || 1,
-          ...(q.code && q.code.content.trim()
-            ? { code: { language: q.code.language, content: q.code.content } }
-            : {}),
-        })),
-      });
-      setCreated(data.contest);
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Something went wrong while creating the contest');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  const err = validate();
+  if (err) {
+    setError(err);
+    return;
+  }
+  setError('');
+  setSubmitting(true);
+  try {
+    const { data } = await axiosClient.post('/mcq-contest/create', {
+      title,
+      description,
+      // Convert the ambiguous "local" datetime-local string into an
+      // unambiguous UTC ISO string before sending. new Date(startTime)
+      // is parsed using the browser's own local timezone (correct, since
+      // that's the admin's actual intended time) — .toISOString() then
+      // locks that exact moment in regardless of what timezone the
+      // server itself happens to run in.
+      startTime: new Date(startTime).toISOString(),
+      endTime: new Date(endTime).toISOString(),
+      isPublic,
+      tags: [tag],
+      questions: questions.map((q) => ({
+        questionText: q.questionText.trim(),
+        options: q.options.map((o) => ({ text: o.trim() })),
+        correctOption: q.correctOption,
+        marks: q.marks || 1,
+        ...(q.code && q.code.content.trim()
+          ? { code: { language: q.code.language, content: q.code.content } }
+          : {}),
+      })),
+    });
+    setCreated(data.contest);
+  } catch (err) {
+    setError(err?.response?.data?.message || 'Something went wrong while creating the contest');
+  } finally {
+    setSubmitting(false);
+  }
+};
   if (created) {
     const whatsappText = encodeURIComponent(
       created.isPublic === false && created.joinCode
