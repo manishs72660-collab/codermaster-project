@@ -41,6 +41,9 @@ const langLabels = { javascript: 'JavaScript', cpp: 'C++', java: 'Java', python:
 // ── Roles allowed to view official/reference solutions ──
 const SOLUTION_ACCESS_ROLES = ['admin', 'collageadmin'];
 
+// ── Mobile breakpoint (px) — below this, the layout stacks problem-on-top / editor-below ──
+const MOBILE_BREAKPOINT = 860;
+
 const ProblemPage = () => {
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
@@ -57,7 +60,23 @@ const ProblemPage = () => {
   const [boardTheme, setBoardTheme] = useState('light');
   const editorRef = useRef(null);
   let { problemId } = useParams();
-  const [editorHeight, setEditorHeight] = useState(420);
+
+  // ── RESPONSIVE / MOBILE DETECTION ──
+  // Drives the stacked "problem on top, editor below" layout (like LeetCode mobile) below
+  // MOBILE_BREAKPOINT. Also used to pick a sane default editor height, since `.cm-left`'s width
+  // is controlled by an inline style (not just CSS) so it has to be resolved in JS too.
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= MOBILE_BREAKPOINT : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const [editorHeight, setEditorHeight] = useState(() =>
+    (typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT) ? 260 : 420
+  );
 
   // ── CURRENT USER / ROLE ──
   // NOTE: assumes an auth slice shaped like { auth: { user: { role: 'Admin' | 'User' | 'CollageAdmin' } } }.
@@ -195,7 +214,7 @@ const ProblemPage = () => {
     setTimeout(() => { if (editorRef.current) editorRef.current.layout(); }, 50);
   };
 
-  // ── RESIZE DRAG ──
+  // ── RESIZE DRAG ── (desktop only — hidden on mobile via CSS, touch dragging isn't supported here)
   const startResize = (e) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -627,6 +646,7 @@ const ProblemPage = () => {
           background-size: auto, auto, 34px 34px, 34px 34px, auto;
           color: var(--tx);
           height: 100vh;
+          height: 100dvh;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -774,17 +794,15 @@ const ProblemPage = () => {
         @keyframes cm-spin { to { transform: rotate(360deg); } }
 
         /* ── BODY ── */
-        .cm-body { flex: 1; display: flex; overflow: hidden; }
+        .cm-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
 
         /* ── LEFT PANEL ── */
         .cm-left {
-          width: ${isFullscreen ? '0' : '43%'};
-          min-width: ${isFullscreen ? '0' : '340px'};
           display: flex; flex-direction: column;
           border-right: 1px solid var(--b1);
           background: var(--s1);
           overflow: hidden;
-          transition: width 0.25s ease, min-width 0.25s ease;
+          transition: width 0.25s ease, min-width 0.25s ease, height 0.25s ease;
           flex-shrink: 0;
         }
 
@@ -805,7 +823,7 @@ const ProblemPage = () => {
         .cm-tab:hover { color: var(--mu); }
         .cm-tab.active { color: var(--ac); border-bottom-color: var(--ac); }
 
-        .cm-scroll { flex: 1; overflow-y: auto; padding: 22px 20px; }
+        .cm-scroll { flex: 1; overflow-y: auto; padding: 22px 20px; -webkit-overflow-scrolling: touch; }
         .cm-scroll::-webkit-scrollbar { width: 3px; }
         .cm-scroll::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 2px; }
 
@@ -830,11 +848,11 @@ const ProblemPage = () => {
   font-size: 11px;
   line-height: 1.8;
   color: var(--mu);
-  white-space: pre-wrap;   /* ADD THIS */
+  white-space: pre-wrap;
 }
 .cm-ex-row span {
   color: var(--tx);
-  white-space: pre-wrap;   /* ADD THIS TOO, span inherits normally but be explicit */
+  white-space: pre-wrap;
 }
         .cm-ex-expl { font-size: 10px; color: var(--di); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--b1); font-family: 'JetBrains Mono', monospace; font-style: italic; }
 
@@ -844,7 +862,7 @@ const ProblemPage = () => {
         .cm-code-block pre { padding: 14px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.7; color: #c9d1d9; overflow-x: auto; }
 
         /* ── RIGHT PANEL ── */
-        .cm-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; background: var(--bg); }
+        .cm-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; background: var(--bg); }
 
         /* Monaco editor — premium scrollbar + framed surface so both scroll axes read clearly */
         .cm-editor-frame {
@@ -868,8 +886,9 @@ const ProblemPage = () => {
         .cm-lang-bar {
           display: flex; align-items: center; justify-content: space-between;
           padding: 7px 14px; background: var(--s1); border-bottom: 1px solid var(--b1); flex-shrink: 0;
+          gap: 8px; flex-wrap: wrap;
         }
-        .cm-lang-pills { display: flex; gap: 3px; }
+        .cm-lang-pills { display: flex; gap: 3px; flex-wrap: wrap; }
         .cm-lang-pill {
           background: none; border: 1px solid var(--b1); border-radius: 5px;
           cursor: pointer; padding: 3px 12px;
@@ -879,7 +898,7 @@ const ProblemPage = () => {
         .cm-lang-pill:hover { border-color: var(--b2); color: var(--mu); }
         .cm-lang-pill.active { background: var(--as); color: var(--ac); border-color: rgba(255,91,31,0.35); }
 
-        .cm-tool-row { display: flex; align-items: center; gap: 5px; }
+        .cm-tool-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
         .cm-tbtn {
           display: inline-flex; align-items: center; gap: 3px;
           background: none; border: 1px solid var(--b1); border-radius: 5px;
@@ -904,12 +923,13 @@ const ProblemPage = () => {
         .cm-resize:hover::after { background: rgba(255,91,31,0.45); }
 
         /* Right tabs */
-        .cm-right-tabs { display: flex; background: var(--s1); border-bottom: 1px solid var(--b1); padding: 0 4px; flex-shrink: 0; }
+        .cm-right-tabs { display: flex; background: var(--s1); border-bottom: 1px solid var(--b1); padding: 0 4px; flex-shrink: 0; overflow-x: auto; }
 
         /* Action bar (bottom of editor) */
         .cm-action-bar {
           display: flex; align-items: center; justify-content: space-between;
           padding: 8px 14px; background: var(--s1); border-top: 1px solid var(--b1); flex-shrink: 0;
+          gap: 8px; flex-wrap: wrap;
         }
         .cm-action-left { display: flex; align-items: center; gap: 6px; }
         .cm-action-right { display: flex; align-items: center; gap: 6px; }
@@ -935,7 +955,7 @@ const ProblemPage = () => {
         .cm-reset-btn:hover { color: var(--rd); border-color: rgba(240,79,79,0.3); background: rgba(240,79,79,0.06); }
 
         /* Panel */
-        .cm-panel { flex: 1; overflow-y: auto; padding: 20px 18px; }
+        .cm-panel { flex: 1; overflow-y: auto; padding: 20px 18px; -webkit-overflow-scrolling: touch; }
         .cm-panel::-webkit-scrollbar { width: 3px; }
         .cm-panel::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 2px; }
 
@@ -962,6 +982,7 @@ const ProblemPage = () => {
           background: rgba(8,9,12,0.8); backdrop-filter: blur(6px);
           display: flex; align-items: center; justify-content: center;
           animation: cm-fadein 0.16s ease;
+          padding: 12px;
         }
         @keyframes cm-fadein { from { opacity: 0; } to { opacity: 1; } }
         @keyframes cm-slideup { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
@@ -977,18 +998,18 @@ const ProblemPage = () => {
           display: flex; align-items: center; justify-content: space-between;
           padding: 14px 18px; background: var(--s2); border-bottom: 1px solid var(--b1); flex-shrink: 0;
         }
-        .cm-modal-title { display: flex; align-items: center; gap: 10px; }
+        .cm-modal-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
         .cm-ai-icon {
           width: 30px; height: 30px; border-radius: 8px;
           background: rgba(139,92,246,0.2); border: 1px solid rgba(139,92,246,0.3);
-          display: flex; align-items: center; justify-content: center; font-size: 14px;
+          display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0;
         }
         .cm-modal-label { font-size: 14px; font-weight: 800; letter-spacing: -0.3px; }
         .cm-modal-sub { font-size: 10px; color: var(--mu); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
         .cm-modal-close {
           width: 28px; height: 28px; background: var(--s3); border: 1px solid var(--b2);
           border-radius: 6px; display: flex; align-items: center; justify-content: center;
-          cursor: pointer; color: var(--mu); font-size: 12px; transition: all 0.14s;
+          cursor: pointer; color: var(--mu); font-size: 12px; transition: all 0.14s; flex-shrink: 0;
         }
         .cm-modal-close:hover { background: rgba(240,79,79,0.1); border-color: var(--rd); color: var(--rd); }
         .cm-modal-body { flex: 1; overflow: hidden; }
@@ -1003,7 +1024,7 @@ const ProblemPage = () => {
         .cm-board-icon {
           width: 28px; height: 28px; border-radius: 7px;
           background: rgba(75,142,240,0.1); border: 1px solid rgba(75,142,240,0.25);
-          display: flex; align-items: center; justify-content: center; font-size: 13px;
+          display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
         }
 
         /* BUGFIX v3: light is the default now (the board's normal, always-working look — a plain
@@ -1146,7 +1167,7 @@ const ProblemPage = () => {
         .cm-discuss-input::placeholder { color: var(--di); }
         .cm-discuss-box-footer {
           display: flex; align-items: center; justify-content: flex-end; gap: 10px;
-          margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--b1);
+          margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--b1); flex-wrap: wrap;
         }
         .cm-discuss-error {
           margin-right: auto; color: var(--rd); font-size: 10.5px;
@@ -1169,7 +1190,7 @@ const ProblemPage = () => {
         }
         .cm-discuss-msg:last-child { border-bottom: none; }
         .cm-discuss-msg-body { flex: 1; min-width: 0; }
-        .cm-discuss-msg-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .cm-discuss-msg-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
         .cm-discuss-msg-text { font-size: 12.5px; line-height: 1.7; color: #cfd4dd; white-space: pre-wrap; word-break: break-word; }
         .cm-discuss-reply-toggle {
           display: inline-flex; align-items: center; gap: 4px; margin-top: 6px;
@@ -1348,7 +1369,7 @@ const ProblemPage = () => {
         .cm-metric-bar-fill.mem  { background: linear-gradient(90deg, var(--bl), #7fb0ff); }
 
         .cm-tc-summary-strip {
-          display: flex; align-items: center; gap: 8px;
+          display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
           background: var(--s1); border: 1px solid var(--b1); border-radius: 10px;
           padding: 10px 14px; margin-bottom: 14px;
         }
@@ -1356,7 +1377,7 @@ const ProblemPage = () => {
         .cm-tc-summary-strip .count.pass { color: var(--gr); }
         .cm-tc-summary-strip .count.fail { color: var(--rd); }
         .cm-tc-summary-strip .lbl { font-size: 11px; color: var(--mu); }
-        .cm-tc-dots { display: flex; gap: 4px; margin-left: auto; }
+        .cm-tc-dots { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
         .cm-tc-dot { width: 7px; height: 7px; border-radius: 2px; }
         .cm-tc-dot.p { background: var(--gr); }
         .cm-tc-dot.f { background: var(--rd); }
@@ -1492,6 +1513,88 @@ const ProblemPage = () => {
           font-size: 12px; color: var(--mu); display: flex; align-items: center; gap: 6px;
         }
         .cm-pass-num { font-size: 15px; font-weight: 800; }
+
+        /* ══════════════════════════════════════════════
+           RESPONSIVE — stacked "problem on top, editor below" layout,
+           matching LeetCode's mobile app layout.
+           ══════════════════════════════════════════════ */
+        @media (max-width: ${MOBILE_BREAKPOINT}px) {
+          .cm-body {
+            flex-direction: column;
+          }
+
+          .cm-left {
+            border-right: none;
+            border-bottom: 1px solid var(--b1);
+          }
+
+          .cm-right {
+            flex: 1;
+            min-height: 0;
+          }
+
+          /* Topbar: tighten up for small screens */
+          .cm-topbar {
+            padding: 0 8px 0 10px;
+            height: 46px;
+          }
+          .cm-logo-name { display: none; }
+          .cm-logo-img { width: 26px; height: 26px; }
+
+          .cm-top-center {
+            position: static;
+            transform: none;
+            flex: 1;
+            justify-content: center;
+            overflow: hidden;
+            gap: 5px;
+            min-width: 0;
+          }
+          .cm-prob-title { max-width: 100px; font-size: 11px; }
+          .cm-prob-id { display: none; }
+          .cm-timer { display: none; }
+
+          .cm-top-right { gap: 4px; }
+          .cm-btn-ai, .cm-btn-board {
+            padding: 6px 9px;
+            font-size: 12px;
+          }
+          .cm-run-icon-btn { width: 30px; height: 30px; }
+          .cm-btn-submit { padding: 0 10px; font-size: 11px; height: 30px; }
+          .cm-sep { display: none; }
+
+          /* Tabs: allow horizontal scroll instead of squeezing */
+          .cm-tab { padding: 9px 8px 8px; font-size: 10.5px; }
+
+          /* Editor language/tool bars wrap instead of overflowing */
+          .cm-lang-pill { padding: 3px 8px; font-size: 9px; }
+          .cm-tbtn { padding: 3px 6px; font-size: 9px; }
+
+          /* Manual drag-resize doesn't work well with touch — hide the handle on mobile.
+             Editor height is instead controlled by the smaller default set in JS. */
+          .cm-resize { display: none; }
+
+          .cm-scroll, .cm-panel { padding: 16px 14px; }
+          .cm-prob-h1 { font-size: 16px; }
+
+          /* Modals: near-fullscreen on phones so forms/content aren't cramped */
+          .cm-ai-modal, .cm-board-modal, .cm-post-modal, .cm-post-detail-modal {
+            width: 100%;
+            height: 92vh;
+          }
+
+          .cm-action-bar { padding: 8px 10px; }
+          .cm-action-left { gap: 4px; }
+          .cm-action-left .cm-kbd,
+          .cm-action-left > span:last-child { display: none; } /* hide "Ctrl+Enter to run" hint, no keyboard on mobile */
+        }
+
+        @media (max-width: 480px) {
+          .cm-metric-row, .cm-result-stats { flex-direction: column; }
+          .cm-verdict-heading { font-size: 22px; }
+          .cm-verdict-hero { padding: 18px 16px 16px; }
+          .cm-console-btn span:last-child { display: none; }
+        }
       `}</style>
 
       <div className="cm-root">
@@ -1523,10 +1626,10 @@ const ProblemPage = () => {
 
           <div className="cm-top-right">
             <button className="cm-btn-ai" onClick={() => setShowAiModal(true)}>
-              ✦ AI Chat
+              {isMobile ? '✦' : '✦ AI Chat'}
             </button>
             <button className="cm-btn-board" onClick={() => setShowBoardModal(true)}>
-              ◫ Board
+              {isMobile ? '◫' : '◫ Board'}
             </button>
             <div className="cm-sep" />
             {/* Icon-only run in topbar */}
@@ -1551,8 +1654,18 @@ const ProblemPage = () => {
         {/* ── BODY ── */}
         <div className="cm-body">
 
-          {/* ── LEFT PANEL ── */}
-          <div className="cm-left" style={{ width: isFullscreen ? 0 : '43%', minWidth: isFullscreen ? 0 : 340 }}>
+          {/* ── LEFT PANEL ──
+              On desktop this sits side-by-side with the editor at 43% width.
+              On mobile it stacks on top of the editor at ~42% of the viewport height
+              (or 0 when fullscreen is toggled on), matching LeetCode's mobile app. */}
+          <div
+            className="cm-left"
+            style={
+              isMobile
+                ? { width: '100%', minWidth: 0, height: isFullscreen ? 0 : '42vh' }
+                : { width: isFullscreen ? 0 : '43%', minWidth: isFullscreen ? 0 : 340 }
+            }
+          >
             <div className="cm-tabs">
               {[
                 { id: 'description', icon: '≡', label: 'Description' },
@@ -1944,7 +2057,7 @@ const ProblemPage = () => {
                   <div className="cm-action-left">
                     <button className="cm-console-btn" onClick={() => setActiveRightTab('testcase')}>
                       <span style={{ fontFamily: 'monospace', fontSize: 12 }}>&gt;_</span>
-                      Console
+                      <span>Console</span>
                     </button>
                     <span className="cm-kbd">Ctrl+Enter</span>
                     <span style={{ fontSize: 9, color: 'var(--di)', fontFamily: 'monospace' }}>to run</span>
@@ -2281,38 +2394,44 @@ const ProblemPage = () => {
             the component hardcodes its own background color/theme and needs a dark mode prop or
             class added inside component/whiteboard itself — this wrapper covers everything that can
             be styled from the outside. */}
-        {showBoardModal && (
-          <div className="cm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowBoardModal(false); }}>
-            <div className="cm-board-modal">
-              <div className="cm-modal-hdr">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div className="cm-board-icon">◫</div>
-                  <span className="cm-modal-label">Whiteboard</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {/* Light/Dark toggle for the board surface only — doesn't touch app theme */}
-                  <button
-                    className="cm-board-theme-toggle"
-                    onClick={() => setBoardTheme(t => (t === 'light' ? 'dark' : 'light'))}
-                    title="Toggle board background"
-                  >
-                    <span
-                      className="swatch"
-                      style={{ background: boardTheme === 'light' ? '#ffffff' : '#000000' }}
-                    />
-                    {boardTheme === 'light' ? '☀ Light' : '☾ Dark'}
-                  </button>
-                  <div className="cm-modal-close" onClick={() => setShowBoardModal(false)}>✕</div>
-                </div>
-              </div>
-              <div className="cm-modal-body">
-                <div className={`cm-board-dark-wrap${boardTheme === 'dark' ? ' dark' : ''}`}>
-                  <CodeBoard />
-                </div>
-              </div>
-            </div>
+       {showBoardModal && (
+  <div className="cm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowBoardModal(false); }}>
+    <div className="cm-board-modal">
+      <div className="cm-modal-hdr">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="cm-board-icon">
+            <img
+              src={mylogo}
+              alt="logo"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+            />
           </div>
-        )}
+          <span className="cm-modal-label">Whiteboard</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Light/Dark toggle for the board surface only — doesn't touch app theme */}
+          <button
+            className="cm-board-theme-toggle"
+            onClick={() => setBoardTheme(t => (t === 'light' ? 'dark' : 'light'))}
+            title="Toggle board background"
+          >
+            <span
+              className="swatch"
+              style={{ background: boardTheme === 'light' ? '#ffffff' : '#000000' }}
+            />
+            {boardTheme === 'light' ? '☀ Light' : '☾ Dark'}
+          </button>
+          <div className="cm-modal-close" onClick={() => setShowBoardModal(false)}>✕</div>
+        </div>
+      </div>
+      <div className="cm-modal-body">
+        <div className={`cm-board-dark-wrap${boardTheme === 'dark' ? ' dark' : ''}`}>
+          <CodeBoard />
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* ── POST SOLUTION MODAL ── */}
         {showPostModal && (

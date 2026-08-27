@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import mylogo from "../assets/mylogo.png";
 
 /* ─────────────────────────────  Tokens  ───────────────────────────── */
 const INK = {
@@ -620,11 +621,10 @@ export default function CodeBoard({ height = 640 }) {
         borderBottom: `1px solid ${INK.border}`, gap: 10, flexShrink: 0, backdropFilter: "blur(6px)",
       }}>
         <div style={{
-          width: 26, height: 26, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center",
-          background: "linear-gradient(135deg, #8b7cf6, #22d3ee)", flexShrink: 0,
-          boxShadow: "0 0 14px rgba(139,124,246,0.45)",
+          width: 38, height: 38, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, overflow: "hidden",
         }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#07080d" strokeWidth="2.5"><path d="M8 6L2 12l6 6"/><path d="M16 6l6 6-6 6"/></svg>
+          <img src={mylogo} alt="logo" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
         </div>
 
         {editingTitle ? (
@@ -747,6 +747,21 @@ export default function CodeBoard({ height = 640 }) {
                 backgroundSize: "26px 26px",
               }}
             >
+              {/* Watermark logo, centered behind the drawing layers, scales with the canvas */}
+              <img
+                src={mylogo}
+                alt=""
+                style={{
+                  position: "absolute",
+                  top: "50%", left: "50%",
+                  width: 640, height: "auto",
+                  transform: "translate(-50%, -50%)",
+                  opacity: 0.18,
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  zIndex: 0,
+                }}
+              />
               <canvas ref={baseRef} style={{ position: "absolute", top: 0, left: 0, touchAction: "none" }} />
               <canvas
                 ref={overlayRef}
