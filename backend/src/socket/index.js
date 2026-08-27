@@ -5,6 +5,24 @@ const Message = require("../models/message");
 const pendingTimeouts = {}; // { chatRequestId: timeoutHandle }
 const spectatorRooms = {};  // { roomCode: Set of spectator socket ids }
 
+// Shared cleanup used by both the explicit "user:offline" event (logout
+// while the tab stays open) and the "disconnect" event (tab closed /
+// connection dropped). Keeping this in one place avoids the two paths
+// drifting apart.
+async function clearPresence(io, socket, userId, role) {
+  try {
+    await client.hDel("online_users", userId);
+
+    if (role === "CollageAdmin" || role === "Admin") {
+      await client.sRem("online_admins", userId);
+      io.emit("admin:status_update", { userId, status: "offline" });
+      await client.del(`admin_busy:${userId}`);
+    }
+  } catch (err) {
+    console.error("clearPresence error:", err);
+  }
+}
+
 function initializeSocket(io) {
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
@@ -23,6 +41,22 @@ function initializeSocket(io) {
         }
       } catch (err) {
         console.error("user:online error:", err);
+      }
+    });
+
+    // Explicit logout while the socket connection is still open (user
+    // logged out but didn't close the tab). Mirrors the disconnect
+    // cleanup below, but does NOT disconnect the socket itself - the
+    // tab may log in as someone else next.
+    socket.on("user:offline", async ({ userId }) => {
+      try {
+        const role = socket.role; // set during user:online
+        await clearPresence(io, socket, userId, role);
+
+        socket.userId = null;
+        socket.role = null;
+      } catch (err) {
+        console.error("user:offline error:", err);
       }
     });
 
@@ -258,13 +292,7 @@ function initializeSocket(io) {
         }
 
         if (socket.userId) {
-          await client.hDel("online_users", socket.userId);
-
-          if (socket.role === "CollageAdmin" || socket.role === "Admin") {
-            await client.sRem("online_admins", socket.userId);
-            io.emit("admin:status_update", { userId: socket.userId, status: "offline" });
-            await client.del(`admin_busy:${socket.userId}`);
-          }
+          await clearPresence(io, socket, socket.userId, socket.role);
         }
       } catch (err) {
         console.error("disconnect cleanup error:", err);
