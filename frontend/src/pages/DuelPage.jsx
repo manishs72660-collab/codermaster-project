@@ -6,23 +6,24 @@ import axiosClient from '../utils/axiosClient';
 import socket from '../utils/socket';
 import Backbutton from "../component/backbutton"
 import DuelChatPanel from "../component/Duelchatpanel"
+import mylogo from "../assets/mylogo.png";
 
 /* ------------------------------------------------------------------ */
 /*  CodeMaster Color Palette (matches RoadmapExplorer / Navbar)       */
 /* ------------------------------------------------------------------ */
 const CM = {
-  bg:        "#0d1117",
-  surface:   "#161b22",
-  surface2:  "#1c2130",
-  border:    "#21262d",
-  border2:   "#30363d",
+  bg:        "#0a0d13",
+  surface:   "#11161f",
+  surface2:  "#1a2130",
+  border:    "#1f2733",
+  border2:   "#2c3646",
   text:      "#e6edf3",
   muted:     "#8b949e",
-  dim:       "#495366",
+  dim:       "#4b5768",
   accent:    "#ffa116",
   accentDim: "#1e1608",
-  green:     "#00b86b",
-  red:       "#ff4444",
+  green:     "#00c97a",
+  red:       "#ff5566",
   blue:      "#4493f8",
   purple:    "#c084fc",
   teal:      "#2dd4bf",
@@ -45,9 +46,10 @@ function Badge({ label, color, pulse }) {
   return (
     <span style={{
       background: color + "18", color, border: `1px solid ${color}40`,
-      borderRadius: 20, padding: "3px 10px", fontSize: 10, fontWeight: 700,
+      borderRadius: 20, padding: "4px 12px", fontSize: 10, fontWeight: 700,
       fontFamily: MONO, letterSpacing: 0.3, whiteSpace: "nowrap",
-      display: "inline-flex", alignItems: "center", gap: 5,
+      display: "inline-flex", alignItems: "center", gap: 6,
+      backdropFilter: "blur(6px)",
     }}>
       {pulse && (
         <span style={{
@@ -78,24 +80,47 @@ function GridBackdrop({ color = CM.accent, opacity = "14" }) {
 // ✅ NEW: top navbar, same shape/behavior as the one on the Roadmap page
 function DuelNavbar({ roomCode, statusLabel, statusColor, spectatorCount }) {
   return (
-    <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, flexShrink: 0, zIndex: 100 }}>
+    <div style={{
+      background: `linear-gradient(180deg, ${CM.surface} 0%, ${CM.bg} 100%)`,
+      borderBottom: `1px solid ${CM.border}`,
+      flexShrink: 0, zIndex: 100,
+      position: 'relative',
+    }}>
       <div style={{
-        height: 48, display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
+        height: 54, display: "flex", alignItems: "center", padding: "0 20px", gap: 10,
       }}>
+        {/* ✅ Logo — transparent container, no background block, just the mark itself */}
         <div style={{
-          width: 28, height: 28, borderRadius: 6,
-          background: "linear-gradient(135deg,#ffa116,#ff6b00)",
+          width: 34, height: 34,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, fontWeight: 800, color: "#0d1117", flexShrink: 0,
-        }}>⌨</div>
+          flexShrink: 0,
+        }}>
+          <img
+            src={mylogo}
+            alt="CodeMaster logo"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              filter: "drop-shadow(0 0 6px rgba(255,161,22,0.35))",
+              mixBlendMode: "screen",
+            }}
+          />
+        </div>
 
         <NavLink to="/" style={{ textDecoration: "none" }}>
-          <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: -0.3, color: CM.text }}>
+          <span style={{
+            fontWeight: 800, fontSize: 15, letterSpacing: -0.3,
+            background: "linear-gradient(135deg, #f2f5f9, #9fb0c2)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}>
             CodeMaster
           </span>
         </NavLink>
 
-        <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px", flexShrink: 0 }} />
+        <div style={{ width: 1, height: 20, background: `linear-gradient(${CM.border}, ${CM.border2}, ${CM.border})`, margin: "0 4px", flexShrink: 0 }} />
 
         <span style={{ fontFamily: MONO, fontSize: 11, color: CM.muted, whiteSpace: "nowrap" }}>
           <NavLink to="/duel" style={{ color: CM.muted, textDecoration: "none" }}>
@@ -105,11 +130,17 @@ function DuelNavbar({ roomCode, statusLabel, statusColor, spectatorCount }) {
           <span style={{ color: CM.accent }}>{roomCode || 'Room'}</span>
         </span>
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {spectatorCount > 0 && <Badge label={`${spectatorCount} watching`} color={CM.purple} />}
           <Badge label={statusLabel} color={statusColor} pulse={statusLabel === 'LIVE'} />
         </div>
       </div>
+
+      {/* subtle glowing underline for extra polish */}
+      <div style={{
+        position: 'absolute', bottom: -1, left: 0, right: 0, height: 1,
+        background: `linear-gradient(90deg, transparent, ${CM.accent}55, transparent)`,
+      }} />
     </div>
   );
 }
@@ -407,17 +438,21 @@ const DuelPage = () => {
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes popIn { from { opacity: 0; transform: scale(0.9) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
     @keyframes cmPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    @keyframes cmFadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     .lang-pill {
-      background: none; border: 1px solid ${CM.border}; border-radius: 6px; cursor: pointer;
-      padding: 4px 12px; font-family: ${MONO}; font-size: 11px;
-      font-weight: 600; color: ${CM.dim}; transition: all 0.15s;
+      background: none; border: 1px solid ${CM.border}; border-radius: 8px; cursor: pointer;
+      padding: 5px 13px; font-family: ${MONO}; font-size: 11px;
+      font-weight: 600; color: ${CM.dim}; transition: all 0.18s ease;
       display: flex; align-items: center; gap: 5px;
     }
-    .lang-pill.active { background: rgba(255,161,22,0.09); color: ${CM.accent}; border-color: rgba(255,161,22,0.4); }
-    .lang-pill:hover:not(.active) { border-color: ${CM.border2}; color: ${CM.muted}; }
+    .lang-pill.active { background: rgba(255,161,22,0.1); color: ${CM.accent}; border-color: rgba(255,161,22,0.45); box-shadow: 0 0 12px rgba(255,161,22,0.15); }
+    .lang-pill:hover:not(.active) { border-color: ${CM.border2}; color: ${CM.muted}; transform: translateY(-1px); }
     .cm-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
     .cm-scrollbar::-webkit-scrollbar-thumb { background: ${CM.border2}; border-radius: 8px; }
     .cm-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .cm-btn { transition: all 0.18s ease; }
+    .cm-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+    .cm-btn:active:not(:disabled) { transform: translateY(0); }
   `;
 
   if (loading) return (
@@ -442,13 +477,13 @@ const DuelPage = () => {
           <Backbutton></Backbutton>
           <div style={{
             position: 'relative',
-            background: CM.surface,
-            border: `1px solid ${result.won ? 'rgba(0,184,107,0.3)' : 'rgba(255,68,68,0.3)'}`,
+            background: `linear-gradient(180deg, ${CM.surface} 0%, ${CM.bg} 140%)`,
+            border: `1px solid ${result.won ? 'rgba(0,201,122,0.3)' : 'rgba(255,85,102,0.3)'}`,
             borderRadius: 20, padding: 48, textAlign: 'center', maxWidth: 480, width: '90%',
-            boxShadow: `0 0 60px ${result.won ? 'rgba(0,184,107,0.15)' : 'rgba(255,68,68,0.15)'}`,
+            boxShadow: `0 0 60px ${result.won ? 'rgba(0,201,122,0.15)' : 'rgba(255,85,102,0.15)'}, 0 20px 50px rgba(0,0,0,0.4)`,
             animation: 'popIn 0.35s ease'
           }}>
-            <div style={{ fontSize: 72, marginBottom: 16 }}>{result.won ? '🏆' : '💀'}</div>
+            <div style={{ fontSize: 72, marginBottom: 16, filter: `drop-shadow(0 0 20px ${result.won ? 'rgba(0,201,122,0.4)' : 'rgba(255,85,102,0.4)'})` }}>{result.won ? '🏆' : '💀'}</div>
             <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: -1, marginBottom: 8, color: result.won ? CM.green : CM.red, fontFamily: MONO }}>
               {result.won ? 'You Won!' : 'You Lost!'}
             </h1>
@@ -471,12 +506,14 @@ const DuelPage = () => {
             {rematchInvite && (
               <div style={{
                 background: 'rgba(196,132,252,0.08)', border: '1px solid rgba(196,132,252,0.3)',
-                borderRadius: 12, padding: '14px 18px', marginBottom: 20, textAlign: 'left'
+                borderRadius: 12, padding: '14px 18px', marginBottom: 20, textAlign: 'left',
+                animation: 'cmFadeUp 0.3s ease'
               }}>
                 <div style={{ fontSize: 12, color: CM.purple, fontFamily: MONO, marginBottom: 8 }}>
                   ⚔ Your opponent started a rematch — {rematchInvite.problem?.title}
                 </div>
                 <button
+                  className="cm-btn"
                   onClick={() => navigate(`/duel/${rematchInvite.roomCode}`)}
                   style={{
                     background: CM.purple, color: '#0d1117', border: 'none', borderRadius: 8,
@@ -491,19 +528,22 @@ const DuelPage = () => {
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
+                className="cm-btn"
                 onClick={handleRematch}
                 disabled={rematching}
                 style={{
                   background: 'linear-gradient(135deg, #c084fc, #9333ea)', color: '#fff',
                   border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700,
                   cursor: rematching ? 'not-allowed' : 'pointer', fontSize: 14,
-                  fontFamily: SANS, opacity: rematching ? 0.6 : 1
+                  fontFamily: SANS, opacity: rematching ? 0.6 : 1,
+                  boxShadow: '0 4px 16px rgba(147,51,234,0.3)'
                 }}
               >
                 {rematching ? '⏳ Creating...' : '🔁 Rematch'}
               </button>
               {/* ✅ NEW: view opponent's final code */}
               <button
+                className="cm-btn"
                 onClick={handleViewOpponentCode}
                 style={{
                   background: 'transparent', color: CM.purple, border: '1px solid rgba(196,132,252,0.4)',
@@ -513,10 +553,10 @@ const DuelPage = () => {
               >
                 👁 View Opponent's Code
               </button>
-              <button onClick={() => navigate('/duel')} style={{ background: 'linear-gradient(135deg, #ffa116, #e08a00)', color: '#0d1117', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: SANS }}>
+              <button className="cm-btn" onClick={() => navigate('/duel')} style={{ background: 'linear-gradient(135deg, #ffa116, #e08a00)', color: '#0d1117', border: 'none', borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: SANS, boxShadow: '0 4px 16px rgba(255,161,22,0.3)' }}>
                 ⚔ New Duel
               </button>
-              <button onClick={() => navigate('/')} style={{ background: 'transparent', color: CM.text, border: `1px solid ${CM.border2}`, borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: SANS }}>
+              <button className="cm-btn" onClick={() => navigate('/')} style={{ background: 'transparent', color: CM.text, border: `1px solid ${CM.border2}`, borderRadius: 10, padding: '12px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: SANS }}>
                 Home
               </button>
             </div>
@@ -525,7 +565,7 @@ const DuelPage = () => {
           {/* ✅ NEW: opponent code modal — side-by-side comparison with your own final submission */}
           {showOpponentCode && (
             <div style={{
-              position: 'fixed', inset: 0, background: 'rgba(3,5,8,0.75)', backdropFilter: 'blur(4px)', zIndex: 300,
+              position: 'fixed', inset: 0, background: 'rgba(3,5,8,0.8)', backdropFilter: 'blur(6px)', zIndex: 300,
               display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24
             }}>
               <div style={{
@@ -603,7 +643,7 @@ const DuelPage = () => {
       <DuelNavbar roomCode={roomCode} statusLabel={statusLabel} statusColor={statusColor} spectatorCount={spectatorCount} />
 
       {/* SUB-TOPBAR — problem title, difficulty, timer */}
-      <div style={{ position: 'relative', height: 52, background: CM.surface, borderBottom: `1px solid ${CM.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', flexShrink: 0, overflow: 'hidden' }}>
+      <div style={{ position: 'relative', height: 54, background: CM.surface, borderBottom: `1px solid ${CM.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', flexShrink: 0, overflow: 'hidden' }}>
         <GridBackdrop color={CM.accent} opacity="0d" />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 18 }}>⚔</span>
@@ -612,18 +652,18 @@ const DuelPage = () => {
             <span style={{
               fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
               fontFamily: MONO, textTransform: 'uppercase',
-              background: problem.difficulty === 'easy' ? 'rgba(0,184,107,0.1)' : problem.difficulty === 'medium' ? 'rgba(255,161,22,0.1)' : 'rgba(255,68,68,0.1)',
+              background: problem.difficulty === 'easy' ? 'rgba(0,201,122,0.1)' : problem.difficulty === 'medium' ? 'rgba(255,161,22,0.1)' : 'rgba(255,85,102,0.1)',
               color: problem.difficulty === 'easy' ? CM.green : problem.difficulty === 'medium' ? CM.accent : CM.red,
-              border: `1px solid ${problem.difficulty === 'easy' ? 'rgba(0,184,107,0.3)' : problem.difficulty === 'medium' ? 'rgba(255,161,22,0.3)' : 'rgba(255,68,68,0.3)'}`
+              border: `1px solid ${problem.difficulty === 'easy' ? 'rgba(0,201,122,0.3)' : problem.difficulty === 'medium' ? 'rgba(255,161,22,0.3)' : 'rgba(255,85,102,0.3)'}`
             }}>
               {problem.difficulty}
             </span>
           )}
         </div>
 
-        <div style={{ position: 'relative', fontFamily: MONO, fontSize: 22, fontWeight: 700, color: timeLeft !== null && timeLeft < 60000 ? CM.red : CM.accent, letterSpacing: 2 }}>
+        <div style={{ position: 'relative', fontFamily: MONO, fontSize: 22, fontWeight: 700, color: timeLeft !== null && timeLeft < 60000 ? CM.red : CM.accent, letterSpacing: 2, textShadow: `0 0 16px ${timeLeft !== null && timeLeft < 60000 ? 'rgba(255,85,102,0.4)' : 'rgba(255,161,22,0.35)'}` }}>
           {gameStatus === 'waiting' ? (
-            <span style={{ fontSize: 13, color: CM.muted }}>
+            <span style={{ fontSize: 13, color: CM.muted, textShadow: 'none' }}>
               {opponentJoined ? '✅ Opponent joined! Starting...' : '⏳ Waiting for opponent...'}
             </span>
           ) : formatTime(timeLeft)}
@@ -711,6 +751,7 @@ const DuelPage = () => {
             </span>
 
             <button
+              className="cm-btn"
               onClick={handleSubmit}
               disabled={submitting || gameStatus !== 'active'}
               style={{
