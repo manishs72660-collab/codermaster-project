@@ -31,7 +31,9 @@ const profileRouter = require("./routes/profileRoute");
 const communityRouter = require("./routes/Communityroute");
 const discussionRouter = require("./routes/Discussionrouter");
 const mcqrouter = require("./routes/Mcqcontest");
-
+const designProblemRoutes=require("../src/routes/designProblemRoutes")
+const designSubmissionRoutes=require("../src/routes/designSubmissionRoutes");
+const compilerRouter = require("./routes/Compilerroutes");
 const cors = require("cors");
 
 const app = express();
@@ -163,6 +165,9 @@ app.use("/discuss", discussionRouter);
 
 app.use("/mcq-contest", mcqrouter);
 
+app.use("/design",designSubmissionRoutes);
+app.use("/designprolem",designProblemRoutes);
+app.use("/compiler", compilerRouter);
 /* =========================================================
    INITIALIZE SOCKET EVENTS
 ========================================================= */

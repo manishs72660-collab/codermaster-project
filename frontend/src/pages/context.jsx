@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Trophy,
@@ -9,23 +9,23 @@ import {
   Swords,
   CalendarDays,
   Lock,
-  Zap,
   Code2,
-  Timer,
   KeyRound,
   X,
   ListChecks,
+  Loader2,
 } from 'lucide-react';
 import Navbar from '../component/navbar';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
 
 /* ─── helpers ─── */
-const getStatusStyle = (status) => {
-  if (status === 'ongoing')  return { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', dot: 'bg-emerald-400', label: 'Live' };
-  if (status === 'upcoming') return { text: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   dot: 'bg-amber-400',   label: 'Upcoming' };
-  return                            { text: 'text-white/30',     bg: 'bg-white/[0.03]',   border: 'border-white/10',       dot: 'bg-white/20',    label: 'Ended' };
+const STATUS = {
+  ongoing:  { text: 'text-emerald-400', label: 'Live' },
+  upcoming: { text: 'text-amber-400',   label: 'Upcoming' },
+  ended:    { text: 'text-white/30',    label: 'Ended' },
 };
+const statusMeta = (s) => STATUS[s] || STATUS.ended;
 
 const formatDate = (d) => {
   if (!d) return '—';
@@ -76,14 +76,9 @@ export default function Contest() {
   const [joinCode, setJoinCode]           = useState('');
   const [joining, setJoining]             = useState(false);
   const [joinError, setJoinError]         = useState('');
-  // when set, the modal was opened by clicking a specific private card
-  // (so we know both the title AND which endpoint to hit)
   const [joinTarget, setJoinTarget]       = useState(null);
 
   useEffect(() => {
-    // Coding contests and MCQ contests are separate collections/endpoints —
-    // fetch both and merge into one list, tagged by `type` so the card and
-    // the click-through routing both know which flavor they're dealing with.
     Promise.all([
       axiosClient.get('/contest/all').catch(() => ({ data: [] })),
       axiosClient.get('/mcq-contest/all').catch(() => ({ data: [] })),
@@ -102,9 +97,6 @@ export default function Contest() {
     setJoining(true);
     setJoinError('');
 
-    // If the modal was opened from a specific card we already know the type.
-    // Otherwise (generic "Join with code" button) try coding contests first,
-    // then fall back to MCQ contests if the code isn't found there.
     const attempts =
       joinTarget?.type === 'mcq' ? ['/mcq-contest/join'] :
       joinTarget?.type === 'code' ? ['/contest/join'] :
@@ -144,240 +136,184 @@ export default function Contest() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
-        .font-display { font-family: 'Syne', sans-serif; }
-        .font-body    { font-family: 'DM Sans', sans-serif; }
-        .font-mono    { font-family: 'JetBrains Mono', monospace; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-data { font-family: 'IBM Plex Mono', monospace; }
 
-        .hero-grid {
+        .subtle-grid {
           background-image:
-            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-          background-size: 48px 48px;
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
         }
-        .noise::after {
-          content: '';
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-          opacity: 0.55;
-        }
-        @keyframes glow-pulse { 0%,100%{opacity:0.35} 50%{opacity:0.55} }
-        .glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
 
-        .card-shimmer::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: linear-gradient(105deg, transparent 40%, rgba(249,115,22,0.04) 50%, transparent 60%);
-          opacity: 0; transition: opacity 0.3s;
-        }
-        .card-shimmer:hover::before { opacity: 1; }
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .spin-slow { animation: spin-slow 0.8s linear infinite; }
 
-        @keyframes live-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.85)} }
-        .live-dot { animation: live-pulse 1.5s ease-in-out infinite; }
+        @keyframes live-pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+        .live-dot { animation: live-pulse 1.6s ease-in-out infinite; }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: #ffffff14; border-radius: 2px; }
       `}</style>
 
-      <div className="noise min-h-screen bg-[#050505] text-[#e5e5e5] font-body antialiased">
-
-        {/* ambient blobs */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="glow-pulse absolute top-[-15%] left-[-8%] w-[500px] h-[500px] bg-orange-500/[0.06] blur-[130px] rounded-full" />
-          <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-purple-500/[0.04] blur-[130px] rounded-full" />
-        </div>
-
+      <div className="min-h-screen bg-[#0B0B0C] text-[#EAE8E3] font-body antialiased">
         <Navbar />
 
-        {/* ── HERO ── */}
-        <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
-          <div className="max-w-7xl mx-auto px-5 py-14 relative z-10">
+        {/* ── hero ── */}
+        <div className="subtle-grid border-b border-white/[0.06]">
+          <div className="max-w-5xl mx-auto px-6 py-16">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex flex-col md:flex-row md:items-start md:justify-between gap-6"
+              transition={{ duration: 0.4 }}
+              className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5"
             >
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400 live-dot" />
-                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.15em]">Arena</span>
-                  </div>
-                  {ongoing > 0 && (
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
-                      <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.15em]">{ongoing} Live Now</span>
-                    </div>
-                  )}
-                </div>
-                <h1 className="font-display text-4xl md:text-5xl font-800 text-white tracking-tight leading-[1.1] mb-3">
-                  Compete. Solve.<br />
-                  <span className="text-orange-500">Dominate.</span>
+                {ongoing > 0 && (
+                  <span className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot" />
+                    <span className="text-[11px] font-medium text-emerald-400">{ongoing} live now</span>
+                  </span>
+                )}
+                <h1 className="font-display font-extrabold text-[2.5rem] sm:text-5xl leading-[1.08] text-white mb-3">
+                  Compete. Solve.
                 </h1>
-                <p className="text-white/40 text-base max-w-md leading-relaxed">
+                <p className="text-white/45 text-[15px] max-w-md">
                   Join timed contests, climb the leaderboard, and prove your skills against the best.
                 </p>
               </div>
 
-              {/* join-with-code — lives in the hero now that Navbar owns the top bar */}
               <button
                 onClick={() => openJoinModal(null)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white/50 border border-white/[0.08] hover:text-white hover:border-white/20 hover:bg-white/[0.04] transition-all self-start md:mt-1 flex-shrink-0"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[13px] font-medium text-white/50 border border-white/[0.08] hover:text-white hover:border-white/20 hover:bg-white/[0.04] transition-colors self-start flex-shrink-0"
               >
                 <KeyRound className="w-3.5 h-3.5" />
                 Join with code
               </button>
             </motion.div>
           </div>
-          <div className="absolute top-4 right-4 w-24 h-24 border-r-2 border-t-2 border-white/[0.04] rounded-tr-2xl pointer-events-none" />
-          <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-white/[0.04] rounded-bl-xl pointer-events-none" />
         </div>
 
-        {/* ── MAIN ── */}
-        <div className="max-w-7xl mx-auto px-5 py-10 relative z-10">
+        <div className="max-w-5xl mx-auto px-6 py-10">
 
-          {/* ── TOP 3 CARDS (Contest + Duel) ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          {/* ── top cards ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
 
-            {/* Card 1 — Join Contest (primary CTA) */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
-              className="md:col-span-2 relative overflow-hidden rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/[0.08] via-white/[0.02] to-transparent p-6 group cursor-pointer hover:border-orange-500/40 transition-all duration-300"
+            {/* Join a contest */}
+            <motion.button
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}
               onClick={() => document.getElementById('contest-list')?.scrollIntoView({ behavior: 'smooth' })}
+              className="sm:col-span-2 text-left rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.035] hover:border-white/[0.14] transition-colors px-6 py-5"
             >
-              <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/[0.06] blur-[80px] rounded-full pointer-events-none" />
+              <div className="flex items-center gap-2 mb-2.5 text-orange-400/80">
+                <Trophy className="w-4 h-4" />
+                <span className="text-[12px] font-medium text-white/40">Contests</span>
+              </div>
+              <h2 className="font-display text-xl font-bold text-white mb-4">Join a Contest</h2>
 
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center">
-                    <Trophy className="w-6 h-6 text-orange-400" />
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-400 live-dot" />
-                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.12em]">{ongoing} Live</span>
-                  </div>
+              <div className="flex items-center gap-5 mb-4">
+                <div className="flex flex-col">
+                  <span className="font-display text-xl font-bold text-emerald-400">{ongoing}</span>
+                  <span className="text-[11px] text-white/30">Live</span>
                 </div>
-
-                <h2 className="font-display text-2xl font-700 text-white mb-2">Join a Contest</h2>
-                <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-sm">
-                  Timed coding battles and quiz-style MCQ contests, both with live leaderboards.
-                </p>
-
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="flex flex-col">
-                    <span className="font-display text-2xl font-700 text-orange-400">{ongoing}</span>
-                    <span className="text-[10px] font-black text-white/25 uppercase tracking-widest">Live Now</span>
-                  </div>
-                  <div className="w-px h-10 bg-white/10" />
-                  <div className="flex flex-col">
-                    <span className="font-display text-2xl font-700 text-amber-400">{upcoming}</span>
-                    <span className="text-[10px] font-black text-white/25 uppercase tracking-widest">Upcoming</span>
-                  </div>
-                  <div className="w-px h-10 bg-white/10" />
-                  <div className="flex flex-col">
-                    <span className="font-display text-2xl font-700 text-white/30">{ended}</span>
-                    <span className="text-[10px] font-black text-white/25 uppercase tracking-widest">Ended</span>
-                  </div>
+                <div className="flex flex-col">
+                  <span className="font-display text-xl font-bold text-amber-400">{upcoming}</span>
+                  <span className="text-[11px] text-white/30">Upcoming</span>
                 </div>
-
-                <div className="flex items-center gap-2 text-orange-400 text-sm font-semibold group-hover:gap-3 transition-all">
-                  <span>Browse Contests</span>
-                  <ChevronRight className="w-4 h-4" />
+                <div className="flex flex-col">
+                  <span className="font-display text-xl font-bold text-white/40">{ended}</span>
+                  <span className="text-[11px] text-white/30">Ended</span>
                 </div>
               </div>
-            </motion.div>
 
-            {/* Card 2 — Duel Challenge */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
-              className="relative overflow-hidden rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-500/[0.06] via-white/[0.02] to-transparent p-6 group cursor-pointer hover:border-purple-500/35 transition-all duration-300"
+              <span className="inline-flex items-center gap-1 text-[13px] font-medium text-orange-400/90">
+                Browse contests
+                <ChevronRight className="w-3.5 h-3.5" />
+              </span>
+            </motion.button>
+
+            {/* Duel */}
+            <motion.button
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
               onClick={() => navigate('/duel')}
+              className="text-left rounded-xl border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.035] hover:border-white/[0.14] transition-colors px-6 py-5 flex flex-col"
             >
-              <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/[0.05] blur-[60px] rounded-full pointer-events-none" />
-
-              <div className="relative z-10 h-full flex flex-col">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center">
-                    <Swords className="w-6 h-6 text-purple-400" />
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full">
-                    <span className="text-[10px] font-black text-purple-400 uppercase tracking-[0.12em]">1v1</span>
-                  </div>
-                </div>
-
-                <h2 className="font-display text-2xl font-700 text-white mb-2">Duel Challenge</h2>
-                <p className="text-white/40 text-sm leading-relaxed mb-6 flex-1">
-                  Challenge a friend or get matched with a random opponent. First to solve wins.
-                </p>
-
-                <div className="flex items-center gap-2 text-purple-400 text-sm font-semibold group-hover:gap-3 transition-all">
-                  <span>Start a Duel</span>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
+              <div className="flex items-center gap-2 mb-2.5 text-orange-400/80">
+                <Swords className="w-4 h-4" />
+                <span className="text-[12px] font-medium text-white/40">1v1</span>
               </div>
-            </motion.div>
+              <h2 className="font-display text-xl font-bold text-white mb-2">Duel Challenge</h2>
+              <p className="text-[13px] text-white/35 leading-relaxed mb-4 flex-1">
+                Challenge a friend or get matched with a random opponent. First to solve wins.
+              </p>
+              <span className="inline-flex items-center gap-1 text-[13px] font-medium text-orange-400/90">
+                Start a duel
+                <ChevronRight className="w-3.5 h-3.5" />
+              </span>
+            </motion.button>
           </div>
 
-          {/* ── TAB BAR ── */}
-          <div id="contest-list">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.07] rounded-xl">
-                {[
-                  { key: 'all',      label: 'All',      count: contests.length },
-                  { key: 'ongoing',  label: 'Live',     count: ongoing  },
-                  { key: 'upcoming', label: 'Upcoming', count: upcoming },
-                  { key: 'ended',    label: 'Ended',    count: ended    },
-                ].map(({ key, label, count }) => (
-                  <button
-                    key={key}
-                    onClick={() => setTab(key)}
-                    className={cn(
-                      "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
-                      tab === key
-                        ? "bg-orange-500 text-black shadow-[0_0_16px_rgba(249,115,22,0.3)]"
-                        : "text-white/40 hover:text-white/70"
-                    )}
-                  >
-                    {label}
-                    <span className={cn(
-                      "text-[10px] font-black px-1.5 py-0.5 rounded-md",
-                      tab === key ? "bg-black/20 text-black/70" : "bg-white/[0.06] text-white/30"
-                    )}>{count}</span>
-                  </button>
-                ))}
-              </div>
+          {/* ── tabs ── */}
+          <div id="contest-list" className="mb-6 flex items-center gap-1 flex-wrap">
+            {[
+              { key: 'all',      label: 'All',      count: contests.length },
+              { key: 'ongoing',  label: 'Live',     count: ongoing  },
+              { key: 'upcoming', label: 'Upcoming', count: upcoming },
+              { key: 'ended',    label: 'Ended',    count: ended    },
+            ].map(({ key, label, count }) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors',
+                    active
+                      ? 'bg-orange-500/15 text-orange-400'
+                      : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                  )}
+                >
+                  {label}
+                  <span className="text-[11px] font-data text-white/30">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── contest list ── */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-28">
+              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
+              <p className="text-sm text-white/35">Loading contests…</p>
             </div>
-
-            {/* ── CONTEST LIST ── */}
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-28 rounded-2xl bg-white/[0.02] border border-white/[0.05] animate-pulse" />
+          ) : filtered.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-24 text-center"
+            >
+              <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center mb-4">
+                <Trophy className="w-5 h-5 text-white/20" />
+              </div>
+              <h3 className="font-display text-base font-semibold text-white/65 mb-1">No contests here</h3>
+              <p className="text-xs text-white/30">Check back soon or look at a different tab.</p>
+            </motion.div>
+          ) : (
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.015] overflow-hidden divide-y divide-white/[0.05]">
+              <AnimatePresence mode="popLayout">
+                {filtered.map((contest, index) => (
+                  <ContestRow
+                    key={`${contest.type}-${contest._id}`}
+                    contest={contest}
+                    index={index}
+                    onRequestJoin={openJoinModal}
+                  />
                 ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="flex flex-col items-center justify-center py-28 text-center"
-              >
-                <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
-                  <Trophy className="w-7 h-7 text-white/15" />
-                </div>
-                <h3 className="font-display text-lg font-700 text-white/30 mb-1">No contests here</h3>
-                <p className="text-sm text-white/20">Check back soon or look at a different tab.</p>
-              </motion.div>
-            ) : (
-              <div className="space-y-3">
-                <AnimatePresence mode="popLayout">
-                  {filtered.map((contest, index) => (
-                    <ContestCard key={`${contest.type}-${contest._id}`} contest={contest} index={index} onRequestJoin={openJoinModal} />
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
+              </AnimatePresence>
+            </div>
+          )}
         </div>
       </div>
 
@@ -390,29 +326,30 @@ export default function Contest() {
             onClick={() => setShowJoinModal(false)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-[#0e0e0e] border border-white/[0.08] rounded-2xl p-6 relative"
+              className="w-full max-w-sm bg-[#0B0B0C] border border-white/[0.08] rounded-xl p-6 relative"
             >
               <button
                 onClick={() => setShowJoinModal(false)}
-                className="absolute top-4 right-4 w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] transition-all"
+                className="absolute top-4 right-4 w-7 h-7 rounded-md bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
 
-              <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center mb-4">
-                <KeyRound className="w-6 h-6 text-orange-400" />
+              <div className="flex items-center gap-2 mb-2.5 text-orange-400/80">
+                <KeyRound className="w-4 h-4" />
+                <span className="text-[12px] font-medium text-white/40">Private contest</span>
               </div>
 
-              <h3 className="font-display text-xl font-700 text-white mb-1">
-                {joinTarget ? joinTarget.title : 'Join Private Contest'}
+              <h3 className="font-display text-lg font-bold text-white mb-1">
+                {joinTarget ? joinTarget.title : 'Join with code'}
               </h3>
-              <p className="text-white/40 text-sm mb-5">
+              <p className="text-white/40 text-[13px] mb-5">
                 {joinTarget
-                  ? 'This is a private contest — enter its invite code to unlock it.'
+                  ? 'This contest is private — enter its invite code to unlock it.'
                   : 'Enter the invite code shared by the contest organizer.'}
               </p>
 
@@ -424,7 +361,7 @@ export default function Contest() {
                   placeholder="e.g. K4F9XQ"
                   autoFocus
                   maxLength={6}
-                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white font-mono text-center text-lg tracking-[0.3em] uppercase placeholder:text-white/15 placeholder:tracking-normal focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all mb-3"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-3 text-white font-data text-center text-base tracking-[0.3em] uppercase placeholder:text-white/15 placeholder:tracking-normal focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-colors mb-3"
                 />
 
                 {joinError && (
@@ -434,10 +371,10 @@ export default function Contest() {
                 <button
                   type="submit"
                   disabled={joining || !joinCode.trim()}
-                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-semibold text-sm py-2.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {joining
-                    ? <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                    ? <Loader2 className="w-4 h-4 spin-slow" />
                     : <KeyRound className="w-4 h-4" />}
                   {joining ? 'Joining…' : 'Join Contest'}
                 </button>
@@ -451,16 +388,16 @@ export default function Contest() {
 }
 
 /* ══════════════════════════════════════════
-   CONTEST CARD
+   CONTEST ROW
 ══════════════════════════════════════════ */
-function ContestCard({ contest, index, onRequestJoin }) {
-  const navigate  = useNavigate();
-  const status    = getStatusStyle(contest.computedStatus);
-  const isOngoing = contest.computedStatus === 'ongoing';
-  const isUpcoming = contest.computedStatus === 'upcoming';
-  const isMcq      = contest.type === 'mcq';
-  const isPrivate  = contest.isPublic === false;
-  const isLocked   = isPrivate && !contest.isRegistered;
+function ContestRow({ contest, index, onRequestJoin }) {
+  const navigate    = useNavigate();
+  const status      = statusMeta(contest.computedStatus);
+  const isOngoing   = contest.computedStatus === 'ongoing';
+  const isUpcoming  = contest.computedStatus === 'upcoming';
+  const isMcq       = contest.type === 'mcq';
+  const isPrivate   = contest.isPublic === false;
+  const isLocked    = isPrivate && !contest.isRegistered;
 
   const countdown = useCountdown(isUpcoming ? contest.startTime : null);
 
@@ -477,131 +414,75 @@ function ContestCard({ contest, index, onRequestJoin }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 12 }}
       layout
-      transition={{ delay: index * 0.05, duration: 0.3 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ delay: (index % 20) * 0.02, duration: 0.18 }}
     >
-      <div
+      <button
         onClick={handleClick}
-        className={cn(
-          "card-shimmer group relative flex items-center justify-between px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl hover:bg-white/[0.035] transition-all duration-250 overflow-hidden cursor-pointer",
-          isOngoing && "border-emerald-500/15 hover:border-emerald-500/25",
-          isUpcoming && "hover:border-orange-500/20"
-        )}
+        className="w-full group flex items-center justify-between gap-4 px-4 py-3.5 hover:bg-white/[0.03] transition-colors duration-150 text-left"
       >
-        {isOngoing && (
-          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-emerald-400 to-emerald-600 shadow-[3px_0_18px_rgba(52,211,153,0.35)]" />
-        )}
-
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-orange-500/[0.025] to-transparent pointer-events-none" />
-
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          <div className={cn(
-            "hidden sm:flex w-10 h-10 rounded-xl items-center justify-center flex-shrink-0 border transition-all",
-            isLocked   ? "bg-purple-500/10  border-purple-500/25  group-hover:border-purple-500/45" :
-            isOngoing  ? "bg-emerald-500/10 border-emerald-500/20 group-hover:border-emerald-500/40" :
-            isUpcoming ? "bg-orange-500/10  border-orange-500/20  group-hover:border-orange-500/40"  :
-                         "bg-white/[0.03]   border-white/[0.07]"
-          )}>
-            {isLocked   ? <Lock      className="w-4 h-4 text-purple-400"  /> :
-             isOngoing  ? <Zap       className="w-4 h-4 text-emerald-400" /> :
-             isUpcoming ? <Timer     className="w-4 h-4 text-orange-400"  /> :
-                          <Lock      className="w-4 h-4 text-white/20"    />}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={cn('text-[13px] font-medium', status.text)}>
+              {isOngoing && <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot mr-1.5 align-middle" />}
+              {status.label}
+            </span>
+            {isMcq && <span className="text-[11px] text-white/25 font-data">MCQ</span>}
+            {isPrivate && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-white/25">
+                <Lock className="w-3 h-3" />
+                Private
+              </span>
+            )}
           </div>
 
-          <div className="min-w-0">
-            <h4 className="text-[14px] font-semibold text-white/80 group-hover:text-white transition-colors truncate mb-1.5">
-              {contest.title}
-            </h4>
+          <h4 className="text-[14px] font-medium text-white/80 group-hover:text-white transition-colors truncate mb-1.5">
+            {contest.title}
+          </h4>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className={cn(
-                "inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border",
-                status.bg, status.border, status.text
-              )}>
-                <span className={cn("w-1.5 h-1.5 rounded-full", status.dot, isOngoing && "live-dot")} />
-                {status.label}
-              </span>
-
-              {isMcq && (
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border bg-cyan-500/10 border-cyan-500/20 text-cyan-400">
-                  <ListChecks className="w-2.5 h-2.5" />
-                  MCQ
-                </span>
-              )}
-
-              {isPrivate && (
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border bg-purple-500/10 border-purple-500/20 text-purple-400">
-                  <Lock className="w-2.5 h-2.5" />
-                  Private
-                </span>
-              )}
-
-              <span className="flex items-center gap-1 text-[11px] text-white/25">
-                <Clock className="w-3 h-3" />
-                {getDuration(contest.startTime, contest.endTime)}
-              </span>
-
-              <span className="flex items-center gap-1 text-[11px] text-white/25">
-                <Users className="w-3 h-3" />
-                {contest.totalParticipants ?? 0} joined
-              </span>
-
-              <span className="flex items-center gap-1 text-[11px] text-white/25">
-                {isMcq ? <ListChecks className="w-3 h-3" /> : <Code2 className="w-3 h-3" />}
-                {itemCount ?? 0} {itemLabel}
-              </span>
-
-              <span className="hidden md:flex items-center gap-1 text-[11px] text-white/20">
-                <CalendarDays className="w-3 h-3" />
-                {isOngoing  ? `Ends ${formatDate(contest.endTime)}`   :
-                 isUpcoming ? `Starts ${formatDate(contest.startTime)}` :
-                              formatDate(contest.endTime)}
-              </span>
-            </div>
+          <div className="flex items-center gap-4 flex-wrap text-[11px] text-white/30">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {getDuration(contest.startTime, contest.endTime)}
+            </span>
+            <span className="flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              {contest.totalParticipants ?? 0} joined
+            </span>
+            <span className="flex items-center gap-1">
+              {isMcq ? <ListChecks className="w-3 h-3" /> : <Code2 className="w-3 h-3" />}
+              {itemCount ?? 0} {itemLabel}
+            </span>
+            <span className="hidden md:flex items-center gap-1">
+              <CalendarDays className="w-3 h-3" />
+              {isOngoing  ? `Ends ${formatDate(contest.endTime)}`     :
+               isUpcoming ? `Starts ${formatDate(contest.startTime)}` :
+                            formatDate(contest.endTime)}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 flex-shrink-0 ml-4">
-
+        <div className="flex items-center gap-3 flex-shrink-0">
           {isUpcoming && countdown && (
-            <div className="hidden md:flex items-center gap-1 font-mono text-xs">
-              {[
-                { val: String(countdown.h).padStart(2,'0'), label: 'h' },
-                { val: String(countdown.m).padStart(2,'0'), label: 'm' },
-                { val: String(countdown.s).padStart(2,'0'), label: 's' },
-              ].map(({ val, label }, i) => (
-                <span key={label} className="flex items-center">
-                  {i > 0 && <span className="text-white/20 mx-0.5">:</span>}
-                  <span className="flex flex-col items-center">
-                    <span className="text-amber-400 font-black text-sm leading-none">{val}</span>
-                    <span className="text-[8px] text-white/20 uppercase">{label}</span>
-                  </span>
-                </span>
-              ))}
+            <div className="hidden md:flex items-center gap-1 font-data text-[11px] text-amber-400">
+              {String(countdown.h).padStart(2, '0')}:{String(countdown.m).padStart(2, '0')}:{String(countdown.s).padStart(2, '0')}
             </div>
           )}
 
           {contest.isRegistered && (
-            <span className="hidden sm:block text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg uppercase tracking-widest">
+            <span className="hidden sm:block text-[11px] font-medium text-emerald-400">
               Registered
             </span>
           )}
 
-          <div className={cn(
-            "w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300",
-            isLocked
-              ? "bg-purple-500/10 border-purple-500/25 group-hover:bg-purple-500 group-hover:border-purple-500 group-hover:shadow-[0_0_18px_rgba(168,85,247,0.4)]"
-              : "bg-white/[0.04] border-white/[0.07] group-hover:bg-orange-500 group-hover:border-orange-500 group-hover:shadow-[0_0_18px_rgba(249,115,22,0.4)]"
-          )}>
-            {isLocked
-              ? <Lock className="w-3.5 h-3.5 text-purple-400 group-hover:text-black transition-all" />
-              : <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-black group-hover:translate-x-0.5 transition-all" />}
-          </div>
+          {isLocked
+            ? <Lock className="w-4 h-4 text-white/20 group-hover:text-orange-400 transition-colors" />
+            : <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all" />}
         </div>
-      </div>
+      </button>
     </motion.div>
   );
 }

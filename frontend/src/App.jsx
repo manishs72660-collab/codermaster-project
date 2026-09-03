@@ -49,15 +49,9 @@ import DuelSpectate from "./pages/Duelspectate"
 import McqContestCreate from "./component/Mcqcontestcreate";
 import McqContestPlay from "./component/Mcqcontestplay";
 import AdminManageMcqContests from "./component/AdminManageMcqContests";
-//frontend/src/pages/Collegeadmindashboard.jsx
-//frontend/src/pages/Collegerequests.jsxF
-//frontend/src/pages/CollegeLeaderboard.jsx
-// NOTE: no "/discuss" route exists anywhere in this file. If clicking
-// "Community" sometimes lands you on a discuss view, that behavior is being
-// decided *inside* the Community page component (./pages/connect.jsx) —
-// e.g. a default tab, a redirect based on stored state, or an internal
-// nested route — not here. Check that file for the actual cause.
-
+import DesignProblemsPage from './pages/DesignProblemsPage';
+import DesignSolvePage from './pages/Designsolvepage';
+import Compiler from "./pages/Compiler";
 function App(){
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -151,6 +145,9 @@ function App(){
 <Route path="/admin/mcq-contest/create" element={<McqContestCreate />} />
 <Route path="/mcq-contest/:id" element={<McqContestPlay />} />
 <Route path="/admin/mcq-contest/manage" element={<AdminManageMcqContests />} />
+  <Route path="/design-problems" element={<DesignProblemsPage />} />
+  <Route path="/design-problems/:slug" element={<DesignSolvePage />} />
+   <Route path="/compile" element={<Compiler/>} />
     </Routes>
   </>
   )

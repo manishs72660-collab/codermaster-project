@@ -1,76 +1,76 @@
 import { useState, useMemo } from "react";
-import { NavLink } from "react-router";
-import mylogo from "../assets/mylogo.png";
-// ─── CodeMaster Color Palette (matches DSAVisualizer) ─────────────────────────
-const CM = {
-  bg:        "#0d1117",
-  surface:   "#161b22",
-  surface2:  "#1c2130",
-  border:    "#21262d",
-  border2:   "#30363d",
-  text:      "#e6edf3",
-  muted:     "#8b949e",
-  dim:       "#495366",
-  accent:    "#ffa116",
-  accentDim: "#1e1608",
-  green:     "#00b86b",
-  red:       "#ff4444",
-  blue:      "#4493f8",
-  purple:    "#c084fc",
-  teal:      "#2dd4bf",
-  pink:      "#ff5fa6",
-  sky:       "#38bdf8",
+import { NavLink } from "react-router-dom";
+import { motion, AnimatePresence } from "motion/react";
+import Navbar from "../component/navbar";
+import { cn } from "../utils/cn";
+
+// ─── Dynamic hex colors (used for chart strokes/dots — can't be static
+// Tailwind classes since they're computed per data series) ───────────────────
+const HEX = {
+  emerald: "#34d399",
+  teal:    "#2dd4bf",
+  sky:     "#38bdf8",
+  blue:    "#60a5fa",
+  violet:  "#a78bfa",
+  orange:  "#fb923c",
+  rose:    "#fb7185",
+  pink:    "#f472b6",
 };
 
-// ─── Reusable UI (matches DSAVisualizer conventions) ──────────────────────────
-function SectionLabel({ children, color = CM.accent }) {
+// Static Tailwind tone classes — kept literal so the JIT compiler picks them up.
+const TONE = {
+  orange: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  sky:    "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  emerald:"bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  rose:   "bg-rose-500/10 text-rose-400 border-rose-500/20",
+  violet: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+  teal:   "bg-teal-500/10 text-teal-400 border-teal-500/20",
+  blue:   "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  pink:   "bg-pink-500/10 text-pink-400 border-pink-500/20",
+  dim:    "bg-white/[0.05] text-white/40 border-white/10",
+};
+
+// ─── Reusable UI (matches DSAVisualizer's Tailwind card/badge system) ────────
+function SectionLabel({ children, tone = "orange" }) {
+  const dot = { orange: "bg-orange-400", violet: "bg-violet-400", emerald: "bg-emerald-400", rose: "bg-rose-400", teal: "bg-teal-400", sky: "bg-sky-400" }[tone];
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-      <div style={{ width: 3, height: 14, borderRadius: 2, background: color, flexShrink: 0 }} />
-      <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
-        letterSpacing: 1.5, textTransform: "uppercase", color: CM.dim,
-      }}>{children}</span>
-      <div style={{ flex: 1, height: 1, background: CM.border }} />
+    <div className="flex items-center gap-3 mb-1">
+      <span className={cn("w-1.5 h-1.5 rounded-full", dot)} />
+      <h2 className="font-display text-xl font-semibold text-white">{children}</h2>
     </div>
   );
 }
 
-function Badge({ label, color }) {
+function Card({ children, className }) {
+  return <div className={cn("rounded-xl border border-white/[0.08] bg-white/[0.02]", className)}>{children}</div>;
+}
+
+function CardHead({ children, right }) {
   return (
-    <span style={{
-      background: color + "18", color, border: `1px solid ${color}40`,
-      borderRadius: 20, padding: "2px 10px", fontSize: 10, fontWeight: 700,
-      fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.3, whiteSpace: "nowrap",
-      display: "inline-block",
-    }}>{label}</span>
+    <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06]">
+      <span className="text-[10.5px] font-data uppercase tracking-wide text-white/30">{children}</span>
+      {right && <span className="ml-auto text-[11.5px] font-data text-orange-400/80">{right}</span>}
+    </div>
   );
 }
 
-function CMInput({ value, onChange, placeholder, width = 160 }) {
+function Badge({ label, tone = "sky" }) {
   return (
-    <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-      style={{
-        background: CM.surface2, color: CM.text, border: `1px solid ${CM.border2}`,
-        borderRadius: 7, padding: "7px 12px", fontSize: 12, width,
-        fontFamily: "'JetBrains Mono', monospace", outline: "none",
-      }}
-      onFocus={e => e.target.style.borderColor = CM.accent}
-      onBlur={e => e.target.style.borderColor = CM.border2}
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[10.5px] font-data font-medium", TONE[tone])}>
+      {label}
+    </span>
+  );
+}
+
+function Inp({ value, onChange, placeholder, width = 160 }) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{ width }}
+      className="bg-white/[0.04] border border-white/[0.08] rounded-md px-3 py-1.5 text-[12.5px] text-white/85 outline-none placeholder:text-white/25 focus:border-orange-500/40 transition-colors"
     />
-  );
-}
-
-function Chip({ active, onClick, children, color = CM.accent }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: "6px 14px", borderRadius: 20, fontSize: 11.5, fontWeight: 700, cursor: "pointer",
-      fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.2, transition: "all 0.15s",
-      background: active ? color : CM.surface2,
-      color: active ? "#0d1117" : CM.muted,
-      border: `1px solid ${active ? color : CM.border2}`,
-      whiteSpace: "nowrap",
-    }}>{children}</button>
   );
 }
 
@@ -78,14 +78,14 @@ function Chip({ active, onClick, children, color = CM.accent }) {
 function factorial(n) { let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; }
 
 const CLASS_ORDER = [
-  { key: "const", label: "O(1)",       name: "Constant",     color: CM.green,  fn: () => 1 },
-  { key: "log",   label: "O(log n)",   name: "Logarithmic",  color: CM.teal,   fn: n => Math.max(0, Math.log2(n)) },
-  { key: "sqrt",  label: "O(√n)",      name: "Square Root",  color: CM.sky,    fn: n => Math.sqrt(n) },
-  { key: "lin",   label: "O(n)",       name: "Linear",       color: CM.blue,   fn: n => n },
-  { key: "nlogn", label: "O(n log n)", name: "Linearithmic", color: CM.purple, fn: n => n * Math.max(1, Math.log2(n)) },
-  { key: "quad",  label: "O(n²)",      name: "Quadratic",    color: CM.accent, fn: n => n * n },
-  { key: "exp",   label: "O(2ⁿ)",      name: "Exponential",  color: CM.red,    fn: n => Math.pow(2, n) },
-  { key: "fact",  label: "O(n!)",      name: "Factorial",    color: CM.pink,   fn: n => factorial(n) },
+  { key: "const", label: "O(1)",       name: "Constant",     tone: "emerald", fn: () => 1 },
+  { key: "log",   label: "O(log n)",   name: "Logarithmic",  tone: "teal",    fn: n => Math.max(0, Math.log2(n)) },
+  { key: "sqrt",  label: "O(√n)",      name: "Square Root",  tone: "sky",     fn: n => Math.sqrt(n) },
+  { key: "lin",   label: "O(n)",       name: "Linear",       tone: "blue",    fn: n => n },
+  { key: "nlogn", label: "O(n log n)", name: "Linearithmic", tone: "violet",  fn: n => n * Math.max(1, Math.log2(n)) },
+  { key: "quad",  label: "O(n²)",      name: "Quadratic",    tone: "orange",  fn: n => n * n },
+  { key: "exp",   label: "O(2ⁿ)",      name: "Exponential",  tone: "rose",    fn: n => Math.pow(2, n) },
+  { key: "fact",  label: "O(n!)",      name: "Factorial",    tone: "pink",    fn: n => factorial(n) },
 ];
 const CLASS_BY_KEY = Object.fromEntries(CLASS_ORDER.map(c => [c.key, c]));
 
@@ -147,50 +147,43 @@ const ALGORITHMS = [
     desc: "Average O(1) via direct addressing; worst case hits when many keys collide." },
 ];
 const CATEGORIES = ["All", "Sorting", "Searching", "Trees & Graphs", "Recursive / DP", "Hashing"];
-const CATEGORY_COLORS = { "Sorting": CM.accent, "Searching": CM.purple, "Trees & Graphs": CM.teal, "Recursive / DP": CM.red, "Hashing": CM.blue };
+const CATEGORY_TONE = { "Sorting": "orange", "Searching": "violet", "Trees & Graphs": "teal", "Recursive / DP": "rose", "Hashing": "sky" };
 
 // ─── Ladder: shows where a value sits among the 8 growth classes ─────────────
 function Ladder({ rows }) {
   const n = CLASS_ORDER.length;
   const pct = i => (i / (n - 1)) * 100;
   return (
-    <div style={{ background: CM.bg, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "14px 18px 18px" }}>
-      {/* class header */}
-      <div style={{ display: "flex", marginLeft: 108, marginBottom: 10, position: "relative", height: 16 }}>
+    <Card className="px-5 pt-4 pb-5">
+      <div className="relative h-4 mb-2.5" style={{ marginLeft: 108 }}>
         {CLASS_ORDER.map((c, i) => (
-          <span key={c.key} style={{
-            position: "absolute", left: `${pct(i)}%`, transform: "translateX(-50%)",
-            fontFamily: "'JetBrains Mono',monospace", fontSize: 10, fontWeight: 700, color: CM.dim,
-            whiteSpace: "nowrap",
-          }}>{c.label}</span>
+          <span key={c.key}
+            className="absolute font-data text-[10px] font-semibold text-white/30 whitespace-nowrap"
+            style={{ left: `${pct(i)}%`, transform: "translateX(-50%)" }}>
+            {c.label}
+          </span>
         ))}
       </div>
-      {/* rows */}
       {rows.map(r => (
-        <div key={r.label} style={{ display: "flex", alignItems: "center", height: 30 }}>
-          <span style={{
-            width: 100, flexShrink: 0, fontFamily: "'JetBrains Mono',monospace", fontSize: 11,
-            fontWeight: 700, color: r.color,
-          }}>{r.label}</span>
-          <div style={{ position: "relative", flex: 1, height: 2, background: CM.border2, borderRadius: 1, marginRight: 8 }}>
+        <div key={r.label} className="flex items-center h-[30px]">
+          <span className="w-[100px] shrink-0 font-data text-[11px] font-semibold" style={{ color: HEX[r.tone] }}>
+            {r.label}
+          </span>
+          <div className="relative flex-1 h-[2px] bg-white/10 rounded-full mr-2">
             {CLASS_ORDER.map((c, i) => (
-              <div key={c.key} style={{
-                position: "absolute", left: `${pct(i)}%`, top: -3, width: 2, height: 8,
-                background: CM.border2, transform: "translateX(-50%)",
-              }} />
+              <div key={c.key} className="absolute w-[2px] h-2 bg-white/10" style={{ left: `${pct(i)}%`, top: -3, transform: "translateX(-50%)" }} />
             ))}
-            <div style={{
-              position: "absolute", left: `${pct(CLASS_ORDER.findIndex(c => c.key === r.classKey))}%`,
-              top: -6, width: 14, height: 14, borderRadius: "50%", transform: "translateX(-50%)",
-              background: r.color, border: `2px solid ${CM.bg}`, boxShadow: `0 0 8px ${r.color}bb`,
+            <div className="absolute w-3.5 h-3.5 rounded-full border-2 border-[#0B0B0C]" style={{
+              left: `${pct(CLASS_ORDER.findIndex(c => c.key === r.classKey))}%`, top: -6, transform: "translateX(-50%)",
+              background: HEX[r.tone], boxShadow: `0 0 8px ${HEX[r.tone]}bb`,
             }} />
           </div>
-          <span style={{ width: 78, textAlign: "right", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, fontWeight: 700, color: r.color }}>
+          <span className="w-[78px] text-right font-data text-[11px] font-semibold" style={{ color: HEX[r.tone] }}>
             {CLASS_BY_KEY[r.classKey].label}
           </span>
         </div>
       ))}
-    </div>
+    </Card>
   );
 }
 
@@ -209,7 +202,7 @@ function GrowthCurvesTab() {
   });
 
   const activeClasses = CLASS_ORDER.filter(c => active.has(c.key));
-  const W = 700, H = 400, ML = 56, MR = 16, MT = 14, MB = 32;
+  const W = 700, H = 380, ML = 56, MR = 16, MT = 14, MB = 32;
   const PW = W - ML - MR, PH = H - MT - MB;
 
   const { paths, ticks } = useMemo(() => {
@@ -245,76 +238,75 @@ function GrowthCurvesTab() {
   }), [n]);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}>
+    <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
       {/* sidebar */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: 14 }}>
-          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1, marginBottom: 8 }}>INPUT SIZE — n = {n}</div>
-          <input type="range" min={2} max={60} value={n} onChange={e => setN(+e.target.value)} style={{ width: "100%" }} />
-          <div style={{ display: "flex", background: CM.bg, borderRadius: 8, overflow: "hidden", border: `1px solid ${CM.border}`, marginTop: 12 }}>
+      <div className="flex flex-col gap-3">
+        <Card className="p-4">
+          <div className="font-data text-[10px] text-white/30 tracking-wide mb-2">INPUT SIZE — n = {n}</div>
+          <input type="range" min={2} max={60} value={n} onChange={e => setN(+e.target.value)} className="w-full accent-orange-500" />
+          <div className="flex rounded-md border border-white/[0.08] bg-white/[0.03] overflow-hidden mt-3">
             {["Log", "Linear"].map(m => (
-              <button key={m} onClick={() => setLogScale(m === "Log")} style={{
-                flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer",
-                background: (logScale ? "Log" : "Linear") === m ? CM.accent : "transparent",
-                color: (logScale ? "Log" : "Linear") === m ? "#0d1117" : CM.muted,
-                fontFamily: "'JetBrains Mono',monospace",
-              }}>{m} Scale</button>
+              <button key={m} onClick={() => setLogScale(m === "Log")}
+                className={cn(
+                  "flex-1 py-1.5 text-[11px] font-data font-medium transition-colors",
+                  (logScale ? "Log" : "Linear") === m ? "bg-orange-500/15 text-orange-400" : "text-white/40 hover:text-white/70"
+                )}>
+                {m} Scale
+              </button>
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, overflow: "hidden" }}>
-          <div style={{ padding: "9px 14px", borderBottom: `1px solid ${CM.border}`, background: CM.bg, fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1 }}>
-            COMPLEXITY CLASSES
-          </div>
+        <Card className="overflow-hidden">
+          <CardHead>Complexity Classes</CardHead>
           {CLASS_ORDER.map(c => {
             const on = active.has(c.key);
             return (
-              <button key={c.key} onClick={() => toggle(c.key)} style={{
-                width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "9px 14px",
-                background: "transparent", border: "none", borderBottom: `1px solid ${CM.border}`,
-                cursor: "pointer", opacity: on ? 1 : 0.4, transition: "opacity 0.15s",
-              }}>
-                <div style={{ width: 9, height: 9, borderRadius: "50%", background: c.color, flexShrink: 0, boxShadow: on ? `0 0 6px ${c.color}` : "none" }} />
-                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, fontWeight: 700, color: on ? c.color : CM.muted, textAlign: "left" }}>{c.label}</span>
-                <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono',monospace", fontSize: 10.5, color: CM.dim }}>{formatNum(c.fn(n))}</span>
+              <button key={c.key} onClick={() => toggle(c.key)}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-4 py-2.5 border-b border-white/[0.05] last:border-0 transition-opacity",
+                  on ? "opacity-100" : "opacity-40"
+                )}>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: HEX[c.tone], boxShadow: on ? `0 0 6px ${HEX[c.tone]}` : "none" }} />
+                <span className="font-data text-[12px] font-semibold text-left" style={{ color: on ? HEX[c.tone] : "rgba(255,255,255,0.4)" }}>{c.label}</span>
+                <span className="ml-auto font-data text-[10.5px] text-white/30">{formatNum(c.fn(n))}</span>
               </button>
             );
           })}
-        </div>
+        </Card>
       </div>
 
       {/* chart */}
-      <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "18px 16px 10px" }}>
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}>
+      <Card className="px-4 pt-4 pb-2.5">
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="block overflow-visible">
           {ticks.map((t, i) => (
             <g key={i}>
-              <line x1={ML} y1={t.y} x2={W - MR} y2={t.y} stroke={CM.border} strokeWidth={1} strokeDasharray={i === ticks.length - 1 ? "0" : "3,4"} />
-              <text x={ML - 8} y={t.y + 3} textAnchor="end" fontSize={10} fill={CM.dim} fontFamily="'JetBrains Mono',monospace">{t.label}</text>
+              <line x1={ML} y1={t.y} x2={W - MR} y2={t.y} stroke="rgba(255,255,255,0.06)" strokeWidth={1} strokeDasharray={i === ticks.length - 1 ? "0" : "3,4"} />
+              <text x={ML - 8} y={t.y + 3} textAnchor="end" fontSize={10} fill="rgba(255,255,255,0.3)" fontFamily="'IBM Plex Mono',monospace">{t.label}</text>
             </g>
           ))}
-          <line x1={ML} y1={MT + PH} x2={W - MR} y2={MT + PH} stroke={CM.border2} strokeWidth={1.5} />
+          <line x1={ML} y1={MT + PH} x2={W - MR} y2={MT + PH} stroke="rgba(255,255,255,0.12)" strokeWidth={1.5} />
           {xTicks.map((t, i) => (
             <g key={i}>
-              <line x1={t.x} y1={MT + PH} x2={t.x} y2={MT + PH + 5} stroke={CM.border2} strokeWidth={1} />
-              <text x={t.x} y={MT + PH + 18} textAnchor="middle" fontSize={10} fill={CM.dim} fontFamily="'JetBrains Mono',monospace">{t.v}</text>
+              <line x1={t.x} y1={MT + PH} x2={t.x} y2={MT + PH + 5} stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+              <text x={t.x} y={MT + PH + 18} textAnchor="middle" fontSize={10} fill="rgba(255,255,255,0.3)" fontFamily="'IBM Plex Mono',monospace">{t.v}</text>
             </g>
           ))}
-          <text x={ML + PW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill={CM.dim} fontFamily="'JetBrains Mono',monospace" letterSpacing={1}>INPUT SIZE (n)</text>
+          <text x={ML + PW / 2} y={H - 2} textAnchor="middle" fontSize={10} fill="rgba(255,255,255,0.25)" fontFamily="'IBM Plex Mono',monospace" letterSpacing={1}>INPUT SIZE (n)</text>
           {paths.map(p => (
             <g key={p.cls.key}>
-              <path d={p.d} fill="none" stroke={p.cls.color} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round"
-                style={{ filter: `drop-shadow(0 0 3px ${p.cls.color}66)` }} />
-              <circle cx={p.end.x} cy={p.end.y} r={4.5} fill={p.cls.color} stroke={CM.bg} strokeWidth={1.5} />
+              <path d={p.d} fill="none" stroke={HEX[p.cls.tone]} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round"
+                style={{ filter: `drop-shadow(0 0 3px ${HEX[p.cls.tone]}66)` }} />
+              <circle cx={p.end.x} cy={p.end.y} r={4.5} fill={HEX[p.cls.tone]} stroke="#0B0B0C" strokeWidth={1.5} />
             </g>
           ))}
           {paths.length === 0 && (
-            <text x={ML + PW / 2} y={MT + PH / 2} textAnchor="middle" fontSize={13} fill={CM.dim} fontFamily="'JetBrains Mono',monospace">
+            <text x={ML + PW / 2} y={MT + PH / 2} textAnchor="middle" fontSize={13} fill="rgba(255,255,255,0.3)" fontFamily="'IBM Plex Mono',monospace">
               Select at least one class from the sidebar
             </text>
           )}
         </svg>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -330,57 +322,56 @@ function AlgorithmExplorerTab() {
   const grouped = CATEGORIES.slice(1).map(cat => ({ cat, items: filtered.filter(a => a.category === cat) })).filter(g => g.items.length);
 
   const rows = [
-    { label: "Best Case", classKey: selected.best, color: CM.green },
-    { label: "Average Case", classKey: selected.avg, color: CM.blue },
-    { label: "Worst Case", classKey: selected.worst, color: CM.red },
-    { label: "Space", classKey: selected.space, color: CM.purple },
+    { label: "Best Case", classKey: selected.best, tone: "emerald" },
+    { label: "Average Case", classKey: selected.avg, tone: "sky" },
+    { label: "Worst Case", classKey: selected.worst, tone: "rose" },
+    { label: "Space", classKey: selected.space, tone: "violet" },
   ];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}>
+    <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
       {/* list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <CMInput value={query} onChange={setQuery} placeholder="Search algorithms…" width="100%" />
-        <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, maxHeight: 560, overflowY: "auto" }}>
+      <div className="flex flex-col gap-3">
+        <Inp value={query} onChange={setQuery} placeholder="Search algorithms…" width="100%" />
+        <Card className="max-h-[560px] overflow-y-auto">
           {grouped.map(g => (
             <div key={g.cat}>
-              <div style={{ padding: "8px 14px", background: CM.bg, fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CATEGORY_COLORS[g.cat], letterSpacing: 1, fontWeight: 700 }}>{g.cat.toUpperCase()}</div>
+              <div className="px-4 py-2 bg-white/[0.03] font-data text-[10px] font-semibold tracking-wide" style={{ color: HEX[CATEGORY_TONE[g.cat]] }}>
+                {g.cat.toUpperCase()}
+              </div>
               {g.items.map(a => (
-                <button key={a.name} onClick={() => setSelected(a)} style={{
-                  width: "100%", textAlign: "left", padding: "9px 14px", border: "none", cursor: "pointer",
-                  background: selected.name === a.name ? CM.accentDim : "transparent",
-                  borderLeft: `2px solid ${selected.name === a.name ? CM.accent : "transparent"}`,
-                  borderBottom: `1px solid ${CM.border}`,
-                  fontFamily: "'JetBrains Mono',monospace", fontSize: 12,
-                  color: selected.name === a.name ? CM.accent : CM.text,
-                }}>{a.name}</button>
+                <button key={a.name} onClick={() => setSelected(a)}
+                  className={cn(
+                    "w-full text-left px-4 py-2.5 border-b border-white/[0.05] last:border-0 font-data text-[12px] transition-colors",
+                    selected.name === a.name ? "bg-orange-500/[0.08] border-l-2 border-l-orange-400 text-orange-400" : "text-white/70 hover:bg-white/[0.03]"
+                  )}>
+                  {a.name}
+                </button>
               ))}
             </div>
           ))}
-          {filtered.length === 0 && <div style={{ padding: 16, color: CM.dim, fontFamily: "'JetBrains Mono',monospace", fontSize: 12 }}>No matches</div>}
-        </div>
+          {filtered.length === 0 && <div className="px-4 py-4 text-white/25 font-data text-[12px]">No matches</div>}
+        </Card>
       </div>
 
       {/* detail */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, padding: "18px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 17, fontWeight: 700 }}>{selected.name}</span>
-            <Badge label={selected.category} color={CATEGORY_COLORS[selected.category]} />
+      <div className="flex flex-col gap-3.5">
+        <Card className="px-5 py-4">
+          <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+            <span className="font-display text-lg font-semibold text-white">{selected.name}</span>
+            <Badge label={selected.category} tone={CATEGORY_TONE[selected.category]} />
           </div>
-          <p style={{ fontSize: 12.5, color: CM.muted, lineHeight: 1.6, marginBottom: 14 }}>{selected.desc}</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Badge label={`Best ${CLASS_BY_KEY[selected.best].label}`} color={CM.green} />
-            <Badge label={`Avg ${CLASS_BY_KEY[selected.avg].label}`} color={CM.blue} />
-            <Badge label={`Worst ${CLASS_BY_KEY[selected.worst].label}`} color={CM.red} />
-            <Badge label={`Space ${CLASS_BY_KEY[selected.space].label}`} color={CM.purple} />
+          <p className="text-[12.5px] leading-relaxed text-white/50 mb-3.5 max-w-[70ch]">{selected.desc}</p>
+          <div className="flex gap-2 flex-wrap">
+            <Badge label={`Best ${CLASS_BY_KEY[selected.best].label}`} tone="emerald" />
+            <Badge label={`Avg ${CLASS_BY_KEY[selected.avg].label}`} tone="sky" />
+            <Badge label={`Worst ${CLASS_BY_KEY[selected.worst].label}`} tone="rose" />
+            <Badge label={`Space ${CLASS_BY_KEY[selected.space].label}`} tone="violet" />
           </div>
-        </div>
+        </Card>
 
         <div>
-          <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1, marginBottom: 8 }}>
-            WHERE IT FALLS ON THE GROWTH SCALE
-          </div>
+          <div className="font-data text-[10px] text-white/30 tracking-wide mb-2">WHERE IT FALLS ON THE GROWTH SCALE</div>
           <Ladder rows={rows} />
         </div>
       </div>
@@ -401,40 +392,43 @@ function ReferenceTableTab() {
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <CMInput value={query} onChange={setQuery} placeholder="Filter by name…" width={220} />
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {CATEGORIES.map(c => (
-            <Chip key={c} active={category === c} onClick={() => setCategory(c)} color={c === "All" ? CM.accent : CATEGORY_COLORS[c]}>{c}</Chip>
-          ))}
+    <div className="flex flex-col gap-3.5">
+      <div className="flex gap-2.5 flex-wrap items-center">
+        <Inp value={query} onChange={setQuery} placeholder="Filter by name…" width={220} />
+        <div className="flex gap-1.5 flex-wrap">
+          {CATEGORIES.map(c => {
+            const on = category === c;
+            const tone = c === "All" ? "orange" : CATEGORY_TONE[c];
+            return (
+              <button key={c} onClick={() => setCategory(c)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-full text-[11.5px] font-data font-semibold border transition-colors",
+                  on ? TONE[tone] : "text-white/40 border-white/[0.08] hover:text-white/70 hover:bg-white/[0.04]"
+                )}>
+                {c}
+              </button>
+            );
+          })}
         </div>
-        <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.dim }}>{rows.length} algorithms</span>
+        <span className="ml-auto font-data text-[11px] text-white/30">{rows.length} algorithms</span>
       </div>
 
-      <div style={{ background: CM.surface, border: `1px solid ${CM.border}`, borderRadius: 10, overflow: "hidden" }}>
-        <div style={{
-          display: "grid", gridTemplateColumns: "1.6fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr",
-          padding: "10px 16px", background: CM.bg, borderBottom: `1px solid ${CM.border}`,
-          fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: CM.dim, letterSpacing: 1,
-        }}>
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-[1.6fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr] px-4 py-2.5 bg-white/[0.03] border-b border-white/[0.06] font-data text-[10px] text-white/30 tracking-wide">
           <span>ALGORITHM</span><span>CATEGORY</span><span>BEST</span><span>AVERAGE</span><span>WORST</span><span>SPACE</span>
         </div>
         {rows.map(a => (
-          <div key={a.name} style={{
-            display: "grid", gridTemplateColumns: "1.6fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr",
-            padding: "11px 16px", borderBottom: `1px solid ${CM.border}`, alignItems: "center",
-          }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{a.name}</span>
-            <span><Badge label={a.category} color={CATEGORY_COLORS[a.category]} /></span>
-            <span><Badge label={CLASS_BY_KEY[a.best].label} color={CM.green} /></span>
-            <span><Badge label={CLASS_BY_KEY[a.avg].label} color={CM.blue} /></span>
-            <span><Badge label={CLASS_BY_KEY[a.worst].label} color={CM.red} /></span>
-            <span><Badge label={CLASS_BY_KEY[a.space].label} color={CM.purple} /></span>
+          <div key={a.name} className="grid grid-cols-[1.6fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr] px-4 py-2.5 border-b border-white/[0.05] last:border-0 items-center">
+            <span className="text-[12.5px] font-medium text-white/85">{a.name}</span>
+            <span><Badge label={a.category} tone={CATEGORY_TONE[a.category]} /></span>
+            <span><Badge label={CLASS_BY_KEY[a.best].label} tone="emerald" /></span>
+            <span><Badge label={CLASS_BY_KEY[a.avg].label} tone="sky" /></span>
+            <span><Badge label={CLASS_BY_KEY[a.worst].label} tone="rose" /></span>
+            <span><Badge label={CLASS_BY_KEY[a.space].label} tone="violet" /></span>
           </div>
         ))}
-        {rows.length === 0 && <div style={{ padding: 24, textAlign: "center", color: CM.dim, fontFamily: "'JetBrains Mono',monospace", fontSize: 12 }}>No algorithms match your filters</div>}
-      </div>
+        {rows.length === 0 && <div className="px-6 py-6 text-center text-white/25 font-data text-[12px]">No algorithms match your filters</div>}
+      </Card>
     </div>
   );
 }
@@ -442,63 +436,103 @@ function ReferenceTableTab() {
 // ══════════════════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════════════════════
-const TABS = ["Growth Curves", "Algorithm Explorer", "Reference Table"];
-const TAB_COLORS = [CM.accent, CM.purple, CM.teal];
+const TABS = [
+  { name: "Growth Curves", tone: "orange" },
+  { name: "Algorithm Explorer", tone: "violet" },
+  { name: "Reference Table", tone: "teal" },
+];
+const TAB_ACTIVE = {
+  orange: "bg-orange-500/15 text-orange-400",
+  violet: "bg-violet-500/15 text-violet-400",
+  teal:   "bg-teal-500/15 text-teal-400",
+};
 
 export default function ComplexityVisualizer() {
   const [tab, setTab] = useState("Growth Curves");
+  const activeTab = TABS.find(t => t.name === tab);
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        ::-webkit-scrollbar{width:5px;height:5px;}
-        ::-webkit-scrollbar-track{background:${CM.surface};}
-        ::-webkit-scrollbar-thumb{background:${CM.border2};border-radius:3px;}
-        input[type=range]{accent-color:${CM.accent};}
-        body{font-family:'Segoe UI',-apple-system,sans-serif;}
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+        .font-body { font-family: 'Work Sans', sans-serif; }
+        .font-data { font-family: 'IBM Plex Mono', monospace; }
+        .subtle-grid {
+          background-image:
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ffffff14; border-radius: 2px; }
       `}</style>
 
-      <div style={{ background: CM.bg, minHeight: "100vh", color: CM.text, fontFamily: "'Segoe UI',-apple-system,sans-serif" }}>
+      <div className="min-h-screen bg-[#0B0B0C] text-[#EAE8E3] font-body antialiased">
+        <Navbar />
 
-        {/* ── TOPBAR ── */}
-<div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, height: 48, display: "flex", alignItems: "center", padding: "0 20px 0 36px", gap: 10, position: "sticky", top: 0, zIndex: 20 }}>
-  <NavLink to={"/"} style={{ display: "flex", alignItems: "center" }}>
-    <img
-      src={mylogo}
-      alt="CodeMaster logo"
-      style={{ width: 34, height: 34, objectFit: "contain" }}
-    />
-  </NavLink>
-  <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px" }} />
-  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: CM.muted }}>
-    <NavLink to={"/explore"}>Explore</NavLink> / <span style={{ color: CM.accent }}>Complexity Visualizer</span>
-  </span>
-</div>
-        {/* ── TAB STRIP ── */}
-        <div style={{ background: CM.surface, borderBottom: `1px solid ${CM.border}`, display: "flex", overflowX: "auto", padding: "0 4px" }}>
-          {TABS.map((t, i) => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              padding: "12px 20px", fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer",
-              background: "transparent", whiteSpace: "nowrap",
-              color: tab === t ? TAB_COLORS[i] : CM.muted,
-              borderBottom: tab === t ? `2px solid ${TAB_COLORS[i]}` : "2px solid transparent",
-              fontFamily: "'JetBrains Mono',monospace", letterSpacing: 0.3, transition: "all 0.15s",
-            }}>{t}</button>
-          ))}
+        {/* ── breadcrumb ── */}
+        <div className="border-b border-white/[0.06]">
+          <div className="max-w-5xl mx-auto px-6 py-3">
+            <span className="text-[12px] font-data text-white/30">
+              <NavLink to="/explore" className="hover:text-white/60 transition-colors">Explore</NavLink>
+              {" / "}
+              <span className="text-orange-400">Complexity Visualizer</span>
+            </span>
+          </div>
         </div>
 
-        <div style={{ maxWidth: 1040, margin: "0 auto", padding: "24px 20px 60px" }}>
-          <SectionLabel color={TAB_COLORS[TABS.indexOf(tab)]}>
-            {tab === "Growth Curves" && "How each complexity class grows"}
-            {tab === "Algorithm Explorer" && "Time & space, per algorithm"}
-            {tab === "Reference Table" && "Full complexity cheat sheet"}
-          </SectionLabel>
+        {/* ── hero ── */}
+        <div className="subtle-grid border-b border-white/[0.06]">
+          <div className="max-w-5xl mx-auto px-6 py-14">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+              <h1 className="font-display font-semibold text-[2.25rem] sm:text-4xl leading-[1.1] text-white mb-3">
+                See how the growth adds up.
+              </h1>
+              <p className="text-white/45 text-[15px] max-w-md">
+                Compare how time and space complexity scale, algorithm by algorithm.
+              </p>
+            </motion.div>
+          </div>
+        </div>
 
-          {tab === "Growth Curves" && <GrowthCurvesTab />}
-          {tab === "Algorithm Explorer" && <AlgorithmExplorerTab />}
-          {tab === "Reference Table" && <ReferenceTableTab />}
+        <div className="max-w-5xl mx-auto px-6 py-8">
+
+          {/* ── tabs ── */}
+          <div className="flex gap-1 overflow-x-auto pb-2 mb-6 -mx-1 px-1">
+            {TABS.map(t => (
+              <button key={t.name} onClick={() => setTab(t.name)}
+                className={cn(
+                  "px-3.5 py-1.5 rounded-md text-[13px] font-medium whitespace-nowrap transition-colors",
+                  tab === t.name ? TAB_ACTIVE[t.tone] : "text-white/40 hover:text-white/70 hover:bg-white/[0.04]"
+                )}>
+                {t.name}
+              </button>
+            ))}
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col gap-5"
+            >
+              <SectionLabel tone={activeTab.tone}>
+                {tab === "Growth Curves" && "How each complexity class grows"}
+                {tab === "Algorithm Explorer" && "Time & space, per algorithm"}
+                {tab === "Reference Table" && "Full complexity cheat sheet"}
+              </SectionLabel>
+
+              {tab === "Growth Curves" && <GrowthCurvesTab />}
+              {tab === "Algorithm Explorer" && <AlgorithmExplorerTab />}
+              {tab === "Reference Table" && <ReferenceTableTab />}
+            </motion.div>
+          </AnimatePresence>
+
         </div>
       </div>
     </>

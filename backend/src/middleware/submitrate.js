@@ -17,7 +17,7 @@ const submitCodeRateLimiter = async (req, res, next) => {
 
     // Set cooldown period
     await client.set(redisKey, 'cooldown_active', {
-      EX: 20, // Expire after 10 seconds
+      EX: 10, // Expire after 10 seconds
       NX: true // Only set if not exists
     });
 

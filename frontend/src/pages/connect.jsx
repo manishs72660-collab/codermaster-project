@@ -17,17 +17,18 @@ import {
   Flame,
   Clock,
   Code2,
+  Loader2,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
 
 /* ─── tag config (icon + color per tag) ─── */
 const TAG_META = {
-  general:             { label: 'General',            icon: Sparkles,     color: 'text-white/50',    bg: 'bg-white/[0.04]',   border: 'border-white/10' },
-  help:                { label: 'Help',                icon: HelpCircle,   color: 'text-sky-400',     bg: 'bg-sky-500/10',    border: 'border-sky-500/20' },
-  'contest-discussion':{ label: 'Contest Discussion',  icon: Trophy,       color: 'text-orange-400',  bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
-  'duel-brag':         { label: 'Duel Brag',           icon: Swords,       color: 'text-purple-400',  bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
-  showcase:            { label: 'Showcase',            icon: FlaskConical, color: 'text-emerald-400', bg: 'bg-emerald-500/10',border: 'border-emerald-500/20' },
+  general:              { label: 'General',           icon: Sparkles,     color: 'text-white/50' },
+  help:                 { label: 'Help',               icon: HelpCircle,   color: 'text-sky-400' },
+  'contest-discussion': { label: 'Contest Discussion',  icon: Trophy,       color: 'text-orange-400' },
+  'duel-brag':          { label: 'Duel Brag',           icon: Swords,       color: 'text-purple-400' },
+  showcase:             { label: 'Showcase',            icon: FlaskConical, color: 'text-emerald-400' },
 };
 const ALL_TAGS = Object.keys(TAG_META);
 
@@ -96,77 +97,46 @@ export default function Community() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
-        .font-display { font-family: 'Syne', sans-serif; }
-        .font-body    { font-family: 'DM Sans', sans-serif; }
-        .font-mono    { font-family: 'JetBrains Mono', monospace; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-data { font-family: 'IBM Plex Mono', monospace; }
 
-        .hero-grid {
+        .subtle-grid {
           background-image:
-            linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-          background-size: 48px 48px;
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
         }
-        .noise::after {
-          content: '';
-          position: fixed; inset: 0; pointer-events: none; z-index: 0;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-          opacity: 0.55;
-        }
-        @keyframes glow-pulse { 0%,100%{opacity:0.35} 50%{opacity:0.55} }
-        .glow-pulse { animation: glow-pulse 5s ease-in-out infinite; }
 
-        .card-shimmer::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: linear-gradient(105deg, transparent 40%, rgba(249,115,22,0.04) 50%, transparent 60%);
-          opacity: 0; transition: opacity 0.3s;
-        }
-        .card-shimmer:hover::before { opacity: 1; }
-
-        @keyframes upvote-pop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
-        .upvote-pop { animation: upvote-pop 0.35s ease; }
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .spin-slow { animation: spin-slow 0.8s linear infinite; }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #ffffff12; border-radius: 2px; }
+        ::-webkit-scrollbar-thumb { background: #ffffff14; border-radius: 2px; }
       `}</style>
 
-      <div className="noise min-h-screen bg-[#050505] text-[#e5e5e5] font-body antialiased">
+      <div className="min-h-screen bg-[#0B0B0C] text-[#EAE8E3] font-body antialiased">
+        <Navbar />
 
-        {/* ambient blobs */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="glow-pulse absolute top-[-15%] left-[-8%] w-[500px] h-[500px] bg-orange-500/[0.06] blur-[130px] rounded-full" />
-          <div className="glow-pulse absolute bottom-[-15%] right-[-8%] w-[500px] h-[500px] bg-purple-500/[0.04] blur-[130px] rounded-full" />
-        </div>
-
-        <Navbar></Navbar>
-
-        {/* ── HERO ── */}
-        <div className="relative hero-grid border-b border-white/[0.04] overflow-hidden">
-          <div className="max-w-5xl mx-auto px-5 py-14 relative z-10">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full w-fit mb-4">
-                <MessageSquare className="w-3 h-3 text-orange-400" />
-                <span className="text-[10px] font-black text-orange-400 uppercase tracking-[0.15em]">Community</span>
-              </div>
-              <h1 className="font-display text-4xl md:text-5xl font-800 text-white tracking-tight leading-[1.1] mb-3">
-                Talk shop.<br />
-                <span className="text-orange-500">Share the win.</span>
+        {/* ── hero ── */}
+        <div className="subtle-grid border-b border-white/[0.06]">
+          <div className="max-w-5xl mx-auto px-6 py-16">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+              <h1 className="font-display font-extrabold text-[2.5rem] sm:text-5xl leading-[1.08] text-white mb-3">
+                Talk shop.
               </h1>
-              <p className="text-white/40 text-base max-w-md leading-relaxed">
+              <p className="text-white/45 text-[15px] max-w-md">
                 Ask for help, discuss contests, brag about a duel, or show off a solution.
               </p>
             </motion.div>
           </div>
-          <div className="absolute top-4 right-4 w-24 h-24 border-r-2 border-t-2 border-white/[0.04] rounded-tr-2xl pointer-events-none" />
-          <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-white/[0.04] rounded-bl-xl pointer-events-none" />
         </div>
 
-        {/* ── MAIN ── */}
-        <div className="max-w-5xl mx-auto px-5 py-10 relative z-10">
+        <div className="max-w-5xl mx-auto px-6 py-10">
 
-          {/* ── CONTROLS ── */}
+          {/* ── controls ── */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
             {/* search */}
             <div className="relative flex-1">
@@ -175,23 +145,27 @@ export default function Community() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search posts…"
-                className="w-full bg-white/[0.03] border border-white/[0.07] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.05] transition-all"
+                className="w-full bg-white/[0.02] border border-white/[0.08] rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.04] transition-colors"
               />
             </div>
 
             {/* sort toggle */}
-            <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.07] rounded-xl">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setSort('new')}
-                className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all",
-                  sort === 'new' ? "bg-white/10 text-white" : "text-white/35 hover:text-white/60")}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors',
+                  sort === 'new' ? 'bg-white/[0.06] text-white/80' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                )}
               >
                 <Clock className="w-3.5 h-3.5" /> New
               </button>
               <button
                 onClick={() => setSort('hot')}
-                className={cn("flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all",
-                  sort === 'hot' ? "bg-orange-500 text-black" : "text-white/35 hover:text-white/60")}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors',
+                  sort === 'hot' ? 'bg-orange-500/15 text-orange-400' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                )}
               >
                 <Flame className="w-3.5 h-3.5" /> Hot
               </button>
@@ -200,33 +174,35 @@ export default function Community() {
             {/* new post */}
             <button
               onClick={() => (user ? setShowNewPost(true) : navigate('/login'))}
-              className="flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-4 py-2.5 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.25)] whitespace-nowrap"
+              className="flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-semibold text-[13px] px-4 py-2.5 rounded-lg transition-colors whitespace-nowrap"
             >
               <Plus className="w-4 h-4" /> New Post
             </button>
           </div>
 
-          {/* ── TAG FILTERS ── */}
-          <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-1">
+          {/* ── tag filters ── */}
+          <div className="flex items-center gap-1 mb-8 overflow-x-auto pb-1 flex-wrap">
             <button
               onClick={() => setTag('all')}
               className={cn(
-                "flex-shrink-0 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all border",
-                tag === 'all' ? "bg-white text-black border-white" : "text-white/40 border-white/10 hover:text-white/70 hover:border-white/20"
+                'flex-shrink-0 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors',
+                tag === 'all' ? 'bg-white/[0.08] text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
               )}
             >
-              All {total > 0 && <span className="opacity-50">· {total}</span>}
+              All {total > 0 && <span className="text-white/30 font-data ml-0.5">{total}</span>}
             </button>
             {ALL_TAGS.map((t) => {
               const meta = TAG_META[t];
               const Icon = meta.icon;
+              const active = tag === t;
               return (
                 <button
                   key={t}
                   onClick={() => setTag(t)}
                   className={cn(
-                    "flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                    tag === t ? cn(meta.bg, meta.border, meta.color) : "text-white/35 border-white/10 hover:text-white/60 hover:border-white/20"
+                    'flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors',
+                    active ? 'bg-white/[0.06]' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]',
+                    active && meta.color
                   )}
                 >
                   <Icon className="w-3.5 h-3.5" /> {meta.label}
@@ -235,35 +211,34 @@ export default function Community() {
             })}
           </div>
 
-          {/* ── FEED ── */}
+          {/* ── feed ── */}
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-32 rounded-2xl bg-white/[0.02] border border-white/[0.05] animate-pulse" />
-              ))}
+            <div className="flex flex-col items-center justify-center py-28">
+              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
+              <p className="text-sm text-white/35">Loading posts…</p>
             </div>
           ) : posts.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-28 text-center"
+              className="flex flex-col items-center justify-center py-24 text-center"
             >
-              <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-5">
-                <MessageSquare className="w-7 h-7 text-white/15" />
+              <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center mb-4">
+                <MessageSquare className="w-5 h-5 text-white/20" />
               </div>
-              <h3 className="font-display text-lg font-700 text-white/30 mb-1">Nothing here yet</h3>
-              <p className="text-sm text-white/20 mb-5">Be the first to start a conversation.</p>
+              <h3 className="font-display text-base font-semibold text-white/65 mb-1">Nothing here yet</h3>
+              <p className="text-xs text-white/30 mb-5">Be the first to start a conversation.</p>
               <button
                 onClick={() => (user ? setShowNewPost(true) : navigate('/login'))}
-                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm px-4 py-2.5 rounded-xl transition-all"
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-semibold text-[13px] px-4 py-2.5 rounded-lg transition-colors"
               >
                 <Plus className="w-4 h-4" /> New Post
               </button>
             </motion.div>
           ) : (
-            <div className="space-y-3">
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.015] overflow-hidden divide-y divide-white/[0.05]">
               <AnimatePresence mode="popLayout">
                 {posts.map((post, index) => (
-                  <PostCard
+                  <PostRow
                     key={post._id}
                     post={post}
                     index={index}
@@ -288,53 +263,53 @@ export default function Community() {
 }
 
 /* ══════════════════════════════════════════
-   POST CARD
+   POST ROW
 ══════════════════════════════════════════ */
-function PostCard({ post, index, onUpvote, onOpen }) {
+function PostRow({ post, index, onUpvote, onOpen }) {
   const meta = TAG_META[post.tags?.[0]] || TAG_META.general;
   const Icon = meta.icon;
   const authorName = post.author ? `${post.author.firstName || ''} ${post.author.lastName || ''}`.trim() : 'Unknown';
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -12 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 12 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       layout
-      transition={{ delay: index * 0.04, duration: 0.3 }}
+      transition={{ delay: (index % 20) * 0.02, duration: 0.18 }}
     >
       <div
         onClick={onOpen}
-        className="card-shimmer group relative flex gap-4 px-5 py-4 bg-white/[0.015] border border-white/[0.06] rounded-2xl hover:bg-white/[0.035] hover:border-white/[0.12] transition-all duration-250 overflow-hidden cursor-pointer"
+        className="group flex gap-4 px-4 py-3.5 hover:bg-white/[0.03] transition-colors duration-150 cursor-pointer"
       >
         {/* upvote column */}
         <button
           onClick={onUpvote}
           className={cn(
-            "flex-shrink-0 flex flex-col items-center justify-center gap-0.5 w-12 h-14 rounded-xl border transition-all",
+            'flex-shrink-0 flex flex-col items-center justify-center gap-0.5 w-11 h-12 rounded-lg border transition-colors',
             post.isUpvoted
-              ? "bg-orange-500/15 border-orange-500/30 text-orange-400"
-              : "bg-white/[0.03] border-white/[0.07] text-white/30 hover:text-orange-400 hover:border-orange-500/25"
+              ? 'bg-orange-500/15 border-orange-500/25 text-orange-400'
+              : 'bg-white/[0.02] border-white/[0.08] text-white/30 hover:text-orange-400 hover:border-orange-500/20'
           )}
         >
-          <ArrowBigUp className={cn("w-5 h-5", post.isUpvoted && "fill-orange-400 upvote-pop")} />
-          <span className="text-xs font-black">{post.upvoteCount ?? 0}</span>
+          <ArrowBigUp className={cn('w-4.5 h-4.5', post.isUpvoted && 'fill-orange-400')} />
+          <span className="text-[11px] font-data">{post.upvoteCount ?? 0}</span>
         </button>
 
         {/* content */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className={cn("inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.08em] px-2 py-0.5 rounded-md border", meta.bg, meta.border, meta.color)}>
-              <Icon className="w-2.5 h-2.5" /> {meta.label}
+            <span className={cn('inline-flex items-center gap-1 text-[11px] font-medium', meta.color)}>
+              <Icon className="w-3 h-3" /> {meta.label}
             </span>
             {post.code?.content && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.08em] px-2 py-0.5 rounded-md border border-white/10 bg-white/[0.03] text-white/30">
-                <Code2 className="w-2.5 h-2.5" /> Code
+              <span className="inline-flex items-center gap-1 text-[11px] text-white/25">
+                <Code2 className="w-3 h-3" /> Code
               </span>
             )}
           </div>
 
-          <h4 className="text-[15px] font-semibold text-white/85 group-hover:text-white transition-colors truncate mb-1">
+          <h4 className="text-[14px] font-medium text-white/80 group-hover:text-white transition-colors truncate mb-1">
             {post.title}
           </h4>
 
@@ -343,7 +318,7 @@ function PostCard({ post, index, onUpvote, onOpen }) {
           </p>
 
           <div className="flex items-center gap-3 text-[11px] text-white/25">
-            <span className="font-semibold text-white/40">{authorName || 'Unknown'}</span>
+            <span className="font-medium text-white/40">{authorName || 'Unknown'}</span>
             <span>·</span>
             <span>{timeAgo(post.createdAt)}</span>
             <span>·</span>
@@ -408,40 +383,43 @@ function NewPostModal({ open, onClose, onCreated }) {
           onClick={() => { onClose(); reset(); }}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            exit={{ opacity: 0, scale: 0.97, y: 8 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-[#0e0e0e] border border-white/[0.08] rounded-2xl p-6 relative max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg bg-[#0B0B0C] border border-white/[0.08] rounded-xl p-6 relative max-h-[90vh] overflow-y-auto"
           >
             <button
               onClick={() => { onClose(); reset(); }}
-              className="absolute top-4 right-4 w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] transition-all"
+              className="absolute top-4 right-4 w-7 h-7 rounded-md bg-white/[0.04] border border-white/[0.07] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] transition-colors"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-500/25 flex items-center justify-center mb-4">
-              <MessageSquare className="w-6 h-6 text-orange-400" />
+            <div className="flex items-center gap-2 mb-2.5 text-orange-400/80">
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-[12px] font-medium text-white/40">New post</span>
             </div>
 
-            <h3 className="font-display text-xl font-700 text-white mb-1">New Post</h3>
-            <p className="text-white/40 text-sm mb-5">Ask something, start a discussion, or share a win.</p>
+            <h3 className="font-display text-lg font-bold text-white mb-1">Share something</h3>
+            <p className="text-white/40 text-[13px] mb-5">Ask something, start a discussion, or share a win.</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* tag select */}
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap">
                 {ALL_TAGS.map((t) => {
                   const m = TAG_META[t];
                   const Icon = m.icon;
+                  const active = tag === t;
                   return (
                     <button
                       type="button"
                       key={t}
                       onClick={() => setTag(t)}
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                        tag === t ? cn(m.bg, m.border, m.color) : "text-white/35 border-white/10 hover:text-white/60"
+                        'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors',
+                        active ? 'bg-white/[0.06]' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]',
+                        active && m.color
                       )}
                     >
                       <Icon className="w-3.5 h-3.5" /> {m.label}
@@ -455,7 +433,7 @@ function NewPostModal({ open, onClose, onCreated }) {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Title"
                 maxLength={150}
-                className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all"
+                className="w-full bg-white/[0.02] border border-white/[0.08] rounded-lg px-4 py-2.5 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.04] transition-colors"
               />
 
               <div>
@@ -465,12 +443,12 @@ function NewPostModal({ open, onClose, onCreated }) {
                   placeholder="What's on your mind?"
                   maxLength={BODY_LIMIT}
                   rows={5}
-                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/50 focus:bg-white/[0.05] transition-all resize-none"
+                  className="w-full bg-white/[0.02] border border-white/[0.08] rounded-lg px-4 py-2.5 text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-orange-500/40 focus:bg-white/[0.04] transition-colors resize-none"
                 />
                 <div className="flex justify-end mt-1">
                   <span className={cn(
-                    "text-[11px] font-semibold tabular-nums",
-                    body.length >= BODY_LIMIT ? "text-rose-400" : "text-white/20"
+                    'text-[11px] font-data tabular-nums',
+                    body.length >= BODY_LIMIT ? 'text-rose-400' : 'text-white/20'
                   )}>
                     {body.length}/{BODY_LIMIT}
                   </span>
@@ -481,7 +459,7 @@ function NewPostModal({ open, onClose, onCreated }) {
               <button
                 type="button"
                 onClick={() => setCodeOpen((v) => !v)}
-                className="flex items-center gap-1.5 text-xs font-bold text-white/40 hover:text-white transition-colors"
+                className="flex items-center gap-1.5 text-[12px] font-medium text-white/40 hover:text-white transition-colors"
               >
                 <Code2 className="w-3.5 h-3.5" />
                 {codeOpen ? 'Remove code snippet' : 'Attach a code snippet'}
@@ -492,10 +470,10 @@ function NewPostModal({ open, onClose, onCreated }) {
                   <select
                     value={codeLang}
                     onChange={(e) => setCodeLang(e.target.value)}
-                    className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-white/70 focus:outline-none"
+                    className="bg-white/[0.02] border border-white/[0.08] rounded-md px-3 py-1.5 text-xs text-white/70 focus:outline-none"
                   >
                     {['javascript', 'python', 'java', 'cpp', 'c', 'go', 'other'].map((l) => (
-                      <option key={l} value={l} className="bg-[#0e0e0e]">{l}</option>
+                      <option key={l} value={l} className="bg-[#0B0B0C]">{l}</option>
                     ))}
                   </select>
                   <textarea
@@ -503,7 +481,7 @@ function NewPostModal({ open, onClose, onCreated }) {
                     onChange={(e) => setCodeContent(e.target.value)}
                     placeholder="Paste your code…"
                     rows={6}
-                    className="w-full font-mono text-xs bg-black/40 border border-white/[0.1] rounded-xl px-4 py-3 text-emerald-300 placeholder:text-white/20 focus:outline-none focus:border-orange-500/50 transition-all resize-none"
+                    className="w-full font-data text-xs bg-black/30 border border-white/[0.08] rounded-lg px-4 py-3 text-emerald-300/90 placeholder:text-white/20 focus:outline-none focus:border-orange-500/40 transition-colors resize-none"
                   />
                 </div>
               )}
@@ -513,10 +491,10 @@ function NewPostModal({ open, onClose, onCreated }) {
               <button
                 type="submit"
                 disabled={submitting || !title.trim() || !body.trim()}
-                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-bold text-sm py-3 rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-400 text-black font-semibold text-sm py-2.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting
-                  ? <span className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+                  ? <Loader2 className="w-4 h-4 spin-slow" />
                   : <Plus className="w-4 h-4" />}
                 {submitting ? 'Posting…' : 'Post'}
               </button>

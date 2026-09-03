@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { NavLink, useLocation } from "react-router";
-import mylogo from "../assets/mylogo.png";
+import { NavLink } from "react-router-dom";
+import { motion, AnimatePresence } from "motion/react";
+import Navbar from "../component/navbar";
+import { cn } from "../utils/cn";
 import {
   X,
   PlayCircle,
@@ -10,46 +12,22 @@ import {
   Layers,
   Cloud,
   ShieldHalf,
-  Terminal,
   CircleDot,
   Check,
   ArrowRight,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
-/*  CodeMaster Color Palette (matches ComplexityVisualizer / Navbar)  */
+/*  Per-track accent colors (kept as hex — used for dynamic glows,    */
+/*  SVG strokes, and per-track chrome that can't be static Tailwind)  */
 /* ------------------------------------------------------------------ */
-
-const CM = {
-  bg:        "#0d1117",
-  surface:   "#161b22",
-  surface2:  "#1c2130",
-  border:    "#21262d",
-  border2:   "#30363d",
-  text:      "#e6edf3",
-  muted:     "#8b949e",
-  dim:       "#495366",
-  accent:    "#ffa116",
-  accentDim: "#1e1608",
-  green:     "#00b86b",
-  red:       "#ff4444",
-  blue:      "#4493f8",
-  purple:    "#c084fc",
-  teal:      "#2dd4bf",
-  pink:      "#ff5fa6",
-  sky:       "#38bdf8",
+const TRACK_HEX = {
+  fullstack: "#34d399", // emerald-400
+  frontend:  "#38bdf8", // sky-400
+  backend:   "#a78bfa", // violet-400
+  devops:    "#fb923c", // orange-400
+  cyber:     "#fb7185", // rose-400
 };
-
-function Badge({ label, color }) {
-  return (
-    <span style={{
-      background: color + "18", color, border: `1px solid ${color}40`,
-      borderRadius: 20, padding: "2px 10px", fontSize: 10, fontWeight: 700,
-      fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.3, whiteSpace: "nowrap",
-      display: "inline-block",
-    }}>{label}</span>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  TRACK DATA — each track is a DAG of levels. Nodes list `parents`  */
@@ -61,7 +39,6 @@ const TRACKS = {
   fullstack: {
     label: "Full Stack",
     icon: Code2,
-    color: CM.green,
     tagline: "Ship the whole product, front to back",
     levels: [
       [{ id: "fs_web", label: "HTML / CSS / JS", parents: [] }],
@@ -83,7 +60,6 @@ const TRACKS = {
   frontend: {
     label: "Frontend",
     icon: Layers,
-    color: CM.sky,
     tagline: "Everything that renders in the browser",
     levels: [
       [{ id: "fe_html", label: "HTML", parents: [] }],
@@ -114,7 +90,6 @@ const TRACKS = {
   backend: {
     label: "Backend",
     icon: Server,
-    color: CM.purple,
     tagline: "Servers, data, and the logic behind the API",
     levels: [
       [
@@ -154,7 +129,6 @@ const TRACKS = {
   devops: {
     label: "DevOps",
     icon: Cloud,
-    color: CM.accent,
     tagline: "Build, ship, and run infrastructure at scale",
     levels: [
       [{ id: "do_linux", label: "Linux Fundamentals", parents: [] }],
@@ -199,7 +173,6 @@ const TRACKS = {
   cyber: {
     label: "Cybersecurity",
     icon: ShieldHalf,
-    color: CM.pink,
     tagline: "Defend systems, networks, and data",
     levels: [
       [{ id: "cy_net", label: "Networking Fundamentals", parents: [] }],
@@ -310,7 +283,7 @@ const RESOURCES = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  LAYOUT ENGINE                                                     */
+/*  LAYOUT ENGINE (unchanged)                                         */
 /* ------------------------------------------------------------------ */
 
 const CANVAS_W = 1120;
@@ -359,7 +332,7 @@ function GridBackdrop({ color }) {
     <div
       className="absolute inset-0 pointer-events-none"
       style={{
-        backgroundImage: `linear-gradient(${color}14 1px, transparent 1px), linear-gradient(90deg, ${color}14 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(${color}12 1px, transparent 1px), linear-gradient(90deg, ${color}12 1px, transparent 1px)`,
         backgroundSize: "34px 34px",
         maskImage: "radial-gradient(ellipse 80% 60% at 50% 20%, black 40%, transparent 90%)",
         WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 20%, black 40%, transparent 90%)",
@@ -381,7 +354,7 @@ function Edge({ edge, color }) {
       fill="none"
       stroke={color}
       strokeWidth="2"
-      strokeOpacity="0.45"
+      strokeOpacity="0.4"
       strokeLinecap="round"
       strokeDasharray="1 8"
       className="roadmap-edge"
@@ -389,48 +362,29 @@ function Edge({ edge, color }) {
   );
 }
 
-function Node({ node, color, onSelect, isDone }) {
+function Node({ node, color, onSelect }) {
   return (
     <button
       onClick={() => onSelect(node)}
-      className="absolute flex items-center gap-2.5 rounded-xl px-4 text-left transition-transform duration-150 group"
-      style={{
-        left: node.x - NODE_W / 2,
-        top: node.y - NODE_H / 2,
-        width: NODE_W,
-        height: NODE_H,
-        background: CM.surface,
-        border: `1px solid ${color}3d`,
-        boxShadow: `0 0 0 0 ${color}00`,
-      }}
+      className="absolute flex items-center gap-2.5 rounded-xl px-4 text-left transition-transform duration-150 bg-white/[0.03] border border-white/[0.08] hover:-translate-y-0.5"
+      style={{ left: node.x - NODE_W / 2, top: node.y - NODE_H / 2, width: NODE_W, height: NODE_H }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = `0 0 22px -4px ${color}80`;
         e.currentTarget.style.borderColor = color;
-        e.currentTarget.style.transform = "translateY(-2px)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = `0 0 0 0 ${color}00`;
-        e.currentTarget.style.borderColor = `${color}3d`;
-        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
       }}
     >
-      <span
-        className="flex h-2 w-2 shrink-0 rounded-full"
-        style={{ background: color, boxShadow: `0 0 8px ${color}` }}
-      />
-      <span
-        className="text-[13px] leading-tight truncate"
-        style={{ color: CM.text, fontFamily: "'JetBrains Mono', monospace" }}
-      >
-        {node.label}
-      </span>
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+      <span className="text-[13px] leading-tight truncate font-data text-white/80">{node.label}</span>
     </button>
   );
 }
 
-function ResourceModal({ node, track, onClose }) {
+function ResourceModal({ node, color, trackLabel, onClose }) {
   const r = RESOURCES[node.id] || {};
-  const color = track.color;
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -439,59 +393,50 @@ function ResourceModal({ node, track, onClose }) {
   }, [onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(3,5,8,0.75)", backdropFilter: "blur(4px)" }}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >
-      <div
-        className="w-full max-w-md rounded-2xl overflow-hidden"
-        style={{ background: CM.bg, border: `1px solid ${color}55` }}
+      <motion.div
+        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 6 }}
+        transition={{ duration: 0.18 }}
+        className="w-full max-w-md rounded-2xl overflow-hidden bg-[#0B0B0C] border border-white/[0.1]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex items-center justify-between px-5 py-3"
-          style={{ borderBottom: `1px solid ${color}2a`, background: `${color}0f` }}
-        >
+        <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]" style={{ background: `${color}0f` }}>
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ background: "#ff5f57" }} />
-            <span className="h-2 w-2 rounded-full" style={{ background: "#febc2e" }} />
-            <span className="h-2 w-2 rounded-full" style={{ background: "#28c840" }} />
-            <span
-              className="ml-2 text-[11px] uppercase tracking-widest"
-              style={{ color, fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              {track.label}
+            <span className="h-2 w-2 rounded-full bg-[#ff5f57]" />
+            <span className="h-2 w-2 rounded-full bg-[#febc2e]" />
+            <span className="h-2 w-2 rounded-full bg-[#28c840]" />
+            <span className="ml-2 text-[11px] font-data uppercase tracking-widest" style={{ color }}>
+              {trackLabel}
             </span>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-200 transition-colors">
+          <button onClick={onClose} className="text-white/30 hover:text-white/80 transition-colors">
             <X size={18} />
           </button>
         </div>
 
         <div className="px-6 py-6">
-          <h3
-            className="text-xl font-semibold mb-2"
-            style={{ color: CM.text, fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            {node.label}
-          </h3>
-          <p className="text-sm leading-relaxed mb-6" style={{ color: CM.muted }}>
-            {r.desc}
-          </p>
+          <h3 className="font-display text-xl font-semibold text-white mb-2">{node.label}</h3>
+          <p className="text-[13.5px] leading-relaxed text-white/45 mb-6">{r.desc}</p>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             <a
               href={r.youtube}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between rounded-lg px-4 py-3 transition-colors"
-              style={{ background: "#1a1006", border: "1px solid #ff000033" }}
+              className="flex items-center justify-between rounded-lg px-4 py-3 bg-rose-500/[0.08] border border-rose-500/20 hover:bg-rose-500/[0.12] transition-colors"
             >
-              <span className="flex items-center gap-3 text-sm font-medium" style={{ color: "#ff5c5c" }}>
+              <span className="flex items-center gap-3 text-[13.5px] font-medium text-rose-400">
                 <PlayCircle size={18} /> Watch on YouTube
               </span>
-              <ArrowRight size={16} style={{ color: "#ff5c5c99" }} />
+              <ArrowRight size={16} className="text-rose-400/60" />
             </a>
 
             <a
@@ -501,15 +446,15 @@ function ResourceModal({ node, track, onClose }) {
               className="flex items-center justify-between rounded-lg px-4 py-3 transition-colors"
               style={{ background: `${color}12`, border: `1px solid ${color}40` }}
             >
-              <span className="flex items-center gap-3 text-sm font-medium" style={{ color }}>
+              <span className="flex items-center gap-3 text-[13.5px] font-medium" style={{ color }}>
                 <BookOpen size={18} /> {r.docsLabel || "Documentation"}
               </span>
               <ArrowRight size={16} style={{ color: `${color}99` }} />
             </a>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -521,9 +466,9 @@ export default function RoadmapExplorer() {
   const [activeId, setActiveId] = useState("fullstack");
   const [selectedNode, setSelectedNode] = useState(null);
   const scrollRef = useRef(null);
-  const location = useLocation();
 
   const track = TRACKS[activeId];
+  const color = TRACK_HEX[activeId];
   const layout = useMemo(() => layoutTrack(track.levels), [activeId]);
 
   useEffect(() => {
@@ -533,190 +478,122 @@ export default function RoadmapExplorer() {
   const nodeCount = layout.nodes.length;
 
   return (
-    <div
-      className="w-full min-h-screen"
-      style={{
-        background: CM.bg,
-        fontFamily: "'Inter', ui-sans-serif, system-ui",
-      }}
-    >
+    <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+        .font-body { font-family: 'Work Sans', sans-serif; }
+        .font-data { font-family: 'IBM Plex Mono', monospace; }
+        .subtle-grid {
+          background-image:
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
+        }
         .roadmap-edge { animation: dashflow 16s linear infinite; }
         @keyframes dashflow { to { stroke-dashoffset: -400; } }
-        .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: ${CM.border2}; border-radius: 8px; }
-        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ffffff14; border-radius: 2px; }
       `}</style>
 
-      {/* ── NAVBAR (CodeMaster design system) ── */}
-      <div style={{
-        background: CM.surface,
-        borderBottom: `1px solid ${CM.border}`,
-        position: "sticky",
-        top: 0,
-        zIndex: 30,
-      }}>
-        <div style={{
-  height: 48,
-  display: "flex",
-  alignItems: "center",
-  padding: "0 20px 0 36px",
-  gap: 10,
-  maxWidth: 1280,
-  margin: "0 auto",
-}}>
-  <NavLink to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-    <img
-      src={mylogo}
-      alt="CodeMaster logo"
-      style={{ width: 34, height: 34, objectFit: "contain" }}
-    />
-  </NavLink>
+      <div className="min-h-screen bg-[#0B0B0C] text-[#EAE8E3] font-body antialiased">
+        <Navbar />
 
-  <div style={{ width: 1, height: 20, background: CM.border, margin: "0 4px", flexShrink: 0 }} />
-
-  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: CM.muted, whiteSpace: "nowrap" }}>
-    <NavLink to="/explore" style={{ color: CM.muted, textDecoration: "none" }}>
-      Explore
-    </NavLink>
-    {" / "}
-    <span style={{ color: CM.accent }}>Roadmap</span>
-  </span>
-</div>
-
-        {/* Track tabs (styled as second nav row, like the language strip) */}
-        <div style={{
-          display: "flex",
-          overflowX: "auto",
-          padding: "0 20px",
-          borderTop: `1px solid ${CM.border}`,
-          maxWidth: 1280,
-          margin: "0 auto",
-        }}>
-          {Object.entries(TRACKS).map(([id, t]) => {
-            const Icon = t.icon;
-            const active = id === activeId;
-            return (
-              <button
-                key={id}
-                onClick={() => setActiveId(id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "12px 16px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  border: "none",
-                  cursor: "pointer",
-                  background: "transparent",
-                  whiteSpace: "nowrap",
-                  color: active ? t.color : CM.muted,
-                  borderBottom: active ? `2px solid ${t.color}` : "2px solid transparent",
-                  fontFamily: "'JetBrains Mono', monospace",
-                  letterSpacing: 0.3,
-                  transition: "all 0.15s",
-                }}
-              >
-                <Icon size={14} />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <main className="max-w-6xl mx-auto px-6 py-10">
-        {/* Hero */}
-        <div className="mb-8">
-          <p
-            className="text-xs uppercase tracking-[0.2em] mb-3"
-            style={{ color: CM.dim, fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            choose_a_track()
-          </p>
-          <h1
-            className="text-3xl md:text-4xl font-bold mb-2 tracking-tight"
-            style={{ color: CM.text, fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            Engineering Learning Paths
-          </h1>
-          <p className="text-sm max-w-xl" style={{ color: CM.muted }}>
-            Pick a track, follow the wired-up path, and tap any node to pull up its
-            YouTube playlist and official docs.
-          </p>
-        </div>
-
-        {/* Editor-style window chrome around the graph */}
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{ border: `1px solid ${CM.border}`, background: CM.bg }}
-        >
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: `1px solid ${CM.border}`, background: CM.surface }}
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#ff5f57" }} />
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#febc2e" }} />
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#28c840" }} />
-              <span
-                className="ml-3 text-xs"
-                style={{ color: CM.dim, fontFamily: "'JetBrains Mono', monospace" }}
-              >
-                ~/roadmaps/{activeId}
-              </span>
-            </div>
-            <span
-              className="text-[11px]"
-              style={{ color: track.color, fontFamily: "'JetBrains Mono', monospace" }}
-            >
-              {nodeCount} nodes
+        {/* ── breadcrumb ── */}
+        <div className="border-b border-white/[0.06]">
+          <div className="max-w-5xl mx-auto px-6 py-3">
+            <span className="text-[12px] font-data text-white/30">
+              <NavLink to="/explore" className="hover:text-white/60 transition-colors">Explore</NavLink>
+              {" / "}
+              <span style={{ color }}>Roadmap</span>
             </span>
           </div>
+        </div>
 
-          <div
-            ref={scrollRef}
-            className="relative overflow-auto scrollbar-thin"
-            style={{ maxHeight: "70vh" }}
-          >
-            <GridBackdrop color={track.color} />
-            <div
-              className="relative"
-              style={{ width: layout.width, height: layout.height, margin: "0 auto" }}
-            >
-              <svg
-                width={layout.width}
-                height={layout.height}
-                className="absolute inset-0"
-                style={{ pointerEvents: "none" }}
-              >
-                {layout.edges.map((e, i) => (
-                  <Edge key={i} edge={e} color={track.color} />
-                ))}
-              </svg>
-              {layout.nodes.map((n) => (
-                <Node key={n.id} node={n} color={track.color} onSelect={setSelectedNode} />
-              ))}
-            </div>
+        {/* ── hero ── */}
+        <div className="subtle-grid border-b border-white/[0.06]">
+          <div className="max-w-5xl mx-auto px-6 py-14">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+              <p className="text-[11px] font-data tracking-wide text-white/30 mb-3">choose_a_track()</p>
+              <h1 className="font-display font-semibold text-[2.25rem] sm:text-4xl leading-[1.1] text-white mb-3">
+                Engineering learning paths.
+              </h1>
+              <p className="text-white/45 text-[15px] max-w-md">
+                Pick a track, follow the wired-up path, and tap any node for a YouTube playlist and official docs.
+              </p>
+            </motion.div>
           </div>
         </div>
 
-        {/* Legend / footer strip */}
-        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs" style={{ color: CM.dim }}>
-          <span className="flex items-center gap-2">
-            <CircleDot size={13} style={{ color: track.color }} /> {track.tagline}
-          </span>
-          <span className="flex items-center gap-2">
-            <Check size={13} /> Tap any node for a YouTube playlist + official docs
-          </span>
-        </div>
-      </main>
+        <div className="max-w-5xl mx-auto px-6 py-8">
 
-      {selectedNode && (
-        <ResourceModal node={selectedNode} track={track} onClose={() => setSelectedNode(null)} />
-      )}
-    </div>
+          {/* ── track tabs ── */}
+          <div className="flex gap-1 overflow-x-auto pb-2 mb-6 -mx-1 px-1">
+            {Object.entries(TRACKS).map(([id, t]) => {
+              const Icon = t.icon;
+              const active = id === activeId;
+              const tColor = TRACK_HEX[id];
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveId(id)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[13px] font-medium whitespace-nowrap transition-colors"
+                  style={active ? { background: `${tColor}26`, color: tColor } : { color: "rgba(255,255,255,0.4)" }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <Icon size={14} />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── editor-style window chrome around the graph ── */}
+          <div className="rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.02]">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                <span className="ml-3 text-[11.5px] font-data text-white/30">~/roadmaps/{activeId}</span>
+              </div>
+              <span className="text-[11px] font-data" style={{ color }}>{nodeCount} nodes</span>
+            </div>
+
+            <div ref={scrollRef} className="relative overflow-auto" style={{ maxHeight: "70vh" }}>
+              <GridBackdrop color={color} />
+              <div className="relative" style={{ width: layout.width, height: layout.height, margin: "0 auto" }}>
+                <svg width={layout.width} height={layout.height} className="absolute inset-0 pointer-events-none">
+                  {layout.edges.map((e, i) => (
+                    <Edge key={i} edge={e} color={color} />
+                  ))}
+                </svg>
+                {layout.nodes.map((n) => (
+                  <Node key={n.id} node={n} color={color} onSelect={setSelectedNode} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── legend / footer strip ── */}
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] font-data text-white/35">
+            <span className="flex items-center gap-2">
+              <CircleDot size={13} style={{ color }} /> {track.tagline}
+            </span>
+            <span className="flex items-center gap-2">
+              <Check size={13} /> Tap any node for a YouTube playlist + official docs
+            </span>
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {selectedNode && (
+            <ResourceModal node={selectedNode} color={color} trackLabel={track.label} onClose={() => setSelectedNode(null)} />
+          )}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }

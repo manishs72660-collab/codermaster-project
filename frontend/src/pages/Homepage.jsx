@@ -4,12 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'motion/react';
 import Navbar from '../component/navbar';
 import {
-  ChevronRight,
   Search,
-  CheckCircle2,
-  Circle,
-  Trophy,
-  Target,
   Loader2,
   GraduationCap,
 } from 'lucide-react';
@@ -160,9 +155,9 @@ function Homepage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
-        .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .font-body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        .font-display { font-family: 'Fraunces', serif; font-optical-sizing: auto; }
+        .font-body { font-family: 'Work Sans', sans-serif; }
         .font-data { font-family: 'IBM Plex Mono', monospace; }
 
         .subtle-grid {
@@ -198,13 +193,7 @@ function Homepage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <span className="inline-flex items-center gap-2 mb-4">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                <span className="text-[11px] font-medium text-orange-400/90 uppercase tracking-[0.15em]">
-                  {totalCount} problems available
-                </span>
-              </span>
-              <h1 className="font-display font-extrabold text-[2.5rem] sm:text-5xl leading-[1.08] text-white mb-3">
+              <h1 className="font-display font-semibold text-[2.5rem] sm:text-5xl leading-[1.08] text-white mb-3">
                 Practice. Track. Improve.
               </h1>
               <p className="text-white/45 text-[15px] max-w-md">
@@ -218,8 +207,8 @@ function Homepage() {
 
           {/* ── stats ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            <StatCard icon={<Trophy className="w-4 h-4" />} label="Global rank" value={`#${stats?.rank ?? '—'}`} delay={0} />
-            <StatCard icon={<Target className="w-4 h-4" />} label="Problems solved" value={`${solvedCount} / ${totalCount}`} percent={solvedPercent} delay={0.05} />
+            <StatCard  label="Global rank" value={`#${stats?.rank ?? '—'}`} delay={0} />
+            <StatCard  label="Problems solved" value={`${solvedCount} / ${totalCount}`} percent={solvedPercent} delay={0.05} />
           </div>
 
           {/* ── search + filters ── */}
@@ -256,13 +245,12 @@ function Homepage() {
           </motion.div>
 
           {/* ── column headers ── */}
-          <div className="hidden md:grid grid-cols-[2.5rem_1fr_7rem_5.5rem_6rem_1.5rem] gap-4 px-4 mb-1.5">
+          <div className="hidden md:grid grid-cols-[2.5rem_1fr_7rem_5.5rem_6rem] gap-4 px-4 mb-1.5">
             <span className="text-[11px] text-white/25">#</span>
             <span className="text-[11px] text-white/25">Title</span>
             <span className="text-[11px] text-white/25">Tag</span>
             <span className="text-[11px] text-white/25">Level</span>
             <span className="text-[11px] text-white/25">Status</span>
-            <span></span>
           </div>
 
           {loading ? (
@@ -293,10 +281,7 @@ function Homepage() {
                       animate={{ opacity: 1 }}
                       className="flex flex-col items-center justify-center py-24 text-center"
                     >
-                      <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center mb-4">
-                        <Search className="w-5 h-5 text-white/20" />
-                      </div>
-                      <h3 className="font-display text-base font-semibold text-white/65 mb-1">No problems found</h3>
+                      <h3 className="font-display text-lg font-semibold text-white/65 mb-1">No problems found</h3>
                       <p className="text-xs text-white/30">Try adjusting your filters or search term.</p>
                     </motion.div>
                   )}
@@ -342,7 +327,7 @@ function CollegeBanner({ college }) {
         <span className="text-[11px] font-medium text-white/35 uppercase tracking-[0.15em]">
           Representing
         </span>
-        <h2 className="font-display font-extrabold text-white text-2xl sm:text-3xl leading-tight break-words max-w-2xl">
+        <h2 className="font-display font-semibold text-white text-2xl sm:text-3xl leading-tight break-words max-w-2xl">
           {college.name}
         </h2>
       </div>
@@ -353,7 +338,7 @@ function CollegeBanner({ college }) {
 /* ══════════════════════════════════════════
    STAT CARD
 ══════════════════════════════════════════ */
-function StatCard({ icon, label, value, delay, percent }) {
+function StatCard({ label, value, delay, percent }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -361,11 +346,10 @@ function StatCard({ icon, label, value, delay, percent }) {
       transition={{ delay, duration: 0.35 }}
       className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-5 py-4"
     >
-      <div className="flex items-center gap-2 mb-2.5 text-orange-400/80">
-        {icon}
+      <div className="mb-2.5">
         <span className="text-[12px] font-medium text-white/40">{label}</span>
       </div>
-      <div className="font-display text-2xl font-bold text-white mb-2">{value}</div>
+      <div className="font-display text-2xl font-semibold text-white mb-2">{value}</div>
       {percent != null && (
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
@@ -409,7 +393,7 @@ function FilterGroup({ label, value, options, onChange }) {
 }
 
 /* ══════════════════════════════════════════
-   PROBLEM ROW
+   PROBLEM ROW — simple, no icons, roomier spacing
 ══════════════════════════════════════════ */
 function ProblemRow({ problem, isSolved, index }) {
   const meta = diffMeta(problem.difficulty);
@@ -425,7 +409,7 @@ function ProblemRow({ problem, isSolved, index }) {
     >
       <NavLink
         to={`/problem/${problem._id}`}
-        className="group grid grid-cols-[2.5rem_1fr] md:grid-cols-[2.5rem_1fr_7rem_5.5rem_6rem_1.5rem] items-center gap-4 px-4 py-3.5 hover:bg-white/[0.03] transition-colors duration-150"
+        className="group grid grid-cols-[2.5rem_1fr] md:grid-cols-[2.5rem_1fr_7rem_5.5rem_6rem] items-center gap-4 px-4 py-5 hover:bg-white/[0.03] transition-colors duration-150"
       >
         <span className="text-[13px] text-white/25">
           {index + 1}
@@ -443,21 +427,12 @@ function ProblemRow({ problem, isSolved, index }) {
           {meta.label}
         </span>
 
-        <span className="hidden md:inline-flex items-center gap-1.5 text-[12px] font-medium">
-          {isSolved ? (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 text-orange-400" strokeWidth={2.5} />
-              <span className="text-orange-400/85">Solved</span>
-            </>
-          ) : (
-            <>
-              <Circle className="w-3.5 h-3.5 text-white/20" strokeWidth={2} />
-              <span className="text-white/35">Open</span>
-            </>
-          )}
+        <span className={cn(
+          'hidden md:inline-flex text-[12px] font-medium',
+          isSolved ? 'text-orange-400/85' : 'text-white/35'
+        )}>
+          {isSolved ? 'Solved' : 'Unsolved'}
         </span>
-
-        <ChevronRight className="w-4 h-4 text-white/15 group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all justify-self-end" />
       </NavLink>
     </motion.div>
   );
