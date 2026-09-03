@@ -49,7 +49,7 @@ import DuelSpectate from "./pages/Duelspectate"
 import McqContestCreate from "./component/Mcqcontestcreate";
 import McqContestPlay from "./component/Mcqcontestplay";
 import AdminManageMcqContests from "./component/AdminManageMcqContests";
-import DesignProblemsPage from './pages/DesignProblemsPage';
+import DesignProblemsPage from './pages/Designproblemspage';
 import DesignSolvePage from './pages/Designsolvepage';
 import Compiler from "./pages/Compiler";
 function App(){

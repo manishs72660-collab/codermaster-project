@@ -365,7 +365,7 @@ export default function Compiler() {
     }
   };
 
-  // ── drag-to-resize handlers ──
+  // ── drag-to-resize handlers (desktop only — mobile stacks panes instead) ──
   const clampWidth = (px) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return editorWidth;
@@ -473,12 +473,19 @@ export default function Compiler() {
         }
       `}</style>
 
-      <div className="h-screen flex flex-col bg-[#0B0B0C] text-[#EAE8E3] font-body antialiased">
+      {/*
+        h-screen + h-[100dvh]: on mobile browsers h-screen (100vh) doesn't
+        account for the address bar shrinking/growing, which is what was
+        cutting off / squashing the editor. Browsers that support dvh use
+        the second rule; older ones fail to parse it and silently fall
+        back to h-screen.
+      */}
+      <div className="h-screen h-[100dvh] flex flex-col bg-[#0B0B0C] text-[#EAE8E3] font-body antialiased overflow-hidden">
         <Navbar />
 
         {/* ── toolbar ── */}
-        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3 border-b border-white/[0.06] flex-shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between gap-2 gap-y-2 flex-wrap px-3 sm:px-6 py-3 border-b border-white/[0.06] flex-shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span className="hidden lg:inline text-[13px] font-medium text-white/40 mr-1">Playground</span>
 
             <select
@@ -508,7 +515,7 @@ export default function Compiler() {
               </button>
 
               {themeMenuOpen && (
-                <div className="fade-in absolute left-0 top-[calc(100%+6px)] z-20 w-52 rounded-xl border border-white/[0.08] bg-[#141416] shadow-2xl shadow-black/50 p-1.5">
+                <div className="fade-in absolute left-0 top-[calc(100%+6px)] z-20 w-52 max-w-[85vw] rounded-xl border border-white/[0.08] bg-[#141416] shadow-2xl shadow-black/50 p-1.5">
                   <div className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium text-white/30 uppercase tracking-wide">
                     <Palette className="w-3 h-3" /> Editor theme
                   </div>
@@ -563,7 +570,7 @@ export default function Compiler() {
         </div>
 
         {/* ── mobile tab switcher (Code / Output) ── */}
-        <div className="flex md:hidden items-center gap-1 px-4 py-2 border-b border-white/[0.06] flex-shrink-0">
+        <div className="flex md:hidden items-center gap-1 px-3 sm:px-4 py-2 border-b border-white/[0.06] flex-shrink-0">
           <button
             onClick={() => setMobileTab('code')}
             className={cn(
@@ -586,7 +593,7 @@ export default function Compiler() {
           </button>
         </div>
 
-        {/* ── main split (user-resizable on desktop) ── */}
+        {/* ── main split (user-resizable on desktop, stacked tabs on mobile) ── */}
         <div
           ref={containerRef}
           className="flex flex-1 min-h-0 flex-col md:flex-row"
@@ -596,7 +603,14 @@ export default function Compiler() {
           {/* editor */}
           <div
             className={cn(
-              'min-h-0 flex flex-col md:w-[var(--editor-width)]',
+              // flex-1 (mobile only) is the key fix: in the mobile column
+              // layout this pane previously had no explicit height, so
+              // Monaco's height="100%" collapsed to 0. On desktop we turn
+              // it back off (md:flex-none) and go back to the explicit
+              // width var — flex-1 sets flex-basis:0%, which on desktop
+              // was overriding --editor-width and forcing a stuck 50/50
+              // split, which is what broke resizing/scrolling there.
+              'min-h-0 flex-1 md:flex-none flex flex-col md:w-[var(--editor-width)]',
               mobileTab === 'code' ? 'flex' : 'hidden md:flex'
             )}
           >
@@ -614,12 +628,14 @@ export default function Compiler() {
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 automaticLayout: true,
+                wordWrap: 'on',
                 padding: { top: 14 },
+                scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
               }}
             />
           </div>
 
-          {/* drag handle — desktop only */}
+          {/* drag handle — desktop only, since mobile uses tabs instead of a split */}
           <div
             className={cn('hidden md:flex resizer', isDragging && 'dragging')}
             onMouseDown={startDrag}
@@ -635,9 +651,12 @@ export default function Compiler() {
 
           {/* output */}
           <div
-            className={cn('min-h-0 flex-1 flex flex-col bg-[#0B0B0C]', mobileTab === 'output' ? 'flex' : 'hidden md:flex')}
+            className={cn(
+              'min-h-0 flex-1 flex flex-col bg-[#0B0B0C]',
+              mobileTab === 'output' ? 'flex' : 'hidden md:flex'
+            )}
           >
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] flex-shrink-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap px-3 sm:px-4 py-2.5 border-b border-white/[0.06] flex-shrink-0">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="text-[11px] font-medium text-white/30 uppercase tracking-wide">Output</span>
                 {status && (
@@ -680,7 +699,7 @@ export default function Compiler() {
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-auto px-4 py-3 text-[13px] font-data whitespace-pre-wrap">
+            <div className="flex-1 min-h-0 overflow-auto px-3 sm:px-4 py-3 text-[13px] font-data whitespace-pre-wrap break-words">
               {!result && !running && (
                 <span className="text-white/25">Run your code to see output here.</span>
               )}
