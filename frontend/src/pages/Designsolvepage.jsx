@@ -4,11 +4,13 @@ import ReactFlow, {
   Background,
   Controls,
   Handle,
+  NodeResizer,
   Position,
   ReactFlowProvider,
   addEdge,
   useEdgesState,
   useNodesState,
+  useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import {
@@ -34,21 +36,44 @@ import {
   ChevronDown,
   ClipboardList,
   Layers,
+  Compass,
+  Gauge,
+  ShieldCheck,
+  Radio,
+  Activity,
+  Copy,
+  X,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import mylogo from '../assets/mylogo.png';
 
-/* ─── component palette data ─── */
+/* ─── component palette data ───
+   NOTE: only serializable fields (type/label/category/blurb) live here.
+   Node instances never store the icon component itself — see the
+   `componentType` field on dropped nodes and `iconFor()` below. Storing a
+   live component reference on a node used to break restored designs (see
+   SystemNode comment) because it can't survive a JSON round-trip through
+   the backend. */
 const COMPONENT_LIBRARY = [
-  { type: 'client', label: 'Client', icon: MonitorSmartphone, category: 'edge', blurb: 'Browser or mobile app' },
+  { type: 'client', label: 'Client', icon: MonitorSmartphone, category: 'edge', blurb: 'Browser or mobile app initiating requests' },
+  { type: 'dns', label: 'DNS', icon: Compass, category: 'edge', blurb: 'Resolves domain names to IP addresses' },
   { type: 'cdn', label: 'CDN', icon: Globe2, category: 'edge', blurb: 'Serves static assets close to users' },
+
   { type: 'loadBalancer', label: 'Load Balancer', icon: Shuffle, category: 'network', blurb: 'Spreads traffic across instances' },
   { type: 'apiGateway', label: 'API Gateway', icon: DoorOpen, category: 'network', blurb: 'Single entry point for requests' },
+  { type: 'rateLimiter', label: 'Rate Limiter', icon: Gauge, category: 'network', blurb: 'Throttles requests to protect backends from overload or abuse' },
+  { type: 'authService', label: 'Auth Service', icon: ShieldCheck, category: 'network', blurb: 'Authenticates and authorizes requests (e.g. OAuth, JWT)' },
+
   { type: 'service', label: 'Service', icon: Server, category: 'compute', blurb: 'Handles application logic' },
   { type: 'worker', label: 'Worker', icon: Cog, category: 'compute', blurb: 'Processes background jobs' },
   { type: 'queue', label: 'Message Queue', icon: ListOrdered, category: 'compute', blurb: 'Buffers work between services' },
+  { type: 'pubsub', label: 'Pub/Sub', icon: Radio, category: 'compute', blurb: 'Fans out events to many subscribers asynchronously' },
+  { type: 'monitoring', label: 'Monitoring', icon: Activity, category: 'compute', blurb: 'Collects metrics, logs, and traces for observability' },
+
   { type: 'cache', label: 'Cache', icon: Zap, category: 'storage', blurb: 'Speeds up repeated reads' },
   { type: 'database', label: 'Database', icon: Database, category: 'storage', blurb: 'Durable primary storage' },
+  { type: 'readReplica', label: 'Read Replica', icon: Copy, category: 'storage', blurb: 'Read-only copy of the database for scaling reads' },
   { type: 'objectStorage', label: 'Object Storage', icon: Box, category: 'storage', blurb: 'Stores files and blobs' },
   { type: 'searchIndex', label: 'Search Index', icon: SearchCode, category: 'storage', blurb: 'Enables fast text lookup' },
 ];
@@ -76,7 +101,11 @@ const SEVERITY_META = {
 };
 const severityMeta = (s) => SEVERITY_META[String(s || '').toLowerCase()] || SEVERITY_META.low;
 
+// Single source of truth for "componentType string -> icon component".
+// Always resolve icons through this function at render time rather than
+// storing a component reference inside node.data (see SystemNode).
 const iconFor = (type) => COMPONENT_LIBRARY.find((c) => c.type === type)?.icon || Server;
+
 const DRAG_MIME = 'application/x-system-component';
 let idCounter = 0;
 const nextId = () => `node_${Date.now()}_${idCounter++}`;
@@ -98,22 +127,74 @@ function describeEvalItem(it) {
 /* ══════════════════════════════════════════
    CUSTOM REACT FLOW NODE
 ══════════════════════════════════════════ */
-function SystemNode({ data, selected }) {
+function SystemNode({ id, data, selected }) {
   const meta = CATEGORY_META[data.category] || CATEGORY_META.network;
-  const Icon = data.icon || Server;
+  const { deleteElements } = useReactFlow();
+
+  // `data` isn't always fresh from this session — it can come straight back
+  // from the backend as a previously-submitted design (loaded via
+  // GET /design/result/:id and dropped into initialNodes/initialEdges).
+  // React components (like a Lucide icon) aren't serializable: if one were
+  // ever stored directly on node.data, a JSON round-trip through the API
+  // strips its internal function/symbol properties and leaves a plain,
+  // *truthy* object behind (e.g. `{}`). Truthy means `data.icon || Server`
+  // would never fall back to the default, and rendering that mangled
+  // object as an element type crashes with React error #130 ("Element
+  // type is invalid ... but got: object").
+  //
+  // The fix is to never store the component itself: nodes only carry the
+  // serializable `componentType` string, and the icon is always looked up
+  // fresh here, at render time, from the COMPONENT_LIBRARY table above.
+  const Icon = iconFor(data.componentType);
+
+  // Deletes only this node (and any edges attached to it) — an explicit
+  // per-component alternative to selecting + pressing Backspace, which is
+  // awkward on touch devices and easy to miss on desktop too.
+  const handleDelete = (event) => {
+    event.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
+  };
+
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-lg border bg-[#0e0e0e] pr-3 pl-1.5 py-1.5 shadow-lg shadow-black/40 transition-colors',
+        'group relative flex h-full w-full items-center gap-2 rounded-lg border bg-[#0e0e0e] pr-3 pl-1.5 py-1.5 shadow-lg shadow-black/40 transition-colors',
         selected ? 'border-orange-400/60 ring-1 ring-orange-400/30' : 'border-white/10'
       )}
     >
+      {/* Drag the corner/edge handles to resize this node. Only shown for
+          the selected node so the board doesn't get visually noisy. */}
+      <NodeResizer
+        isVisible={selected}
+        minWidth={132}
+        minHeight={44}
+        color="#fb923c"
+        handleClassName="!w-2 !h-2 !rounded-sm !border-[#0e0e0e]"
+        lineClassName="!border-orange-400/40"
+      />
+
+      {/* Per-node delete — visible on hover, or always once selected, so
+          it's reachable on touch devices without a keyboard. */}
+      <button
+        type="button"
+        onClick={handleDelete}
+        onPointerDown={(event) => event.stopPropagation()}
+        title="Delete this component"
+        aria-label="Delete this component"
+        className={cn(
+          'absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-white shadow-md shadow-black/40 transition-opacity',
+          selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        )}
+      >
+        <X className="w-2.5 h-2.5" strokeWidth={3} />
+      </button>
+
       <Handle type="target" position={Position.Top} className="!bg-orange-400 !border-[#0e0e0e] !w-2 !h-2" />
       <Handle type="target" position={Position.Left} className="!bg-orange-400 !border-[#0e0e0e] !w-2 !h-2" />
       <span className={cn('rounded-md w-7 h-7 flex items-center justify-center border shrink-0', meta.text, meta.bg, meta.border)}>
         <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />
       </span>
-      <span className="text-[12px] font-semibold text-white/85 whitespace-nowrap">{data.label}</span>
+      <span className="text-[12px] font-semibold text-white/85 whitespace-nowrap truncate">{data.label}</span>
       <Handle type="source" position={Position.Bottom} className="!bg-orange-400 !border-[#0e0e0e] !w-2 !h-2" />
       <Handle type="source" position={Position.Right} className="!bg-orange-400 !border-[#0e0e0e] !w-2 !h-2" />
     </div>
@@ -153,6 +234,10 @@ function DesignSolvePage() {
             const { data: subRes } = await axiosClient.get(`/design/result/${lastSubmissionId}`);
             const submission = subRes.submission;
             if (!cancelled && submission?.design) {
+              // Nodes restored here are exactly what was POSTed on submit,
+              // round-tripped through JSON. Only serializable fields
+              // (id/type/position/data.label/data.category/data.componentType)
+              // are ever relied on — see the SystemNode comment above.
               setInitialNodes(submission.design.nodes || []);
               setInitialEdges(submission.design.edges || []);
               if (submission.aiEvaluation?.score != null) {
@@ -255,7 +340,21 @@ function SolveWorkbench({ problem, initialNodes, initialEdges, evaluation, setEv
           id: nextId(),
           type: 'systemNode',
           position,
-          data: { label: component.label, category: component.category, icon: iconFor(component.type) },
+          // Explicit width/height give the node a real box to resize from
+          // (via NodeResizer) instead of only ever auto-sizing to its
+          // label. Both are plain numbers, so they serialize fine and
+          // round-trip through the backend like everything else in style.
+          style: { width: 168, height: 56 },
+          // Only serializable fields go on data. `componentType` is the
+          // library key (e.g. "rateLimiter") — SystemNode looks the icon
+          // up fresh from it via iconFor(), rather than storing the icon
+          // component itself, which can't survive being saved and
+          // reloaded through the backend (see SystemNode comment).
+          data: {
+            label: component.label,
+            category: component.category,
+            componentType: component.type,
+          },
         })
       );
     },
@@ -436,7 +535,7 @@ function SolveWorkbench({ problem, initialNodes, initialEdges, evaluation, setEv
           <section className={cn('flex-1 flex min-h-0 min-w-0', mobileTab === 'board' ? 'flex' : 'hidden md:flex')}>
             <ComponentPalette onDragStart={onDragStart} onTap={(c) => dropComponent(c)} />
 
-            <div className="flex-1 min-w-0 rf-dark" ref={wrapperRef}>
+            <div className="flex-1 min-w-0 rf-dark relative" ref={wrapperRef}>
               <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -454,6 +553,18 @@ function SolveWorkbench({ problem, initialNodes, initialEdges, evaluation, setEv
                 <Background color="#232323" gap={22} size={1} />
                 <Controls showInteractive={false} />
               </ReactFlow>
+
+              {/* Faint centered watermark. pointer-events-none + very low
+                  opacity so it never blocks dragging/clicking nodes or
+                  panning the canvas underneath it. */}
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center select-none">
+                <img
+                  src={mylogo}
+                  alt=""
+                  draggable={false}
+                  className="max-w-[42%] max-h-[42%] object-contain opacity-[0.05]"
+                />
+              </div>
             </div>
           </section>
         </div>
