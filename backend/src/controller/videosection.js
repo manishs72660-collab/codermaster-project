@@ -61,8 +61,8 @@ const generateUploadSignature = async (req, res) => {
       signature,
       timestamp,
       public_id: publicId,
-      api_key: 926249665188791,
-      cloud_name: "dl64jwdvp",
+      api_key: process.env.CLOUD_KEY,
+      cloud_name: process.env.CLOUDNAME,
       upload_url:
         "https://api.cloudinary.com/v1_1/dl64jwdvp/video/upload"
     });
