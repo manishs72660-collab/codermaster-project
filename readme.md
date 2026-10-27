@@ -8,7 +8,7 @@
 
 **CodeMaster** is a full-stack MERN (MongoDB, Express, React, Node.js) online coding platform designed for students to practice Data Structures & Algorithms (DSA), participate in **timed contests** and **MCQ quizzes**, engage in **real-time 1v1 battles** (duels), collaborate in a **community feed**, and communicate directly with **admins** via live chat — all within a college-scoped ecosystem.
 
-🔗 **Live Demo**: *[Insert your live URL here]*
+🔗 **Live Demo**: *https://codemaster-frontend-ruddy.vercel.app/*
 📖 **Full Documentation**: [CodeMaster Complete Technical Documentation](https://app.notion.com/p/CodeMaster-Complete-Technical-Documentation-3c3f128a4c3f807fa76ef3f0f3b3faa3?source=copy_link) (HLD, API Reference, Database Schema)
 
 ---
