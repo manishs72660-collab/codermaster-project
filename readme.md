@@ -14,7 +14,7 @@
 [![k6](https://img.shields.io/badge/k6-Load_Tested-7D64FF?logo=k6&logoColor=white)](https://k6.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[🔗 Live Demo](https://codemaster-frontend-ruddy.vercel.app/) · [📖 Technical Docs (HLD, API, DB Schema)](https://app.notion.com/p/CodeMaster-Complete-Technical-Documentation-3c3f128a4c3f807fa76ef3f0f3b3faa3) · [📈 Benchmark Report](backend/tests/BENCHMARK.md)
+[🔗 Live Demo](https://codemaster-frontend-ruddy.vercel.app/) · [📖 Technical Docs (HLD, API, DB Schema)](https://codemaster-developer-documentation.netlify.app/) · [📈 Benchmark Report](backend/tests/BENCHMARK.md)
 
 </div>
 
@@ -332,7 +332,7 @@ codermaster-project/
 | **Community** | `POST /community/posts/:id/upvote` | Feed interactions |
 | **Video** | `GET /video/create/:problemId` | Cloudinary signed uploads |
 
-Full reference: [Technical Documentation](https://app.notion.com/p/CodeMaster-Complete-Technical-Documentation-3c3f128a4c3f807fa76ef3f0f3b3faa3)
+Full reference: [Technical Documentation](https://codemaster-developer-documentation.netlify.app/)
 
 ---
 

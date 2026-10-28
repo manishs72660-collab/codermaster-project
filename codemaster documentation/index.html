@@ -1,0 +1,1961 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeMaster Developer Documentation</title>
+<meta name="description" content="Complete developer documentation for CodeMaster: features, architecture, database, API reference, real-time events, security and benchmarks.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body>
+<header class="hero">
+<p class="ver">Version 2.0.0 · Updated October 28, 2026</p>
+<h1>CodeMaster<br>Developer Documentation</h1>
+<p class="lead">Every feature, API, collection and real-time event, from the HTTP request to the Socket.io result.</p>
+<div class="pipe" aria-label="Submission pipeline"><span class="n">Client</span><span class="n">API</span><span class="n">Queue</span><span class="n">Worker</span><span class="n">Judge0</span><i class="dot"></i></div>
+<a class="btn" href="https://github.com/manishs72660-collab/codermaster-project">View repository</a>
+</header>
+<div class="layout"><nav class="side" aria-label="Sections"><div class="grp"><a class="l2" href="#1-project-overview" data-id="1-project-overview">1. Project Overview</a><div class="sub"><a class="l3" href="#11-core-features" data-id="11-core-features">1.1 Core Features</a><a class="l3" href="#12-feature-deep-dive" data-id="12-feature-deep-dive">1.2 Feature Deep-Dive</a></div></div><div class="grp"><a class="l2" href="#2-technology-stack-libraries" data-id="2-technology-stack-libraries">2. Technology Stack &amp; Libraries</a><div class="sub"><a class="l3" href="#21-backend-stack-nodejs-express" data-id="21-backend-stack-nodejs-express">2.1 Backend Stack (Node.js + Express)</a><a class="l3" href="#22-frontend-stack-react-vite" data-id="22-frontend-stack-react-vite">2.2 Frontend Stack (React + Vite)</a></div></div><div class="grp"><a class="l2" href="#3-system-architecture-high-level-design" data-id="3-system-architecture-high-level-design">3. System Architecture (High-Level Design)</a><div class="sub"><a class="l3" href="#31-system-overview" data-id="31-system-overview">3.1 System Overview</a><a class="l3" href="#32-container-diagram-internal-services" data-id="32-container-diagram-internal-services">3.2 Container Diagram (Internal Services)</a><a class="l3" href="#33-async-submission-flow-bullmq" data-id="33-async-submission-flow-bullmq">3.3 Async Submission Flow (BullMQ) ⭐</a></div></div><div class="grp"><a class="l2" href="#4-database-architecture-schema-erd" data-id="4-database-architecture-schema-erd">4. Database Architecture (Schema &amp; ERD)</a><div class="sub"><a class="l3" href="#41-entity-relationship-diagram" data-id="41-entity-relationship-diagram">4.1 Entity-Relationship Diagram</a><a class="l3" href="#42-collection-details-key-fields" data-id="42-collection-details-key-fields">4.2 Collection Details (Key Fields)</a></div></div><div class="grp"><a class="l2" href="#5-backend-architecture-api-design" data-id="5-backend-architecture-api-design">5. Backend Architecture &amp; API Design</a><div class="sub"><a class="l3" href="#51-layered-structure" data-id="51-layered-structure">5.1 Layered Structure</a><a class="l3" href="#52-request-flow-middleware-pipeline" data-id="52-request-flow-middleware-pipeline">5.2 Request Flow &amp; Middleware Pipeline</a><a class="l3" href="#53-role-based-access-control-rbac" data-id="53-role-based-access-control-rbac">5.3 Role-Based Access Control (RBAC)</a></div></div><div class="grp"><a class="l2" href="#6-detailed-api-endpoints-reference" data-id="6-detailed-api-endpoints-reference">6. Detailed API Endpoints Reference</a><div class="sub"><a class="l3" href="#61-authentication-auth" data-id="61-authentication-auth">6.1 Authentication (/auth)</a><a class="l3" href="#62-problems-problem" data-id="62-problems-problem">6.2 Problems (/problem)</a><a class="l3" href="#63-code-execution-code" data-id="63-code-execution-code">6.3 Code Execution (/code) ⭐</a><a class="l3" href="#64-coding-contests-contest" data-id="64-coding-contests-contest">6.4 Coding Contests (/contest)</a><a class="l3" href="#65-mcq-contests-mcq-contest" data-id="65-mcq-contests-mcq-contest">6.5 MCQ Contests (/mcq-contest)</a><a class="l3" href="#66-duels-duel" data-id="66-duels-duel">6.6 Duels (/duel)</a><a class="l3" href="#67-college-management-collage" data-id="67-college-management-collage">6.7 College Management (/collage)</a><a class="l3" href="#68-community-discussions-community-discuss-solution" data-id="68-community-discussions-community-discuss-solution">6.8 Community &amp; Discussions (/community, /discuss, /solution)</a><a class="l3" href="#69-video-upload-video" data-id="69-video-upload-video">6.9 Video Upload (/video)</a></div></div><div class="grp"><a class="l2" href="#7-real-time-architecture-socketio" data-id="7-real-time-architecture-socketio">7. Real-time Architecture (Socket.io)</a><div class="sub"><a class="l3" href="#71-connection-authentication-flow" data-id="71-connection-authentication-flow">7.1 Connection &amp; Authentication Flow</a><a class="l3" href="#72-event-tables" data-id="72-event-tables">7.2 Event Tables</a><a class="l3" href="#73-horizontal-scaling-via-redis-adapter" data-id="73-horizontal-scaling-via-redis-adapter">7.3 Horizontal Scaling via Redis Adapter ⭐</a></div></div><div class="grp"><a class="l2" href="#8-rate-limiting-strategy" data-id="8-rate-limiting-strategy">8. Rate Limiting Strategy ⭐</a><div class="sub"><a class="l3" href="#81-global-ip-based-limiter-sliding-window" data-id="81-global-ip-based-limiter-sliding-window">8.1 Global IP-Based Limiter (Sliding Window)</a><a class="l3" href="#82-submission-cooldown-limiter" data-id="82-submission-cooldown-limiter">8.2 Submission Cooldown Limiter</a><a class="l3" href="#83-load-testing-bypass" data-id="83-load-testing-bypass">8.3 Load Testing Bypass</a></div></div><div class="grp"><a class="l2" href="#9-security-architecture" data-id="9-security-architecture">9. Security Architecture</a><div class="sub"><a class="l3" href="#91-authentication-jwt-cookies" data-id="91-authentication-jwt-cookies">9.1 Authentication (JWT + Cookies)</a><a class="l3" href="#92-token-blacklisting" data-id="92-token-blacklisting">9.2 Token Blacklisting</a><a class="l3" href="#93-password-security" data-id="93-password-security">9.3 Password Security</a><a class="l3" href="#94-code-execution-sandbox" data-id="94-code-execution-sandbox">9.4 Code Execution Sandbox</a><a class="l3" href="#95-input-validation" data-id="95-input-validation">9.5 Input Validation</a><a class="l3" href="#96-cors-cookie-security" data-id="96-cors-cookie-security">9.6 CORS &amp; Cookie Security</a></div></div><div class="grp"><a class="l2" href="#10-frontend-architecture-react-redux" data-id="10-frontend-architecture-react-redux">10. Frontend Architecture (React + Redux)</a><div class="sub"><a class="l3" href="#101-state-management-redux-toolkit" data-id="101-state-management-redux-toolkit">10.1 State Management (Redux Toolkit)</a><a class="l3" href="#102-routing-react-router" data-id="102-routing-react-router">10.2 Routing (React Router)</a><a class="l3" href="#103-real-time-client" data-id="103-real-time-client">10.3 Real-time Client</a></div></div><div class="grp"><a class="l2" href="#11-deployment-architecture" data-id="11-deployment-architecture">11. Deployment Architecture</a><div class="sub"><a class="l3" href="#111-environment-variables" data-id="111-environment-variables">11.1 Environment Variables</a><a class="l3" href="#112-containerization-docker" data-id="112-containerization-docker">11.2 Containerization (Docker)</a><a class="l3" href="#113-cicd-pipeline" data-id="113-cicd-pipeline">11.3 CI/CD Pipeline</a></div></div><div class="grp"><a class="l2" href="#12-scalability-considerations" data-id="12-scalability-considerations">12. Scalability Considerations ⭐</a><div class="sub"></div></div><div class="grp"><a class="l2" href="#13-key-algorithms-business-logic" data-id="13-key-algorithms-business-logic">13. Key Algorithms &amp; Business Logic</a><div class="sub"><a class="l3" href="#131-elo-rating-duels" data-id="131-elo-rating-duels">13.1 ELO Rating (Duels)</a><a class="l3" href="#132-contest-violation-system-anti-cheat" data-id="132-contest-violation-system-anti-cheat">13.2 Contest Violation System (Anti-Cheat)</a><a class="l3" href="#133-submission-grading-practice-contest" data-id="133-submission-grading-practice-contest">13.3 Submission Grading (Practice &amp; Contest) ⭐</a><a class="l3" href="#134-streak-calculation" data-id="134-streak-calculation">13.4 Streak Calculation</a><a class="l3" href="#135-atomic-database-operations" data-id="135-atomic-database-operations">13.5 Atomic Database Operations ⭐</a></div></div><div class="grp"><a class="l2" href="#14-load-testing-performance-benchmarks" data-id="14-load-testing-performance-benchmarks">14. Load Testing &amp; Performance Benchmarks ⭐</a><div class="sub"><a class="l3" href="#141-test-configuration" data-id="141-test-configuration">14.1 Test Configuration</a><a class="l3" href="#142-results-cloud-vs-local-infrastructure" data-id="142-results-cloud-vs-local-infrastructure">14.2 Results: Cloud vs Local Infrastructure</a><a class="l3" href="#143-key-insights" data-id="143-key-insights">14.3 Key Insights</a><a class="l3" href="#144-reproducing-locally" data-id="144-reproducing-locally">14.4 Reproducing Locally</a></div></div><div class="grp"><a class="l2" href="#15-conclusion" data-id="15-conclusion">15. Conclusion</a><div class="sub"></div></div></nav>
+<main><div class="scroll"><table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Version</strong></td>
+<td style="text-align: left;">2.0.0</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Tech Stack</strong></td>
+<td style="text-align: left;">MERN (MongoDB, Express, React, Node.js) + Redis + Socket.io + BullMQ + Judge0 + k6</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Repository</strong></td>
+<td style="text-align: left;">https://github.com/manishs72660-collab/codermaster-project</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Deployment</strong></td>
+<td style="text-align: left;">Containerized (Docker) / VPS / Cloud</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Last Updated</strong></td>
+<td style="text-align: left;">October 28, 2026: async refactor (BullMQ + Redis Adapter + Lua rate limiting + k6 benchmarks)</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>🚀 <strong>What's New in v2.0.0 (Async Refactor)</strong>
+- ⚡ <strong>BullMQ</strong> decouples Judge0 from the HTTP path (<code>/code/submit</code> p95: ~15 s → 38 ms on local infra)
+- 🌐 <strong>Socket.io Redis Adapter</strong> for horizontal WebSocket scaling
+- 🔒 <strong>Lua scripts</strong> for atomic rate limiting (no race window between check and increment)
+- 🧬 <strong><code>$addToSet</code></strong> for race-free contest registration
+- 📊 <strong>k6 benchmarks</strong>: 100 VUs, 0% failures (see Section 14)</p>
+</blockquote>
+<hr />
+<h2 id="1-project-overview"><strong>1. Project Overview</strong></h2>
+<p><strong>CodeMaster</strong> is a MERN-based online coding platform for <strong>students</strong>, <strong>college admins</strong>, and <strong>platform admins</strong>. It provides a complete ecosystem for practicing Data Structures &amp; Algorithms (DSA), participating in <strong>timed coding contests</strong> and <strong>MCQ contests</strong>, engaging in <strong>real-time 1v1 duels</strong>, collaborating in <strong>community discussions</strong>, and communicating directly with admins via a <strong>live chat system</strong>.</p>
+<h3 id="11-core-features"><strong>1.1 Core Features</strong></h3>
+<ul>
+<li><strong>Practice Arena</strong>: 1000+ problems with tags (array, string, graph, DP), difficulty levels (Easy, Medium, Hard), and paginated search.</li>
+<li><strong>Async Code Execution</strong>: Judge0 CE sandboxed execution (C++, Java, Python, JavaScript) through <strong>BullMQ background workers</strong>. Submissions return <code>202 Accepted</code> immediately and results are pushed over Socket.io.</li>
+<li><strong>Coding Contests</strong>: Timed events with multiple problems, private/public visibility, live leaderboards, and <strong>tab-switch violation tracking</strong> (3-strike disqualification).</li>
+<li><strong>MCQ Contests</strong>: Create/play timed quizzes with multiple-choice questions; automatic grading and rank calculation.</li>
+<li><strong>Real-time Duels (Battles)</strong>: 1v1 challenges on random problems with ELO rating, live progress sharing, and spectator mode.</li>
+<li><strong>Admin Communication</strong>: Students can request a chat with an online admin; full message history.</li>
+<li><strong>Community Feed</strong>: User-generated posts, comments, and upvotes (similar to a mini-Reddit).</li>
+<li><strong>College Management</strong>: Platform admins can onboard colleges (via requests); each college gets its own admin(s) and scoped contests/leaderboards.</li>
+<li><strong>Video Solutions</strong>: Admins upload video explanations via Cloudinary integration.</li>
+<li><strong>AI Assistance</strong>: Gemini API integration for doubt solving (hints, code reviews, complexity analysis).</li>
+</ul>
+<h3 id="12-feature-deep-dive"><strong>1.2 Feature Deep-Dive</strong></h3>
+<h4 id="practice-arena">🧩 Practice Arena</h4>
+<ul>
+<li>Browse 1000+ problems in a paginated list (<code>?page=&amp;limit=</code>) with infinite scroll in the UI, then narrow by difficulty (Easy, Medium, Hard) and tags such as array, string, graph and DP.</li>
+<li><strong>Run</strong> executes your code on the visible test cases and returns the result right away. <strong>Submit</strong> runs the hidden test cases through the async queue.</li>
+<li>Languages: C++, Java, Python and JavaScript. The editor is Monaco, the same engine as VS Code.</li>
+</ul>
+<h4 id="async-code-execution">⚡ Async Code Execution</h4>
+<ul>
+<li>Submitting returns <code>202 Accepted</code> in milliseconds. A BullMQ worker runs all hidden test cases in one Judge0 batch and pushes the verdict to your private Socket.io room.</li>
+<li>If Judge0 fails, the job retries 3 times with exponential backoff and then lands in a dead-letter queue, so one outage does not lose submissions.</li>
+<li>A 10-second per-user cooldown, enforced atomically in Redis, stops submission spam.</li>
+</ul>
+<h4 id="coding-contests">🏆 Coding Contests</h4>
+<ul>
+<li>Admins and college admins create timed contests with several problems. <strong>Public</strong> contests need a click on Register. <strong>Private</strong> contests need a join code.</li>
+<li>Middleware gates every step: the contest must exist, have started, still be running for submissions, and you must be registered.</li>
+<li>The live leaderboard counts the first accepted solution per problem, with the earliest submission breaking ties.</li>
+<li><strong>Anti-cheat:</strong> tab switches and minimizing are reported. Strike 1 is a warning, strike 2 a strict warning, and strike 3 disqualifies you and removes you from the board.</li>
+</ul>
+<h4 id="mcq-contests">📝 MCQ Contests</h4>
+<ul>
+<li>Up to 20 questions, each with 4 options. The correct option is stored server-side and stripped from the questions endpoint.</li>
+<li>You submit the whole answer sheet once. The server grades it, ranks everyone, and applies the same 3-strike rule.</li>
+<li>After the contest, your graded sheet shows the correct answers and explanations.</li>
+</ul>
+<h4 id="real-time-duels">⚔️ Real-time Duels</h4>
+<ul>
+<li>Create a room, share the room code, and the opponent joins. Both players get the same problem and a start signal at the same moment.</li>
+<li>You see your opponent’s test-case progress live. Spectators join a separate room and watch the editors update.</li>
+<li>The first correct submission wins. Ratings use ELO with K = 32, scaled by difficulty (Easy 0.75, Medium 1.0, Hard 1.5).</li>
+<li>Afterwards you can request a rematch on a new random problem, or replay both players’ final code.</li>
+</ul>
+<h4 id="college-management">🎓 College Management</h4>
+<ul>
+<li>A college registers through a public request. The platform admin gets an email and can approve it (a temporary password is emailed to the requester) or reject it.</li>
+<li>Each college has its own admin, scoped contests, a student list, and an internal leaderboard. College admins can promote students to admin.</li>
+<li>Deleting a college cascades to its users, submissions and Redis keys.</li>
+</ul>
+<h4 id="admin-chat">💬 Admin Chat</h4>
+<ul>
+<li>Admins who are online are tracked in Redis. A student picks one and sends a request, the admin accepts or declines, and both join a private room.</li>
+<li>Every message is saved, so the full history stays available after the chat ends.</li>
+</ul>
+<h4 id="community-discussions-and-solutions">📢 Community, Discussions and Solutions</h4>
+<ul>
+<li>The community feed supports posts with tags, sorting, upvotes and comments, in the style of a small forum.</li>
+<li>Each problem has its own discussion thread with replies.</li>
+<li>After you get an accepted submission, you can publish it as a solution post with your explanation.</li>
+</ul>
+<h4 id="video-solutions">🎥 Video Solutions</h4>
+<ul>
+<li>Admins request a signed upload URL, upload the video straight to Cloudinary, then save the metadata. Thumbnails are generated automatically.</li>
+<li>Deleting a video also removes it from Cloudinary.</li>
+</ul>
+<h4 id="ai-doubt-solver">🤖 AI Doubt Solver</h4>
+<ul>
+<li>Gemini powers hints, code reviews and complexity analysis, so you can get unstuck without reading the full solution.</li>
+</ul>
+<h4 id="user-profiles">📊 User Profiles</h4>
+<ul>
+<li>A submission heatmap, skill breakdown, solved counts by difficulty, daily streak, and your global and college ranks.</li>
+<li>Sign in with email or Google. Tokens rotate on refresh, and logout blacklists the token.</li>
+</ul>
+<hr />
+<h2 id="2-technology-stack-libraries"><strong>2. Technology Stack &amp; Libraries</strong></h2>
+<p>Dependencies are taken from the <code>package.json</code> files (backend + frontend). ⭐ = added in the async/scaling refactor.</p>
+<h3 id="21-backend-stack-nodejs-express"><strong>2.1 Backend Stack (Node.js + Express)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Category</strong></th>
+<th><strong>Libraries &amp; Versions</strong></th>
+<th><strong>Purpose</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Core Framework</strong></td>
+<td><code>express@5.2.1</code></td>
+<td>REST API server</td>
+</tr>
+<tr>
+<td><strong>Database ODM</strong></td>
+<td><code>mongoose@9.6.1</code></td>
+<td>MongoDB object modeling</td>
+</tr>
+<tr>
+<td><strong>Authentication</strong></td>
+<td><code>jsonwebtoken@9.0.3</code>, <code>bcrypt@6.0.0</code></td>
+<td>JWT generation, password hashing</td>
+</tr>
+<tr>
+<td><strong>Cache/Session</strong></td>
+<td><code>redis@5.12.1</code></td>
+<td>Token blacklist, online users, atomic rate limiting (Lua)</td>
+</tr>
+<tr>
+<td><strong>Job Queue</strong> ⭐</td>
+<td><code>bullmq</code>, <code>ioredis</code></td>
+<td>Async code submission pipeline</td>
+</tr>
+<tr>
+<td><strong>Real-time</strong></td>
+<td><code>socket.io@4.8.3</code></td>
+<td>Duels, contest leaderboards, chat, submission results</td>
+</tr>
+<tr>
+<td><strong>Real-time Scaling</strong> ⭐</td>
+<td><code>@socket.io/redis-adapter</code></td>
+<td>Cross-instance WebSocket broadcasting</td>
+</tr>
+<tr>
+<td><strong>Code Execution</strong></td>
+<td><code>axios@1.16.0</code></td>
+<td>HTTP client for Judge0 API</td>
+</tr>
+<tr>
+<td><strong>AI Integration</strong></td>
+<td><code>@google/genai@2.6.0</code></td>
+<td>Gemini API for doubt solving</td>
+</tr>
+<tr>
+<td><strong>File Upload</strong></td>
+<td><code>cloudinary@2.10.0</code>, <code>multer@2.2.0</code></td>
+<td>Video uploads and streaming</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td><code>nodemailer@8.0.11</code></td>
+<td>College approval/rejection notifications</td>
+</tr>
+<tr>
+<td><strong>Security</strong></td>
+<td><code>cookie-parser@1.4.7</code>, <code>cors@2.8.6</code>, <code>validator@13.15.35</code></td>
+<td>Cookie parsing, CORS, input validation</td>
+</tr>
+<tr>
+<td><strong>Utilities</strong></td>
+<td><code>dotenv@17.4.2</code>, <code>canvas@3.2.3</code>, <code>pdf-parse@2.4.5</code></td>
+<td>Config, image processing, PDF parsing</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Testing / Tooling</strong> ⭐</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Category</strong></th>
+<th><strong>Tool</strong></th>
+<th><strong>Purpose</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Load Testing</strong></td>
+<td><code>k6</code> (external binary)</td>
+<td>100-VU concurrency benchmark</td>
+</tr>
+<tr>
+<td><strong>Containers</strong></td>
+<td>Docker</td>
+<td>Multi-stage backend/frontend builds, local Redis/Mongo</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="22-frontend-stack-react-vite"><strong>2.2 Frontend Stack (React + Vite)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Category</strong></th>
+<th><strong>Libraries &amp; Versions</strong></th>
+<th><strong>Purpose</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Core Framework</strong></td>
+<td><code>react@19.1.0</code>, <code>react-dom@19.1.0</code>, <code>vite@6.3.5</code></td>
+<td>UI rendering, build tool</td>
+</tr>
+<tr>
+<td><strong>State Management</strong></td>
+<td><code>@reduxjs/toolkit@2.11.2</code>, <code>react-redux@9.2.0</code>, <code>redux@5.0.1</code></td>
+<td>Global state (auth, problems, profile)</td>
+</tr>
+<tr>
+<td><strong>Routing</strong></td>
+<td><code>react-router@7.6.0</code>, <code>react-router-dom@7.15.0</code></td>
+<td>Client-side routing</td>
+</tr>
+<tr>
+<td><strong>Forms &amp; Validation</strong></td>
+<td><code>react-hook-form@7.56.4</code>, <code>zod@3.25.7</code>, <code>@hookform/resolvers@5.0.1</code></td>
+<td>Form management and schema validation</td>
+</tr>
+<tr>
+<td><strong>HTTP &amp; WebSocket</strong></td>
+<td><code>axios@1.16.0</code>, <code>socket.io-client@4.8.3</code></td>
+<td>API calls, real-time communication</td>
+</tr>
+<tr>
+<td><strong>UI &amp; Styling</strong></td>
+<td><code>tailwindcss@4.1.7</code>, <code>daisyui@5.0.35</code>, <code>clsx@2.1.1</code>, <code>tailwind-merge@3.6.0</code></td>
+<td>Styling, component utilities</td>
+</tr>
+<tr>
+<td><strong>Animations</strong></td>
+<td><code>framer-motion@12.40.0</code>, <code>motion@12.38.0</code></td>
+<td>Page transitions and micro-interactions</td>
+</tr>
+<tr>
+<td><strong>Code Editor</strong></td>
+<td><code>@monaco-editor/react@4.7.0</code></td>
+<td>VS Code-style code editor</td>
+</tr>
+<tr>
+<td><strong>Charts &amp; Visuals</strong></td>
+<td><code>recharts@3.9.2</code>, <code>react-calendar-heatmap@1.10.0</code></td>
+<td>Profile heatmap, stats</td>
+</tr>
+<tr>
+<td><strong>Authentication</strong></td>
+<td><code>firebase@12.13.0</code></td>
+<td>Google OAuth login</td>
+</tr>
+<tr>
+<td><strong>Icons</strong></td>
+<td><code>lucide-react@1.16.0</code></td>
+<td>Icon set</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="3-system-architecture-high-level-design"><strong>3. System Architecture (High-Level Design)</strong></h2>
+<p>The system follows a <strong>modular monolithic backend</strong> with clear separation of concerns (controllers → services → models). Heavy work (code execution) runs in a <strong>separate BullMQ worker process</strong>, which keeps the API layer stateless and lets workers scale independently.</p>
+<h3 id="31-system-overview"><strong>3.1 System Overview</strong></h3>
+<pre class="mermaid">graph LR
+    Client[Web Browser] --&gt; Frontend[React SPA]
+    Frontend --&gt; API[Express REST API]
+    Frontend --&gt; WS[Socket.io Server]
+
+    API --&gt; MongoDB[(MongoDB Atlas)]
+    API --&gt; Queue[BullMQ Queue]
+    Queue --&gt; Redis[(Redis)]
+    Queue --&gt; Worker[Submission Worker]
+    Worker --&gt; Judge0[Judge0 CE]
+    Worker --&gt; MongoDB
+    Worker -. emit result .-&gt; WS
+
+    API --&gt; RateLimit[Redis Lua Rate Limiter]
+    API --&gt; Cloudinary[Cloudinary]
+    API --&gt; Gemini[Gemini AI]
+
+    WS --&gt; Adapter[Socket.io Redis Adapter]
+    Adapter --&gt; Redis
+    WS --&gt; MongoDB
+</pre>
+<h3 id="32-container-diagram-internal-services"><strong>3.2 Container Diagram (Internal Services)</strong></h3>
+<figure><button class="zoom" aria-label="Enlarge image"><img src="images/architecture.png" alt="System architecture: browser, API, Socket.io, Redis queue, worker and Judge0" loading="lazy"></button><figcaption>System architecture: browser, API, Socket.io, Redis queue, worker and Judge0. Click to enlarge.</figcaption></figure>
+<h3 id="33-async-submission-flow-bullmq"><strong>3.3 Async Submission Flow (BullMQ)</strong> ⭐</h3>
+<p>Unlike a traditional synchronous design (where the HTTP thread blocks 10–15 s on Judge0), CodeMaster decouples Judge0 execution into a background worker pipeline.</p>
+<pre class="mermaid">sequenceDiagram
+    participant C as Client
+    participant A as Express API
+    participant Q as BullMQ (Redis)
+    participant W as Worker
+    participant J as Judge0 CE
+    participant S as Socket.io
+
+    C-&gt;&gt;A: POST /code/submit/:id
+    A-&gt;&gt;A: Create Submission (status = pending)
+    A-&gt;&gt;Q: Enqueue job
+    A--&gt;&gt;C: 202 Accepted { submissionId, status: &quot;pending&quot; }
+    Q-&gt;&gt;W: Worker pulls job (concurrency = 10)
+    W-&gt;&gt;J: Batch-run hidden test cases
+    J--&gt;&gt;W: Results
+    W-&gt;&gt;W: Update Submission (accepted / wrong / error)
+    W-&gt;&gt;S: Emit to room user-{userId}
+    S--&gt;&gt;C: submission_result
+</pre>
+<p><strong>Why this matters</strong></p>
+<ul>
+<li><strong>API latency drops from ~15 s to &lt;200 ms</strong>: the endpoint no longer waits for Judge0.</li>
+<li><strong>Retry handling</strong>: BullMQ retries failed jobs up to 3 times with exponential backoff.</li>
+<li><strong>Dead-letter queue</strong>: permanently failed jobs are kept for inspection.</li>
+<li><strong>User isolation</strong>: one user's slow Judge0 request does not hold up HTTP threads for others.</li>
+</ul>
+<blockquote>
+<p><strong>Scope note:</strong> this pipeline is used for practice submissions (<code>POST /code/submit/:id</code>).
+</p>
+</blockquote>
+<hr />
+<h2 id="4-database-architecture-schema-erd"><strong>4. Database Architecture (Schema &amp; ERD)</strong></h2>
+<p>MongoDB is used for all persistent storage. The diagram below shows all collections and their relationships.</p>
+<h3 id="41-entity-relationship-diagram"><strong>4.1 Entity-Relationship Diagram</strong></h3>
+<figure><button class="zoom" aria-label="Enlarge image"><img src="images/erd.png" alt="Database entity-relationship diagram (21 collections)" loading="lazy"></button><figcaption>Database entity-relationship diagram (21 collections). Click to enlarge.</figcaption></figure>
+<h3 id="42-collection-details-key-fields"><strong>4.2 Collection Details (Key Fields)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Collection</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Key Fields &amp; Relationships</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>User</code></strong></td>
+<td>User accounts</td>
+<td><code>emailId</code> (unique), <code>role</code> (Admin, CollageAdmin, User), <code>collegeId</code> (ref: College)</td>
+</tr>
+<tr>
+<td><strong><code>College</code></strong></td>
+<td>Registered colleges</td>
+<td><code>collegeCode</code> (unique), <code>adminId</code> (ref: User), <code>plan</code> (Free/Pro/Enterprise)</td>
+</tr>
+<tr>
+<td><strong><code>CollegeRequest</code></strong></td>
+<td>Pending registrations</td>
+<td><code>status</code> (pending/approved/rejected), <code>adminEmail</code>, <code>emailStatus</code> (sent/failed)</td>
+</tr>
+<tr>
+<td><strong><code>Problem</code></strong></td>
+<td>Coding problems</td>
+<td><code>title</code> (unique), <code>difficulty</code>, <code>tags</code>, <code>visibleTestCases</code>, <code>hiddenTestCases</code>, <code>driverCode</code>, <code>referenceSolution</code></td>
+</tr>
+<tr>
+<td><strong><code>Submission</code></strong></td>
+<td>Practice submissions</td>
+<td><code>userId</code> (ref: User), <code>problemId</code> (ref: Problem), <code>status</code> (pending/accepted/wrong/error)</td>
+</tr>
+<tr>
+<td><strong><code>userProblem</code></strong></td>
+<td>Unique solved problems</td>
+<td><code>userId</code> + <code>problemId</code> (unique compound), <code>status</code> (accepted)</td>
+</tr>
+<tr>
+<td><strong><code>Contest</code></strong></td>
+<td>Coding contests</td>
+<td><code>problems</code> (ref: Problem[]), <code>participants</code> (ref: User[]), <code>collegeId</code> (null = global), <code>joinCode</code> (private)</td>
+</tr>
+<tr>
+<td><strong><code>ContestSubmission</code></strong></td>
+<td>Contest code submissions</td>
+<td><code>contestId</code>, <code>problemId</code>, <code>userId</code>, <code>status</code>, <code>testCasesPassed</code></td>
+</tr>
+<tr>
+<td><strong><code>ContestRank</code></strong></td>
+<td>Contest performance</td>
+<td><code>userId</code>, <code>totalSolved</code>, <code>solvedProblems[]</code>, <code>violationCount</code>, <code>disqualified</code></td>
+</tr>
+<tr>
+<td><strong><code>McqContest</code></strong></td>
+<td>MCQ contests</td>
+<td><code>questions</code> (embedded with <code>correctOption</code>), <code>durationMinutes</code>, <code>collegeId</code></td>
+</tr>
+<tr>
+<td><strong><code>McqSubmission</code></strong></td>
+<td>MCQ answer sheets</td>
+<td><code>answers[]</code> (questionId, selectedOption, isCorrect), <code>score</code></td>
+</tr>
+<tr>
+<td><strong><code>McqContestRank</code></strong></td>
+<td>MCQ rankings</td>
+<td><code>score</code>, <code>violationCount</code>, <code>disqualified</code></td>
+</tr>
+<tr>
+<td><strong><code>DuelRoom</code></strong></td>
+<td>1v1 battle rooms</td>
+<td><code>roomCode</code> (unique), <code>player1</code>/<code>player2</code> (embedded userId+code), <code>status</code>, <code>winnerId</code></td>
+</tr>
+<tr>
+<td><strong><code>DuelStats</code></strong></td>
+<td>ELO &amp; battle history</td>
+<td><code>userId</code> (unique), <code>rating</code> (ELO), <code>wins</code>, <code>losses</code>, <code>winStreak</code></td>
+</tr>
+<tr>
+<td><strong><code>ChatRequest</code></strong></td>
+<td>Admin chat requests</td>
+<td><code>userId</code>, <code>adminId</code>, <code>status</code> (pending/accepted/ended)</td>
+</tr>
+<tr>
+<td><strong><code>Message</code></strong></td>
+<td>Chat messages</td>
+<td><code>chatRequestId</code>, <code>senderId</code>, <code>text</code></td>
+</tr>
+<tr>
+<td><strong><code>CommunityPost</code></strong></td>
+<td>Community feed posts</td>
+<td><code>author</code>, <code>title</code>, <code>body</code>, <code>upvotes[]</code>, <code>comments[]</code> (embedded)</td>
+</tr>
+<tr>
+<td><strong><code>Discussion</code></strong></td>
+<td>Problem discussions</td>
+<td><code>problemId</code>, <code>userId</code>, <code>message</code></td>
+</tr>
+<tr>
+<td><strong><code>DiscussionReply</code></strong></td>
+<td>Replies to discussions</td>
+<td><code>discussionId</code>, <code>userId</code>, <code>message</code></td>
+</tr>
+<tr>
+<td><strong><code>SolutionPost</code></strong></td>
+<td>Posted accepted solutions</td>
+<td><code>submissionId</code> (unique), <code>explanation</code>, <code>code</code></td>
+</tr>
+<tr>
+<td><strong><code>SolutionVideo</code></strong></td>
+<td>Video solutions</td>
+<td><code>problemId</code>, <code>cloudinaryPublicId</code>, <code>secureUrl</code>, <code>thumbnailUrl</code></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="5-backend-architecture-api-design"><strong>5. Backend Architecture &amp; API Design</strong></h2>
+<h3 id="51-layered-structure"><strong>5.1 Layered Structure</strong></h3>
+<pre class="mermaid">flowchart LR
+  RT[Routes] --&gt; MW[Middleware&lt;br/&gt;auth, rate limit, scope] --&gt; CT[Controllers] --&gt; SV[Services and utils&lt;br/&gt;Judge0, ELO, email] --&gt; MD[(Mongoose models)]
+</pre>
+<h3 id="52-request-flow-middleware-pipeline"><strong>5.2 Request Flow &amp; Middleware Pipeline</strong></h3>
+<p>Every request passes through the same pipeline. Rate limiting applies to the auth and submit routes, and the submit route hands work to the queue instead of calling Judge0.</p>
+<pre class="mermaid">flowchart LR
+  R[Request] --&gt; RL{Rate limiter&lt;br/&gt;Redis Lua}
+  RL -- blocked --&gt; E1[429]
+  RL -- allowed --&gt; A{Token valid&lt;br/&gt;and not blacklisted}
+  A -- no --&gt; E2[401]
+  A -- yes --&gt; Z{Role and&lt;br/&gt;scope check}
+  Z -- denied --&gt; E3[403]
+  Z -- ok --&gt; C[Controller]
+  C --&gt; S[Service and models]
+  C -.-&gt; Q[BullMQ queue] -.-&gt; W[Worker]
+</pre>
+<p><strong>5. Async submission branch</strong> ⭐
+For <code>POST /code/submit/:id</code>, the controller does not call Judge0. It creates a <code>pending</code> submission, enqueues a BullMQ job and returns <code>202</code>. See <a href="#33-async-submission-flow-bullmq-">Section 3.3</a> for the full flow.</p>
+<h3 id="53-role-based-access-control-rbac"><strong>5.3 Role-Based Access Control (RBAC)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Endpoint Scope</strong></th>
+<th><strong><code>Admin</code> (Platform)</strong></th>
+<th><strong><code>CollageAdmin</code></strong></th>
+<th><strong><code>User</code> (Student)</strong></th>
+<th><strong>Public</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Problem CRUD</strong></td>
+<td>✅ Full access</td>
+<td>❌ (denied by adminMiddleware)</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Create Coding Contest</strong></td>
+<td>✅ (any college or global)</td>
+<td>✅ (scoped to own college)</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Update/Delete Contest</strong></td>
+<td>✅ (any contest)</td>
+<td>✅ (only own created)</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Register for Contest</strong></td>
+<td>✅ (as participant)</td>
+<td>✅ (as participant)</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>MCQ Contest (same as above)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Duel (Battles)</strong></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>View College Data</strong></td>
+<td>✅ (all colleges)</td>
+<td>✅ (own college)</td>
+<td>✅ (own college)</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Manage College Users</strong></td>
+<td>✅</td>
+<td>✅ (own college only)</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Approve College Requests</strong></td>
+<td>✅</td>
+<td>❌</td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Chat with Admin</strong></td>
+<td>❌ (is the admin)</td>
+<td>❌</td>
+<td>✅ (request)</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="6-detailed-api-endpoints-reference"><strong>6. Detailed API Endpoints Reference</strong></h2>
+<h3 id="61-authentication-auth"><strong>6.1 Authentication (<code>/auth</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Request Body</strong></th>
+<th><strong>Response</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/register</code></td>
+<td>Student signup</td>
+<td>Public</td>
+<td><code>{ firstName, emailId, password, collegeCode? }</code></td>
+<td><code>{ user, message }</code> + cookies</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/login</code></td>
+<td>Login</td>
+<td>Public</td>
+<td><code>{ emailId, password }</code></td>
+<td><code>{ user, message }</code> + cookies</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/google</code></td>
+<td>Google OAuth</td>
+<td>Public</td>
+<td><code>{ emailId, firstName, photoURL, collegeId? }</code></td>
+<td><code>{ user, message }</code> + cookies</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/refresh</code></td>
+<td>Refresh tokens</td>
+<td>Public</td>
+<td>(cookie: <code>refreshToken</code>)</td>
+<td><code>{ message }</code> + new cookies</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/logout</code></td>
+<td>Logout</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+<td><code>Logout successful</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/profile</code></td>
+<td>Get current user</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+<td><code>{ firstName, emailId, role, _id }</code></td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/deleteuser</code></td>
+<td>Delete own account</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+<td><code>User deleted</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/admin/register</code></td>
+<td>Create new platform admin</td>
+<td><code>adminMiddleware</code></td>
+<td><code>{ firstName, emailId, password, role }</code></td>
+<td><code>{ user, message }</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/check</code></td>
+<td>Validate token</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+<td><code>{ user, message: "Valid User" }</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="62-problems-problem"><strong>6.2 Problems (<code>/problem</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Request Body / Params</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/create</code></td>
+<td>Create a new problem</td>
+<td><code>adminMiddleware</code></td>
+<td>Full problem schema (test cases, driver code, ref solution)</td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td><code>/updateproblem/:id</code></td>
+<td>Update problem</td>
+<td><code>adminMiddleware</code></td>
+<td>Partial problem data</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/deleteproblem/:id</code></td>
+<td>Delete problem</td>
+<td><code>adminMiddleware</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/admin/:id</code></td>
+<td>Get full problem (for admin edit)</td>
+<td><code>adminMiddleware</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id</code></td>
+<td>Get problem (with visible test cases)</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/</code></td>
+<td>List problems (paginated)</td>
+<td><code>userAuth</code></td>
+<td>Query: <code>?page=1&amp;limit=20</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/search</code></td>
+<td>Search problems</td>
+<td><code>userAuth</code></td>
+<td>Query: <code>?q=array&amp;difficulty=easy&amp;tag=dp</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="63-code-execution-code"><strong>6.3 Code Execution (<code>/code</code>)</strong> ⭐</h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Response Behavior</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/runcode/:id</code></td>
+<td><strong>Synchronous</strong> run against visible test cases</td>
+<td><code>userAuth</code></td>
+<td><code>{ success, testCases, runtime, memory }</code> (waits for Judge0)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/submit/:id</code> ⭐</td>
+<td><strong>Asynchronous</strong> submit against hidden test cases</td>
+<td><code>userAuth</code> + <code>submitCodeRateLimiter</code></td>
+<td><code>202 Accepted</code> + <code>{ submissionId, status: "pending" }</code>; result arrives via Socket.io</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/solveproblem/:id</code></td>
+<td>Get user's submissions for a problem</td>
+<td><code>userAuth</code></td>
+<td><code>[Submission]</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/userstate</code></td>
+<td>Get solved stats</td>
+<td><code>userAuth</code></td>
+<td><code>{ total, easy, medium, hard, rank }</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/userrank</code></td>
+<td>Get global rank</td>
+<td><code>userAuth</code></td>
+<td><code>{ rank }</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/userstrik</code></td>
+<td>Get current streak</td>
+<td><code>userAuth</code></td>
+<td><code>{ streak }</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/solveduniqueproblem</code></td>
+<td>Get unique problems solved</td>
+<td><code>userAuth</code></td>
+<td><code>[{ problemId, title }]</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Key change: async submission flow</strong></p>
+<p>Old behavior (v1.0.0):</p>
+<pre><code class="language-text">POST /submit → waits ~15 s for Judge0 → returns { accepted: true/false }
+</code></pre>
+<p>New behavior (v2.0.0):</p>
+<pre><code class="language-text">POST /submit → returns immediately { submissionId, status: &quot;pending&quot; } (202)
+        ↓
+Worker processes Judge0 in the background
+        ↓
+Socket.io emits `submission_result` to room user-{userId}
+        ↓
+Frontend receives { accepted, passedTestCases, totalTestCases, runtime, memory }
+</code></pre>
+<p><strong>Client example</strong></p>
+<pre><code class="language-javascript">// 1. Submit (fast)
+const res = await axios.post(
+  `/code/submit/${problemId}`,
+  { code, language },
+  { headers: { 'x-socket-id': socket.id } }
+);
+// → { submissionId: &quot;...&quot;, status: &quot;pending&quot; }
+
+// 2. Listen for the result
+socket.on('submission_result', (data) =&gt; {
+  // → { accepted: true, passedTestCases: 10, totalTestCases: 10, runtime, memory }
+});
+</code></pre>
+<h3 id="64-coding-contests-contest"><strong>6.4 Coding Contests (<code>/contest</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Request Body / Params</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/all</code></td>
+<td>List contests (scoped by role/college)</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/create</code></td>
+<td>Create contest</td>
+<td><code>isAdmin</code> (Admin/CollageAdmin)</td>
+<td><code>{ title, startTime, endTime, problems[], isPublic, collegeId? }</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/join</code></td>
+<td>Join private contest by code</td>
+<td><code>userAuth</code></td>
+<td><code>{ code }</code> (atomic <code>$addToSet</code>)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id</code></td>
+<td>Get contest details</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/:id/register</code></td>
+<td>Register for public contest</td>
+<td><code>userAuth</code></td>
+<td>- (atomic <code>$addToSet</code>)</td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td><code>/:id/update</code></td>
+<td>Update contest</td>
+<td><code>contestExists</code> + <code>isContestOwner</code></td>
+<td>Partial update</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/:id/delete</code></td>
+<td>Delete contest</td>
+<td><code>contestExists</code> + <code>isContestOwner</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id/problems</code></td>
+<td>Get all problems in a contest</td>
+<td><code>contestStarted</code> + <code>isRegistered</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id/problem/:problemId</code></td>
+<td>Get single contest problem</td>
+<td>Same as above</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/:id/submit/:problemId</code></td>
+<td>Submit code in contest</td>
+<td><code>contestOngoing</code> + <code>isRegistered</code></td>
+<td><code>{ code, language }</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/:id/violation</code></td>
+<td>Report tab switch</td>
+<td><code>isRegistered</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id/leaderboard</code></td>
+<td>Get contest leaderboard</td>
+<td><code>contestStarted</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id/my-submissions</code></td>
+<td>Get user's submissions</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="65-mcq-contests-mcq-contest"><strong>6.5 MCQ Contests (<code>/mcq-contest</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Notes</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/all</code></td>
+<td>List MCQ contests</td>
+<td><code>userAuth</code></td>
+<td>Scoped similarly to coding contests</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/create</code></td>
+<td>Create MCQ contest</td>
+<td><code>isAdmin</code></td>
+<td>Max 20 questions; each has <code>questionText</code>, <code>options[4]</code>, <code>correctOption</code> (0-3)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/join</code></td>
+<td>Join private MCQ by code</td>
+<td><code>userAuth</code></td>
+<td>Atomic <code>$addToSet</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id</code></td>
+<td>Get contest info (no answers)</td>
+<td><code>userAuth</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/:id/register</code></td>
+<td>Register for public MCQ</td>
+<td><code>userAuth</code></td>
+<td>Atomic <code>$addToSet</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id/questions</code></td>
+<td>Get questions (answers stripped)</td>
+<td><code>mcqContestStarted</code> + <code>isMcqRegistered</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/:id/submit</code></td>
+<td>Submit entire answer sheet</td>
+<td><code>mcqContestOngoing</code> + <code>isMcqRegistered</code></td>
+<td><code>{ answers: [{ questionId, selectedOption }] }</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id/leaderboard</code></td>
+<td>Get MCQ leaderboard</td>
+<td><code>mcqContestStarted</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:id/my-submission</code></td>
+<td>Get own graded answer sheet</td>
+<td><code>userAuth</code></td>
+<td>Reveals correct answers/explanation</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="66-duels-duel"><strong>6.6 Duels (<code>/duel</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Notes</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/create</code></td>
+<td>Create a duel room</td>
+<td><code>userAuth</code></td>
+<td><code>{ problemId, timeLimit? }</code>; returns <code>roomCode</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/join/:roomCode</code></td>
+<td>Join a room</td>
+<td><code>userAuth</code></td>
+<td>Sets player2; emits <code>duel:start</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/submit/:roomId</code></td>
+<td>Submit code in duel</td>
+<td><code>userAuth</code></td>
+<td>Evaluates hidden test cases; updates ELO on win</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/room/:roomCode</code></td>
+<td>Get room info</td>
+<td><code>userAuth</code></td>
+<td>Returns problem, players, status</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/stats</code></td>
+<td>Get user's ELO stats</td>
+<td><code>userAuth</code></td>
+<td><code>{ rating, wins, losses, winStreak }</code></td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/leaderboard</code></td>
+<td>Global duel leaderboard</td>
+<td><code>userAuth</code></td>
+<td>Sorted by ELO descending</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/rematch/:roomId</code></td>
+<td>Request rematch</td>
+<td><code>userAuth</code></td>
+<td>New room, same players, random new problem</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/replay/:roomId</code></td>
+<td>Get both players' final code</td>
+<td><code>userAuth</code></td>
+<td>For post-match review</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="67-college-management-collage"><strong>6.7 College Management (<code>/collage</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Notes</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/</code></td>
+<td>List all colleges</td>
+<td><code>adminMiddleware</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/</code></td>
+<td>Create college + first admin</td>
+<td><code>adminMiddleware</code></td>
+<td>Platform admin onboarding</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/:collegeId</code></td>
+<td>Delete college &amp; all users</td>
+<td><code>adminMiddleware</code></td>
+<td>Cascades to users/submissions/Redis</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/request</code></td>
+<td>Public college registration request</td>
+<td>Public</td>
+<td>Saves <code>CollegeRequest</code>, emails platform admin</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/requests</code></td>
+<td>List pending requests</td>
+<td><code>adminMiddleware</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/requests/:requestId/approve</code></td>
+<td>Approve and create college</td>
+<td><code>adminMiddleware</code></td>
+<td>Generates temp password, emails requester</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/requests/:requestId/reject</code></td>
+<td>Reject request</td>
+<td><code>adminMiddleware</code></td>
+<td>Sends rejection email</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/:collegeId</code></td>
+<td>Update college (name/plan/status)</td>
+<td><code>collegeScope</code></td>
+<td>Admin or college's own admin</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:collegeId/students</code></td>
+<td>List students in college</td>
+<td><code>collegeScope</code></td>
+<td>Paginated</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/:collegeId/students/:userId/make-admin</code></td>
+<td>Promote student to CollageAdmin</td>
+<td><code>collegeScope</code></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/:collegeId/leaderboard</code></td>
+<td>College-wide ranking by problems solved</td>
+<td><code>collegeMemberScope</code></td>
+<td>Any member can view own college</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="68-community-discussions-community-discuss-solution"><strong>6.8 Community &amp; Discussions (<code>/community</code>, <code>/discuss</code>, <code>/solution</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Endpoint Group</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+<th><strong>Notable Endpoints</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/community/posts</code></td>
+<td>Create, list, delete community posts</td>
+<td><code>userAuth</code> (create/delete), <code>optionalAuth</code> (list)</td>
+<td><code>POST /</code>, <code>GET /?tag=&amp;sort=</code>, <code>POST /:id/upvote</code>, <code>POST /:id/comments</code></td>
+</tr>
+<tr>
+<td><code>/discuss</code></td>
+<td>Problem-specific Q&amp;A</td>
+<td><code>userAuth</code> (post/delete), public (view)</td>
+<td><code>POST /post</code>, <code>POST /posts/:problemId</code>, <code>POST /reply/:discussionId</code></td>
+</tr>
+<tr>
+<td><code>/solution</code></td>
+<td>Post accepted solutions</td>
+<td><code>userAuth</code></td>
+<td><code>POST /post</code> (links to accepted submission), <code>POST /posts/:problemId</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="69-video-upload-video"><strong>6.9 Video Upload (<code>/video</code>)</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Method</strong></th>
+<th><strong>Endpoint</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Auth</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/create/:problemId</code></td>
+<td>Generate Cloudinary signed upload URL</td>
+<td><code>adminMiddleware</code></td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/save</code></td>
+<td>Save video metadata after upload</td>
+<td><code>adminMiddleware</code></td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/delete/:problemId</code></td>
+<td>Delete video from Cloudinary</td>
+<td><code>adminMiddleware</code></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="7-real-time-architecture-socketio"><strong>7. Real-time Architecture (Socket.io)</strong></h2>
+<p>The Socket.io server is initialized in <code>src/index.js</code> and wired to <code>src/socket/index.js</code>. It uses the same Redis infrastructure to track online users/admins, and the <strong>Redis Adapter</strong> to broadcast across instances.</p>
+<h3 id="71-connection-authentication-flow"><strong>7.1 Connection &amp; Authentication Flow</strong></h3>
+<ol>
+<li>Client connects (handshake).</li>
+<li>After authentication (Redux <code>isAuthenticated</code>), the client emits <code>user:online</code> with <code>{ userId, role }</code>.</li>
+<li>The client also emits <code>join_user_room</code>, which places the socket in the private room <code>user-{userId}</code> (used for submission results) ⭐.</li>
+<li>Backend stores the mapping in Redis (<code>online_users</code> hash) and adds admin IDs to the <code>online_admins</code> set.</li>
+<li>On disconnect, cleanup removes the entries.</li>
+</ol>
+<h3 id="72-event-tables"><strong>7.2 Event Tables</strong></h3>
+<h4 id="presence-admin-chat-submissions"><strong>Presence, Admin Chat &amp; Submissions</strong></h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Event (Client → Server)</strong></th>
+<th><strong>Payload</strong></th>
+<th><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user:online</code></td>
+<td><code>{ userId, role }</code></td>
+<td>Register user as online.</td>
+</tr>
+<tr>
+<td><code>join_user_room</code> ⭐</td>
+<td><code>{ userId }</code></td>
+<td>Join private room <code>user-{userId}</code>.</td>
+</tr>
+<tr>
+<td><code>chat:request</code></td>
+<td><code>{ userId, adminId }</code></td>
+<td>Student requests chat with admin.</td>
+</tr>
+<tr>
+<td><code>chat:respond</code></td>
+<td><code>{ chatRequestId, accept }</code></td>
+<td>Admin accepts/declines.</td>
+</tr>
+<tr>
+<td><code>chat:message</code></td>
+<td><code>{ roomName, chatRequestId, senderId, text }</code></td>
+<td>Send chat message.</td>
+</tr>
+<tr>
+<td><code>chat:end</code></td>
+<td><code>{ chatRequestId, roomName, adminId }</code></td>
+<td>End chat session.</td>
+</tr>
+</tbody>
+</table></div>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Event (Server → Client)</strong></th>
+<th><strong>Payload</strong></th>
+<th><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>submission_result</code> ⭐</td>
+<td><code>{ accepted, passedTestCases, totalTestCases, runtime, memory }</code></td>
+<td>Emitted by the worker to <code>user-{userId}</code> when Judge0 finishes.</td>
+</tr>
+<tr>
+<td><code>chat:incoming_request</code></td>
+<td><code>{ chatRequestId, userId }</code></td>
+<td>Admin receives incoming request.</td>
+</tr>
+<tr>
+<td><code>chat:started</code></td>
+<td><code>{ chatRequestId, roomName }</code></td>
+<td>Both users join room.</td>
+</tr>
+<tr>
+<td><code>chat:message</code></td>
+<td><code>{ _id, senderId, text, createdAt }</code></td>
+<td>New message in room.</td>
+</tr>
+<tr>
+<td><code>chat:ended</code></td>
+<td>-</td>
+<td>Chat terminated.</td>
+</tr>
+<tr>
+<td><code>admin:status_update</code></td>
+<td><code>{ userId, status }</code></td>
+<td>Broadcast when admin goes online/offline.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="duels"><strong>Duels</strong></h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Event (Client → Server)</strong></th>
+<th><strong>Payload</strong></th>
+<th><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>duel:join_room</code></td>
+<td><code>{ roomCode, userId }</code></td>
+<td>Join room (pre-start).</td>
+</tr>
+<tr>
+<td><code>duel:ready</code></td>
+<td><code>{ roomCode, userId }</code></td>
+<td>Both players ready.</td>
+</tr>
+<tr>
+<td><code>duel:progress</code></td>
+<td><code>{ roomCode, userId, testCasesPassed, total }</code></td>
+<td>Broadcast progress to opponent.</td>
+</tr>
+<tr>
+<td><code>duel:chat_message</code></td>
+<td><code>{ roomCode, userId, name, text }</code></td>
+<td>In-duel live chat.</td>
+</tr>
+<tr>
+<td><code>duel:code_update</code></td>
+<td><code>{ roomCode, userId, code, language }</code></td>
+<td><strong>Spectator only</strong>: relays editor changes to <code>spec-{roomCode}</code>.</td>
+</tr>
+<tr>
+<td><code>duel:spectate_join</code></td>
+<td><code>{ roomCode, userId }</code></td>
+<td>Join as spectator.</td>
+</tr>
+</tbody>
+</table></div>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Event (Server → Client)</strong></th>
+<th><strong>Payload</strong></th>
+<th><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>duel:opponent_joined</code></td>
+<td><code>{ userId }</code></td>
+<td>Opponent joined.</td>
+</tr>
+<tr>
+<td><code>duel:start</code></td>
+<td><code>{ message, startedAt, timeLimit }</code></td>
+<td>Both players.</td>
+</tr>
+<tr>
+<td><code>duel:progress</code></td>
+<td><code>{ userId, testCasesPassed, total, percent }</code></td>
+<td>Live progress update.</td>
+</tr>
+<tr>
+<td><code>duel:finished</code></td>
+<td><code>{ winnerId, winnerGain, loserLoss, runtime, memory }</code></td>
+<td>Duel ended.</td>
+</tr>
+<tr>
+<td><code>duel:spectator_joined</code></td>
+<td><code>{ userId }</code></td>
+<td>Spectator count update.</td>
+</tr>
+</tbody>
+</table></div>
+<h4 id="contests"><strong>Contests</strong></h4>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Event</strong></th>
+<th><strong>Direction</strong></th>
+<th><strong>Payload</strong></th>
+<th><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>contest:join</code></td>
+<td>Client → Server</td>
+<td><code>{ contestId, userId }</code></td>
+<td>Join contest room.</td>
+</tr>
+<tr>
+<td><code>contest:leaderboard_update</code></td>
+<td>Server → Client</td>
+<td><code>[ { rank, user, totalSolved } ]</code></td>
+<td>Broadcast when a new submission is accepted or a user is disqualified.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="73-horizontal-scaling-via-redis-adapter"><strong>7.3 Horizontal Scaling via Redis Adapter</strong> ⭐</h3>
+<p>To run multiple Node.js instances behind a load balancer, the Socket.io server uses <strong><code>@socket.io/redis-adapter</code></strong>.</p>
+<p><strong>Configuration</strong> (<code>src/index.js</code>):</p>
+<pre><code class="language-javascript">const { createAdapter } = require(&quot;@socket.io/redis-adapter&quot;);
+
+const pubClient = client.duplicate();
+const subClient = client.duplicate();
+
+Promise.all([pubClient.connect(), subClient.connect()]).then(() =&gt; {
+  io.adapter(createAdapter(pubClient, subClient));
+});
+</code></pre>
+<p><strong>How it works</strong></p>
+<ol>
+<li>A message emitted on Server A is published to a Redis channel.</li>
+<li>Server B (subscribed to the same channel) receives it.</li>
+<li>Server B forwards it to its own local sockets.</li>
+</ol>
+<p><strong>What this gives you</strong></p>
+<ul>
+<li>✅ Duels, contests and chat work when the two players are connected to different servers.</li>
+<li>✅ Worker-emitted results reach the user regardless of which instance holds their socket.</li>
+<li>✅ No cross-instance state kept in process memory.</li>
+<li>⚠️ Redis Pub/Sub is fire-and-forget: if an instance is briefly disconnected from Redis, events published in that window are not replayed. Clients should fall back to fetching state over REST (for example <code>GET /code/solveproblem/:id</code>) on reconnect.</li>
+</ul>
+<p><strong>Per-user rooms</strong>
+The <code>join_user_room</code> event places every user in a <code>user-{userId}</code> room. Workers emit to this room, so users get results regardless of which instance served their HTTP request.</p>
+<hr />
+<h2 id="8-rate-limiting-strategy"><strong>8. Rate Limiting Strategy</strong> ⭐</h2>
+<p>CodeMaster uses <strong>atomic Redis Lua scripts</strong> for rate limiting. Multi-command approaches (<code>ZADD</code> + <code>ZCARD</code> + <code>EXPIRE</code> issued separately) leave a race window where concurrent requests can slip past the limit. A Lua script executes as a single atomic unit inside Redis, so the check and the increment cannot interleave with other requests.</p>
+<h3 id="81-global-ip-based-limiter-sliding-window"><strong>8.1 Global IP-Based Limiter (Sliding Window)</strong></h3>
+<ul>
+<li><strong>Files</strong>: <code>middleware/ratelimitor.js</code> + <code>middleware/rateLimiter.lua</code></li>
+<li><strong>Window</strong>: 1 hour (3600 seconds)</li>
+<li><strong>Limit</strong>: 100 requests per IP per hour</li>
+<li><strong>Applied to</strong>: <code>/auth/register</code>, <code>/auth/login</code> (brute-force protection)</li>
+</ul>
+<pre><code class="language-lua">-- rateLimiter.lua (atomic)
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local max_requests = tonumber(ARGV[3])
+local unique_id = ARGV[4]
+
+redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
+local current = redis.call('ZCARD', key)
+
+if current &gt;= max_requests then
+    return 0  -- BLOCKED
+end
+
+redis.call('ZADD', key, now, unique_id)
+redis.call('EXPIRE', key, window)
+return 1  -- ALLOWED
+</code></pre>
+<pre><code class="language-javascript">// Node.js caller (single Redis round-trip)
+const isAllowed = await redisClient.eval(rateLimiterLua, {
+  keys: [key],
+  arguments: [currentTime, windowSize, MaxRequest, uniqueId],
+});
+</code></pre>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">Before</th>
+<th style="text-align: left;">After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Redis round-trips per request</td>
+<td style="text-align: left;">3–4 separate commands</td>
+<td style="text-align: left;">1 (<code>EVAL</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Race window between check and increment</td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="82-submission-cooldown-limiter"><strong>8.2 Submission Cooldown Limiter</strong></h3>
+<ul>
+<li><strong>File</strong>: <code>middleware/submitrate.js</code></li>
+<li><strong>Window</strong>: 10 seconds per user</li>
+<li><strong>Limit</strong>: 1 request per user per 10 s</li>
+<li><strong>Applied to</strong>: <code>/code/submit/:id</code>, <code>/code/runcode/:id</code></li>
+</ul>
+<pre><code class="language-javascript">const isSet = await client.set(redisKey, &quot;cooldown_active&quot;, {
+  EX: 10,   // expires in 10 s
+  NX: true, // atomic: only set if the key does not exist
+});
+
+if (!isSet) return res.status(429).json({ error: &quot;Please wait 10 seconds&quot; });
+</code></pre>
+<h3 id="83-load-testing-bypass"><strong>8.3 Load Testing Bypass</strong></h3>
+<ul>
+<li><strong>Env var</strong>: <code>SKIP_RATE_LIMIT=true</code></li>
+<li><strong>Scope</strong>: bypasses the limiters only for requests from <code>127.0.0.1</code>, <code>::1</code> and <code>::ffff:127.0.0.1</code></li>
+<li><strong>Purpose</strong>: lets k6 benchmarks run without hitting the limiters</li>
+<li>⚠️ <strong>Never set this in production.</strong></li>
+</ul>
+<hr />
+<h2 id="9-security-architecture"><strong>9. Security Architecture</strong></h2>
+<h3 id="91-authentication-jwt-cookies"><strong>9.1 Authentication (JWT + Cookies)</strong></h3>
+<ul>
+<li><strong>Access Token</strong>: JWT signed with <code>JWT_KEY</code>, expires in 1 hour. Stored in an HTTP-only cookie (<code>accessToken</code>).</li>
+<li><strong>Refresh Token</strong>: JWT signed with <code>JWT_REFRESH_KEY</code>, expires in 7 days. Stored in an HTTP-only cookie (<code>refreshToken</code>).</li>
+<li><strong>Refresh Rotation</strong>: each <code>/auth/refresh</code> call issues a new pair and invalidates the old refresh token in Redis. If an old token is reused, the stored token is deleted (logging the user out), which protects against token theft.</li>
+</ul>
+<h3 id="92-token-blacklisting"><strong>9.2 Token Blacklisting</strong></h3>
+<ul>
+<li>On logout, the access token is stored in Redis (<code>token:&lt;accessToken&gt;</code>) with the same expiry as the token's <code>exp</code> claim.</li>
+<li>The <code>userAuth</code> middleware checks this blacklist before verifying the JWT.</li>
+</ul>
+<h3 id="93-password-security"><strong>9.3 Password Security</strong></h3>
+<ul>
+<li>Passwords are hashed with <code>bcrypt</code> (salt rounds = 10).</li>
+<li>Plain passwords are never stored or logged.</li>
+</ul>
+<h3 id="94-code-execution-sandbox"><strong>9.4 Code Execution Sandbox</strong></h3>
+<ul>
+<li>All user code is sent to <strong>Judge0 CE</strong>, which runs submissions in isolated containers with CPU/RAM limits and no persistent filesystem. Network isolation depends on how your Judge0 instance is configured.</li>
+<li>The application server never executes user-provided code directly.</li>
+<li>Execution runs in BullMQ workers, not in the API process.</li>
+</ul>
+<h3 id="95-input-validation"><strong>9.5 Input Validation</strong></h3>
+<ul>
+<li><strong>Backend</strong>: <code>validator</code> library and Zod schemas in controller logic (for example contest questions, email format).</li>
+<li><strong>Frontend</strong>: Zod schemas (<code>loginSchema</code>, <code>signupSchema</code>) validate data before submission.</li>
+</ul>
+<h3 id="96-cors-cookie-security"><strong>9.6 CORS &amp; Cookie Security</strong></h3>
+<ul>
+<li>CORS allows <code>http://localhost:5173</code> (dev) and the configured <code>FRONTEND_URL</code> in production.</li>
+<li>Cookies are <code>httpOnly: true</code>. In production (<code>NODE_ENV=production</code>) they use <code>secure: true</code> and <code>sameSite: 'none'</code> (cross-site frontend/backend deployment). In development they use <code>sameSite: 'lax'</code>.</li>
+</ul>
+<hr />
+<h2 id="10-frontend-architecture-react-redux"><strong>10. Frontend Architecture (React + Redux)</strong></h2>
+<h3 id="101-state-management-redux-toolkit"><strong>10.1 State Management (Redux Toolkit)</strong></h3>
+<p>The store is configured in <code>store.js</code>:</p>
+<pre><code class="language-javascript">export const store = configureStore({
+  reducer: {
+    auth: authReducer,           // Authentication status, user, loading, error
+    userState: userStateReducer, // Solved stats (total, rank, streak)
+    problem: problemReducer,     // List of problems, pagination, loading states
+    profile: profileReducer      // User profile data (college, heatmap, submissions)
+  }
+});
+</code></pre>
+<p><strong>Key slices</strong></p>
+<ul>
+<li><strong><code>authSlice</code></strong>: login, signup, Google OAuth, logout, token refresh. Stores <code>isAuthenticated</code>, <code>user</code>, <code>loading</code>, <code>error</code>.</li>
+<li><strong><code>problemslice</code></strong>: fetches problems with pagination; supports infinite scroll.</li>
+<li><strong><code>userslice</code></strong>: fetches and updates user stats (solved count, rank).</li>
+<li><strong><code>profileSlice</code></strong>: profile data, heatmap, recent submissions, skills.</li>
+</ul>
+<h3 id="102-routing-react-router"><strong>10.2 Routing (React Router)</strong></h3>
+<p>All routes are defined in <code>App.jsx</code>. Protected routes (require auth) include <code>/problem/:id</code>, <code>/contest</code>, <code>/duel</code>, <code>/profile</code>, <code>/admin/*</code>. Public routes (<code>/login</code>, <code>/signup</code>) redirect to <code>/</code> if authenticated.</p>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Route</strong></th>
+<th><strong>Component</strong></th>
+<th><strong>Access</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/admin</code></td>
+<td>Admin Dashboard</td>
+<td><code>role === 'Admin'</code></td>
+</tr>
+<tr>
+<td><code>/admin/colleges</code></td>
+<td>Manage Colleges</td>
+<td><code>role === 'Admin'</code></td>
+</tr>
+<tr>
+<td><code>/collegeadmin</code></td>
+<td>College Admin Dashboard</td>
+<td><code>role === 'CollageAdmin'</code></td>
+</tr>
+<tr>
+<td><code>/duel</code></td>
+<td>Duel Lobby</td>
+<td><code>userAuth</code></td>
+</tr>
+<tr>
+<td><code>/contest/:id</code></td>
+<td>Contest Detail</td>
+<td><code>userAuth</code></td>
+</tr>
+<tr>
+<td><code>/community</code></td>
+<td>Community Feed</td>
+<td>Public (view), <code>userAuth</code> (post)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="103-real-time-client"><strong>10.3 Real-time Client</strong></h3>
+<ul>
+<li>The Socket.io client connects as soon as the user is authenticated (<code>useEffect</code> in <code>App.jsx</code>).</li>
+<li>On connect it emits <code>user:online</code> and <code>join_user_room</code>.</li>
+<li>It disconnects on logout.</li>
+<li>It listens for admin chat requests, duel events, contest leaderboard updates and <code>submission_result</code> ⭐.</li>
+</ul>
+<p><strong>Submit UX flow</strong> ⭐</p>
+<ol>
+<li>User clicks <strong>Submit</strong>; the UI calls <code>POST /code/submit/:id</code> and gets <code>202</code> with <code>submissionId</code>.</li>
+<li>The UI shows a "Queued / Judging…" state.</li>
+<li>When <code>submission_result</code> arrives, the UI replaces the pending state with the verdict, runtime and memory.</li>
+</ol>
+<hr />
+<h2 id="11-deployment-architecture"><strong>11. Deployment Architecture</strong></h2>
+<h3 id="111-environment-variables"><strong>11.1 Environment Variables</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Variable</strong></th>
+<th><strong>Backend / Frontend</strong></th>
+<th><strong>Purpose</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PORT</code></td>
+<td>Backend</td>
+<td>API server port</td>
+</tr>
+<tr>
+<td><code>NODE_ENV</code></td>
+<td>Backend</td>
+<td><code>production</code> enables secure cookies (<code>secure: true</code>, <code>sameSite: 'none'</code>)</td>
+</tr>
+<tr>
+<td><code>CONNECT_STRING</code></td>
+<td>Backend</td>
+<td>MongoDB Atlas URI</td>
+</tr>
+<tr>
+<td><code>REDISH_HOST</code>, <code>REDISH_KEY</code></td>
+<td>Backend</td>
+<td>Redis connection (Upstash / Redis Cloud); used by the API, BullMQ and the Socket.io adapter</td>
+</tr>
+<tr>
+<td><code>JWT_KEY</code>, <code>JWT_REFRESH_KEY</code></td>
+<td>Backend</td>
+<td>JWT secrets</td>
+</tr>
+<tr>
+<td><code>GEMINI_KEY</code></td>
+<td>Backend</td>
+<td>Google Gemini API key</td>
+</tr>
+<tr>
+<td><code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code>, <code>CLOUDINARY_API_SECRET</code></td>
+<td>Backend</td>
+<td>Cloudinary credentials</td>
+</tr>
+<tr>
+<td><code>FRONTEND_URL</code></td>
+<td>Backend</td>
+<td>CORS allowlist &amp; email login link</td>
+</tr>
+<tr>
+<td><code>SKIP_RATE_LIMIT</code> ⭐</td>
+<td>Backend</td>
+<td><code>true</code> only for local load testing; never in production</td>
+</tr>
+<tr>
+<td><code>VITE_API_URL</code></td>
+<td>Frontend</td>
+<td>Backend API URL</td>
+</tr>
+<tr>
+<td><code>VITE_SOCKET_URL</code></td>
+<td>Frontend</td>
+<td>Socket.io server URL</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="112-containerization-docker"><strong>11.2 Containerization (Docker)</strong></h3>
+<p>Both frontend and backend ship with a <code>Dockerfile</code> (multi-stage builds) and <code>.dockerignore</code>. A <code>docker-compose.yml</code> can orchestrate:</p>
+<ul>
+<li><strong>Backend API</strong> (Node.js container)</li>
+<li><strong>BullMQ worker</strong> ⭐ (same image, different start command)</li>
+<li><strong>Redis</strong> and <strong>MongoDB</strong> (or use Upstash / Atlas)</li>
+<li><strong>Frontend</strong>: Nginx serving the built static files</li>
+</ul>
+<h3 id="113-cicd-pipeline"><strong>11.3 CI/CD Pipeline</strong></h3>
+<ul>
+<li><strong>GitHub Actions</strong> (suggested): lint, test, build, then deploy to VPS/AWS on push to <code>main</code>.</li>
+<li><strong>Health check</strong>: the backend exposes <code>/</code> returning <code>{ status: "Server is running" }</code> for load balancer probes.</li>
+</ul>
+<hr />
+<h2 id="12-scalability-considerations"><strong>12. Scalability Considerations</strong> ⭐</h2>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th><strong>Component</strong></th>
+<th><strong>Scaling Strategy</strong></th>
+<th><strong>Status</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>API Server</strong></td>
+<td>Stateless (session state in Redis). Run multiple instances behind a load balancer (NGINX / AWS ALB).</td>
+<td>✅ Ready</td>
+</tr>
+<tr>
+<td><strong>Socket.io</strong></td>
+<td><strong>Redis Adapter implemented</strong> (<code>@socket.io/redis-adapter</code>); events broadcast across instances.</td>
+<td>✅ Implemented</td>
+</tr>
+<tr>
+<td><strong>Code Submission</strong></td>
+<td><strong>BullMQ queue</strong> decouples HTTP from Judge0. Add more worker processes to scale execution independently.</td>
+<td>✅ Implemented</td>
+</tr>
+<tr>
+<td><strong>Rate Limiting</strong></td>
+<td><strong>Atomic Lua scripts</strong>; no race between check and increment.</td>
+<td>✅ Implemented</td>
+</tr>
+<tr>
+<td><strong>MongoDB</strong></td>
+<td>Atlas with auto-scaling storage and read replicas for heavy queries (leaderboards, submissions).</td>
+<td>🔄 Recommended</td>
+</tr>
+<tr>
+<td><strong>Redis</strong></td>
+<td>Upstash / Redis Cloud with high availability and auto-failover.</td>
+<td>✅ In use</td>
+</tr>
+<tr>
+<td><strong>Judge0</strong></td>
+<td>Self-host multiple Judge0 workers, or monitor usage limits if using a hosted API.</td>
+<td>🔄 Recommended</td>
+</tr>
+<tr>
+<td><strong>Frontend</strong></td>
+<td>Static files served via CDN (Vercel / Cloudflare).</td>
+<td>✅ In use</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Deployment topology example</strong></p>
+<pre class="mermaid">graph TD
+    LB[Load Balancer&lt;br/&gt;NGINX / ALB] --&gt; B1[Backend 1&lt;br/&gt;API + WS]
+    LB --&gt; B2[Backend 2&lt;br/&gt;API + WS]
+    LB --&gt; B3[Backend 3&lt;br/&gt;API + WS]
+
+    B1 --&gt; R[(Redis&lt;br/&gt;Pub/Sub + Queue)]
+    B2 --&gt; R
+    B3 --&gt; R
+    B1 --&gt; M[(MongoDB Atlas)]
+    B2 --&gt; M
+    B3 --&gt; M
+
+    R --&gt; W[BullMQ Workers&lt;br/&gt;scale separately]
+    W --&gt; J[Judge0 CE]
+    W --&gt; M
+</pre>
+<hr />
+<h2 id="13-key-algorithms-business-logic"><strong>13. Key Algorithms &amp; Business Logic</strong></h2>
+<h3 id="131-elo-rating-duels"><strong>13.1 ELO Rating (Duels)</strong></h3>
+<ul>
+<li><strong>Base K-factor</strong>: 32.</li>
+<li><strong>Difficulty multiplier</strong>: Easy = 0.75, Medium = 1.0, Hard = 1.5 (weighted K).</li>
+<li><strong>Formula</strong>:</li>
+</ul>
+<pre><code class="language-javascript">expected = 1 / (1 + 10^((loserRating - winnerRating) / 400))
+newWinnerRating = winnerRating + K * (1 - expected)
+newLoserRating  = loserRating  + K * (0 - expected)
+</code></pre>
+<ul>
+<li><strong>File</strong>: <code>utils/eloCalculator.js</code>.</li>
+</ul>
+<h3 id="132-contest-violation-system-anti-cheat"><strong>13.2 Contest Violation System (Anti-Cheat)</strong></h3>
+<ul>
+<li><strong>3 strikes</strong>:</li>
+<li>1st violation → warning.</li>
+<li>2nd violation → strict warning.</li>
+<li>3rd violation → <code>disqualified = true</code>; rank removed from the leaderboard; the user cannot submit further.</li>
+<li>Tracked in <code>ContestRank</code> and <code>McqContestRank</code>.</li>
+<li>The frontend reports tab switches / minimize events via the <code>reportViolation</code> endpoint.</li>
+</ul>
+<h3 id="133-submission-grading-practice-contest"><strong>13.3 Submission Grading (Practice &amp; Contest)</strong> ⭐</h3>
+<ul>
+<li>Uses the <strong>Judge0 batch API</strong>: all hidden test cases for a problem are submitted in one batch.</li>
+<li><strong>Practice submissions are graded in a BullMQ worker</strong> (see <a href="#33-async-submission-flow-bullmq-">Section 3.3</a>):
+  1. API creates the <code>Submission</code> with <code>status = pending</code> and enqueues a job.
+  2. Worker runs the batch against Judge0 and updates the submission.
+  3. Worker emits <code>submission_result</code> to <code>user-{userId}</code>.
+  4. Failed jobs are retried 3 times with exponential backoff; permanently failed jobs go to the dead-letter queue.</li>
+<li><strong>Statuses</strong>:</li>
+<li><code>pending</code>: queued or waiting for Judge0.</li>
+<li><code>accepted</code>: all test cases passed.</li>
+<li><code>wrong</code>: some test cases failed.</li>
+<li>
+<p><code>error</code>: compilation/runtime error.</p>
+</li>
+<li>
+<p>For contests, only the <strong>first accepted</strong> submission per problem counts towards the leaderboard (tie-breaker: earliest submission time).</p>
+</li>
+</ul>
+<h3 id="134-streak-calculation"><strong>13.4 Streak Calculation</strong></h3>
+<ul>
+<li>Uses the <code>userProblem</code> collection (unique solved problems).</li>
+<li>Aggregates distinct dates of accepted submissions.</li>
+<li>Checks consecutive days from today backwards and stops at the first missing day.</li>
+</ul>
+<h3 id="135-atomic-database-operations"><strong>13.5 Atomic Database Operations</strong> ⭐</h3>
+<p><strong>Problem:</strong> concurrent requests (double-clicks, parallel joins) caused duplicate participants in contests because of a read-modify-write pattern.</p>
+<p><strong>Solution:</strong> replace it with MongoDB's atomic <code>$addToSet</code>:</p>
+<pre><code class="language-javascript">// ❌ Old (race-prone):
+contest.participants.push(userId);
+await contest.save();
+
+// ✅ New (atomic):
+await Contest.findByIdAndUpdate(
+  contest._id,
+  { $addToSet: { participants: userId } },
+  { new: true }
+);
+</code></pre>
+<p><strong>Why <code>$addToSet</code>?</strong></p>
+<ul>
+<li>The "does it exist?" check and the insert happen in one DB operation.</li>
+<li>Uniqueness is enforced by the database, not by application code.</li>
+<li>Parallel joins by the same user cannot create duplicates.</li>
+</ul>
+<p><strong>Applied to</strong></p>
+<ul>
+<li><code>Contestcontroller.js</code>: <code>registerForContest</code>, <code>joinContestByCode</code></li>
+<li><code>Mcqcontestcontroller.js</code>: the same two methods</li>
+</ul>
+<hr />
+<h2 id="14-load-testing-performance-benchmarks"><strong>14. Load Testing &amp; Performance Benchmarks</strong> ⭐</h2>
+<p>CodeMaster was load tested with <strong>k6</strong> to validate the async architecture under concurrency.</p>
+<h3 id="141-test-configuration"><strong>14.1 Test Configuration</strong></h3>
+<ul>
+<li><strong>Tool</strong>: k6</li>
+<li><strong>Test file</strong>: <code>backend/tests/load-test.js</code></li>
+<li><strong>Load</strong>: 100 concurrent virtual users (VUs)</li>
+<li><strong>Duration</strong>: 45 seconds (10 s ramp-up, 30 s hold, 5 s ramp-down)</li>
+<li><strong>Target</strong>: <code>POST /code/submit/:problemId</code></li>
+<li><strong>Auth</strong>: 100 pre-registered JWT sessions (created by <code>seed-users.js</code>)</li>
+</ul>
+<h3 id="142-results-cloud-vs-local-infrastructure"><strong>14.2 Results: Cloud vs Local Infrastructure</strong></h3>
+<div class="scroll"><table>
+<thead>
+<tr>
+<th style="text-align: left;"><strong>Metric</strong></th>
+<th style="text-align: right;"><strong>☁️ Cloud (Atlas M0 + Upstash)</strong></th>
+<th style="text-align: right;"><strong>🐳 Local (Docker)</strong></th>
+<th style="text-align: right;"><strong>Improvement</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Avg latency</strong></td>
+<td style="text-align: right;">1.21 s</td>
+<td style="text-align: right;">18.86 ms</td>
+<td style="text-align: right;">64× faster</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>p(95) latency</strong></td>
+<td style="text-align: right;">1.55 s</td>
+<td style="text-align: right;">38.2 ms</td>
+<td style="text-align: right;">40× faster</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Min latency</strong></td>
+<td style="text-align: right;">439 ms</td>
+<td style="text-align: right;">0.52 ms</td>
+<td style="text-align: right;">844× faster</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Total requests</strong></td>
+<td style="text-align: right;">1,501</td>
+<td style="text-align: right;">2,624</td>
+<td style="text-align: right;">1.7× throughput</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Failure rate</strong></td>
+<td style="text-align: right;">0.00%</td>
+<td style="text-align: right;">0.00%</td>
+<td style="text-align: right;">✅ Both perfect</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="143-key-insights"><strong>14.3 Key Insights</strong></h3>
+<ol>
+<li><strong>The bottleneck was infrastructure, not application code.</strong> Sub-20 ms average latency on local infra shows the application itself is fast. The higher cloud numbers are consistent with network round-trips to a shared MongoDB Atlas M0 cluster and to serverless Upstash Redis.</li>
+<li><strong>The queue absorbed the load in both environments.</strong> Both runs finished with a 0% failure rate even though infrastructure latency differed by more than an order of magnitude.</li>
+<li><strong>The backend is stateless by design.</strong> With the Socket.io Redis Adapter and BullMQ, API instances can be added or removed without losing queued jobs; socket events published during a brief Redis disconnect may not be replayed (see Section 7.3).</li>
+</ol>
+<h3 id="144-reproducing-locally"><strong>14.4 Reproducing Locally</strong></h3>
+<pre><code class="language-bash"># Terminal 1: start backend with the rate-limit bypass
+cd backend
+SKIP_RATE_LIMIT=true npm run dev          # Windows PowerShell: $env:SKIP_RATE_LIMIT=&quot;true&quot;; npm run dev
+
+# Terminal 2: seed test data
+node tests/seed-problem.js   # creates a dummy problem
+node tests/seed-users.js     # creates 100 test users
+
+# Terminal 3: run k6
+k6 run tests/load-test.js
+</code></pre>
+<p><strong>Files</strong></p>
+<ul>
+<li><code>tests/load-test.js</code>: k6 script (100 VUs, 45 s)</li>
+<li><code>tests/seed-users.js</code>: pre-registers 100 users</li>
+<li><code>tests/seed-problem.js</code>: creates a dummy problem</li>
+<li><code>tests/BENCHMARK.md</code>: full benchmark report</li>
+</ul>
+<hr />
+<h2 id="15-conclusion"><strong>15. Conclusion</strong></h2>
+<p>CodeMaster integrates modern web technologies (MERN + Redis + BullMQ + Socket.io) with external services (Judge0, Cloudinary, Gemini) to deliver a learning and competitive coding experience. The v2.0.0 architecture moves heavy work off the request path, keeps the HTTP layer stateless, and removes known race conditions in rate limiting and contest registration, with clear separation of concerns, role-based access control and real-time capabilities.</p>
+<p>This document is the reference for engineering, onboarding and future feature development.</p>
+<hr />
+<p><em>Last updated: October 28, 2026 (v2.0.0, async refactor).</em></p><footer>CodeMaster · Maintained by Manish Singh · <a href="mailto:manishs72660@gmail.com">manishs72660@gmail.com</a></footer></main></div>
+<dialog id="lb"><button class="x" aria-label="Close">Close</button><img alt=""></dialog>
+<script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";mermaid.initialize({startOnLoad:true,theme:"neutral"});</script>
+<script src="script.js"></script></body></html>
