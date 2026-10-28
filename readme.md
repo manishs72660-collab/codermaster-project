@@ -18,6 +18,8 @@
 - [Core Features](#-core-features)
 - [Tech Stack](#️-tech-stack)
 - [Architecture Overview](#️-architecture-overview-simplified)
+- [Architecture Highlights](#-architecture-highlights)
+- [Load Test Benchmark](#-load-test-benchmark)
 - [Getting Started](#-getting-started-local-development)
 - [Project Structure](#-project-structure)
 - [Environment Variables (Production)](#-environment-variables-production)
@@ -68,19 +70,47 @@ graph LR
     Frontend --> WS[Socket.io Server]
 
     API --> MongoDB[(MongoDB)]
-    API --> Redis[(Redis)]
-    API --> Judge0[Judge0 CE]
+    API --> Queue[BullMQ Submission Queue]
+    Queue --> Redis[(Redis)]
+    Queue --> Worker[Submission Worker]
+    Worker --> Judge0[Judge0 CE]
+    Worker --> MongoDB
+    API --> RateLimit[Redis Lua Rate Limiter]
     API --> Cloudinary[Cloudinary]
     API --> Gemini[Gemini AI]
 
-    WS --> Redis
+    WS --> Adapter[Socket.io Redis Adapter]
+    Adapter --> Redis
     WS --> MongoDB
 ```
 
 - The backend is a monolithic Node.js app with clear MVC separation (controllers, models, routes, middleware).
-- Redis handles session storage, real-time presence, and rate limiting.
+- Redis backs the submission queue, Socket.IO adapter, session/presence data, and rate limiting.
 - Socket.io powers all live features (duels, contest updates, chat).
 - All user code runs exclusively in the Judge0 sandbox — never on our server.
+
+---
+
+## 🏗️ Architecture Highlights
+
+- **Async code execution via BullMQ:** submissions are queued in Redis and return `202 Accepted` without waiting for Judge0 evaluation.
+- **Horizontally scalable WebSockets:** the Socket.IO Redis Adapter distributes events between backend instances.
+- **Atomic rate limiting:** Redis Lua scripts apply each rate-limit check and update atomically.
+- **Load tested with k6:** see the [benchmark report](./backend/tests/BENCHMARK.md).
+
+## 📈 Load Test Benchmark
+
+The benchmark report records a 100-VU, 45-second k6 run against `POST /code/submit/:problemId`. Reported cloud and local Docker results:
+
+| Metric | Cloud (Atlas M0 + Upstash) | Local (Docker) |
+|---|---:|---:|
+| Average latency | 1.21 s | 18.86 ms |
+| p(95) latency | 1.55 s | 38.2 ms |
+| Minimum latency | 439 ms | 0.52 ms |
+| Total requests | 1,501 | 2,624 |
+| Failure rate | 0.00% | 0.00% |
+
+These are environment-specific measurements from the [full benchmark report](./backend/tests/BENCHMARK.md), not guaranteed production performance.
 
 ---
 
