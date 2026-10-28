@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 import { store } from "../store/store"; // <-- adjust to wherever configureStore() lives
 
-const socket = io(import.meta.env.VITE_API_URL, {
+const socket = io(import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL, {
   withCredentials: true,
   autoConnect: true,
   transports: ["websocket", "polling"],
@@ -13,6 +13,11 @@ function emitOnline() {
   const { user } = store.getState().auth;
   if (user?._id && socket.connected) {
     socket.emit("user:online", { userId: user._id, role: user.role });
+    
+    // 🔥 STEP 4 ADDITION: User ko uske specific room me join karwao
+    // Taaki BullMQ Worker result bhej sake aur multi-server setup me message sync rahe
+    socket.emit("join_user_room", { userId: user._id });
+    
     lastEmittedUserId = user._id;
   }
 }

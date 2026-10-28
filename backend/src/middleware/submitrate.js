@@ -1,30 +1,34 @@
-// const redisClient = require('./redisClient');
-const client=require("../config/redis");
+const client = require("../config/redis");
+
+// 🔥 Load test bypass
+const isLocalRequest = (ip) => {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+};
 
 const submitCodeRateLimiter = async (req, res, next) => {
-  const userId = req.result._id; 
+  if (process.env.SKIP_RATE_LIMIT === 'true' && isLocalRequest(req.ip)) {
+    return next();
+  }
+
+  const userId = req.result._id;
   const redisKey = `submit_cooldown:${userId}`;
 
   try {
-    // Check if user has a recent submission
-    const exists = await client.exists(redisKey);
-    
-    if (exists) {
+    const isSet = await client.set(redisKey, "cooldown_active", {
+      EX: 10,
+      NX: true,
+    });
+
+    if (!isSet) {
       return res.status(429).json({
-        error: 'Please wait 10 seconds before submitting again'
+        error: "Please wait 10 seconds before submitting again",
       });
     }
 
-    // Set cooldown period
-    await client.set(redisKey, 'cooldown_active', {
-      EX: 10, // Expire after 10 seconds
-      NX: true // Only set if not exists
-    });
-
     next();
   } catch (error) {
-    console.error('Rate limiter error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Rate limiter error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 

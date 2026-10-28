@@ -3,7 +3,11 @@ const Submission = require("../models/Submission");
 const { getLanguageById, submitBatch, submitToken } = require("../utils/probelmutlity");
 const userProblem = require("../models/Userdetail");
 const { buildFullCode } = require("./userproblem");
+const submissionQueue = require("../queues/submissionQueue"); // 🔥 Naya Import
 
+// ==========================================
+// 🔥 STEP 3 UPDATED: ASYNC QUEUE SUBMISSION
+// ==========================================
 const submitCode = async (req, res) => {
   try {
     const userId = req.result._id;
@@ -24,8 +28,7 @@ const submitCode = async (req, res) => {
     if (!driverEntry)
       return res.status(400).json({ message: `No driver code found for language: ${language}` });
 
-    const fullCode = buildFullCode(code, driverEntry.code, language);
-
+    // 1. Database me Pending status ke saath submission banao
     const submittedResult = await Submission.create({
       userId,
       problemId,
@@ -37,60 +40,21 @@ const submitCode = async (req, res) => {
       problemTitle: problem.title,
     });
 
-    const languageId = getLanguageById(language);
-
-    const submissions = problem.hiddenTestCases.map((testcase) => ({
-      source_code: fullCode,
-      language_id: languageId,
-      stdin: testcase.input,
-      expected_output: testcase.output,
-    }));
-
-    const submitResult = await submitBatch(submissions);
-    const resultToken = submitResult.map((value) => value.token);
-    const testResult = await submitToken(resultToken);
-
-    let testCasesPassed = 0;
-    let runtime = 0;
-    let memory = 0;
-    let status = "accepted";
-    let errorMessage = null;
-
-    for (const test of testResult) {
-      if (test.status_id === 3) {
-        testCasesPassed++;
-        runtime += parseFloat(test.time);
-        memory = Math.max(memory, test.memory);
-      } else {
-        status = test.status_id === 4 ? "error" : "wrong";
-        errorMessage = test.stderr || test.compile_output || null;
-      }
-    }
-
-    submittedResult.status = status;
-    submittedResult.testCasesPassed = testCasesPassed;
-    submittedResult.errorMessage = errorMessage;
-    submittedResult.runtime = runtime;
-    submittedResult.memory = memory;
-    await submittedResult.save();
-
-    const isPresent = await userProblem.exists({ userId, problemId });
-    if (status === "accepted" && !isPresent) {
-      await userProblem.create({
-        userId,
+    // 2. BullMQ Queue me Job add karo (Background Worker handle karega)
+    await submissionQueue.add('process-code', {
+        submissionId: submittedResult._id,
         problemId,
-        status: "accepted",
-        difficulty: problem.difficulty,
-      });
-    }
+        userId,
+        code,
+        language,
+        socketId: req.headers['x-socket-id'] || null, // Frontend apna socket ID bhejega
+    });
 
-    res.status(201).json({
+    // 3. Turant response de do (Judge0 ka wait mat karo)
+    return res.status(202).json({
+      message: "Code submitted and is being processed.",
       submissionId: submittedResult._id,
-      accepted: status === "accepted",
-      totalTestCases: submittedResult.testCasesTotal,
-      passedTestCases: testCasesPassed,
-      runtime,
-      memory,
+      status: "pending"
     });
 
   } catch (err) {
@@ -98,6 +62,9 @@ const submitCode = async (req, res) => {
   }
 };
 
+// ==========================================
+// BAAKI FUNCTIONS (Unchanged)
+// ==========================================
 
 const Solvedprovlembyuser = async (req, res) => {
   try {
@@ -109,7 +76,6 @@ const Solvedprovlembyuser = async (req, res) => {
     res.send("Error " + err.message);
   }
 };
-
 
 const solveduniqueproblem = async (req, res) => {
   try {
@@ -130,7 +96,6 @@ const solveduniqueproblem = async (req, res) => {
     });
   }
 };
-
 
 const userstate = async (req, res) => {
   try {
@@ -199,7 +164,6 @@ const userstate = async (req, res) => {
   }
 };
 
-
 const runCode = async (req, res) => {
   try {
     const userId = req.result._id;
@@ -221,7 +185,6 @@ const runCode = async (req, res) => {
       return res.status(400).json({ message: `No driver code found for language: ${language}` });
 
     const fullCode = buildFullCode(code, driverEntry.code, language);
-
     const languageId = getLanguageById(language);
 
     const submissions = problem.visibleTestCases.map((testcase) => ({
@@ -234,6 +197,7 @@ const runCode = async (req, res) => {
     const submitResult = await submitBatch(submissions);
     const resultToken = submitResult.map((value) => value.token);
     const testResult = await submitToken(resultToken);
+    
     let testCasesPassed = 0;
     let runtime = 0;
     let memory = 0;
@@ -263,7 +227,6 @@ const runCode = async (req, res) => {
   }
 };
 
-
 const userrank = async (req, res) => {
   try {
     const userId = req.result._id;
@@ -286,7 +249,6 @@ const userrank = async (req, res) => {
     res.status(500).json({ message: "Error", error: err.message });
   }
 };
-
 
 const streak = async (req, res) => {
   try {
@@ -335,7 +297,6 @@ const streak = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
 
 module.exports = {
   submitCode,

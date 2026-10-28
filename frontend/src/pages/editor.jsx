@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import Editor from '@monaco-editor/react';
 import { NavLink, useParams } from 'react-router';
 import axiosClient from "../utils/axiosClient";
+import socket from "../utils/socket";
 import SubmissionHistory from '../component/subbsion';
 import CodeBoard from '../component/whiteboard';
 import ChatAi from '../component/chatai';
@@ -49,6 +50,7 @@ const ProblemPage = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [runResult, setRunResult] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
   const [activeLeftTab, setActiveLeftTab] = useState('description');
@@ -59,6 +61,9 @@ const ProblemPage = () => {
   // 'dark' applies a CSS invert so background+ink both flip together and stay visible.
   const [boardTheme, setBoardTheme] = useState('light');
   const editorRef = useRef(null);
+  const socketRef = useRef(null);
+  const pendingSubmissionIdRef = useRef(null);
+  const earlySubmissionResultsRef = useRef(new Map());
   let { problemId } = useParams();
 
   // ── RESPONSIVE / MOBILE DETECTION ──
@@ -83,6 +88,35 @@ const ProblemPage = () => {
   // Adjust the selector path below if your store is shaped differently.
   const { user } = useSelector((state) => state.auth) || {};
   const userRole = user?.role;
+
+  useEffect(() => {
+    if (!user?._id) return;
+
+    socketRef.current = socket;
+    const handleSubmissionResult = (data) => {
+      const result = { ...data, error: data.errorMessage || data.error };
+      const submissionId = String(data.submissionId);
+
+      if (pendingSubmissionIdRef.current !== submissionId) {
+        earlySubmissionResultsRef.current.set(submissionId, result);
+        return;
+      }
+
+      pendingSubmissionIdRef.current = null;
+      setSubmitResult(result);
+      setSubmitCount((count) => count + 1);
+      setIsSubmitting(false);
+      setTimerRunning(false);
+      setActiveRightTab('result');
+    };
+
+    socket.on('submission_result', handleSubmissionResult);
+    return () => {
+      socket.off('submission_result', handleSubmissionResult);
+      socketRef.current = null;
+    };
+  }, [user?._id]);
+
   const canViewOfficialSolutions = SOLUTION_ACCESS_ROLES.includes((userRole || '').toLowerCase());
   // Any user who is admin/collageadmin can moderate (delete) other people's posts & messages.
   const isPrivilegedRole = SOLUTION_ACCESS_ROLES.includes((userRole || '').toLowerCase());
@@ -305,6 +339,7 @@ const ProblemPage = () => {
 
   // ── RUN ──
   const handleRun = async () => {
+    if (isSubmitting) return;
     setLoading(true);
     setRunResult(null);
     try {
@@ -329,30 +364,67 @@ const ProblemPage = () => {
 
   // ── SUBMIT ──
   const handleSubmitCode = async () => {
-    setLoading(true);
+    if (isSubmitting) return;
+
+    const activeSocket = socketRef.current;
+    if (!activeSocket?.connected || !activeSocket.id) {
+      setSubmitResult({
+        accepted: false,
+        error: 'Live result connection is not ready. Please wait a moment and try again.',
+        passedTestCases: 0,
+        totalTestCases: 0,
+      });
+      setSubmitCount((count) => count + 1);
+      setActiveRightTab('result');
+      return;
+    }
+
+    setIsSubmitting(true);
     setSubmitResult(null);
     setHasPosted(false);
-    // Stop the stopwatch the moment the user submits their solution.
     setTimerRunning(false);
+    setActiveRightTab('result');
+    pendingSubmissionIdRef.current = null;
+    earlySubmissionResultsRef.current.clear();
+
     try {
-      const response = await axiosClient.post(`/code/submit/${problemId}`, { code, language: selectedLanguage });
-      setSubmitResult(response.data);
-      setSubmitCount(c => c + 1);
-      setLoading(false);
-      setActiveRightTab('result');
+      const response = await axiosClient.post(
+        `/code/submit/${problemId}`,
+        { code, language: selectedLanguage },
+        { headers: { 'x-socket-id': activeSocket.id } }
+      );
+      const { submissionId } = response.data;
+      if (!submissionId) {
+        throw new Error('The server did not return a submission ID.');
+      }
+
+      const submissionKey = String(submissionId);
+      pendingSubmissionIdRef.current = submissionKey;
+      const earlyResult = earlySubmissionResultsRef.current.get(submissionKey);
+      earlySubmissionResultsRef.current.clear();
+
+      if (earlyResult) {
+        pendingSubmissionIdRef.current = null;
+        setSubmitResult(earlyResult);
+        setSubmitCount((count) => count + 1);
+        setIsSubmitting(false);
+      } else {
+        setSubmitResult({
+          pending: true,
+          submissionId,
+          message: 'Your code is being evaluated...',
+        });
+      }
     } catch (error) {
-      // BUGFIX: previously set submitResult to null on failure, which rendered the generic
-      // "No submission yet" empty state — a failed submit looked identical to never having
-      // submitted at all. Now we keep a proper failed-verdict object with the real error message
-      // so the result tab can show what happened.
       const backendMessage =
         error?.response?.data?.error ||
         error?.response?.data?.message ||
         error?.message ||
         'Something went wrong while submitting. Please try again.';
       setSubmitResult({ accepted: false, error: backendMessage, passedTestCases: 0, totalTestCases: 0 });
-      setSubmitCount(c => c + 1);
-      setLoading(false);
+      setSubmitCount((count) => count + 1);
+      setIsSubmitting(false);
+      pendingSubmissionIdRef.current = null;
       setActiveRightTab('result');
     }
   };
@@ -1636,17 +1708,17 @@ const ProblemPage = () => {
             <button
               className="cm-run-icon-btn"
               onClick={handleRun}
-              disabled={loading}
+              disabled={loading || isSubmitting}
               title="Run code (Ctrl+Enter)"
             >
               {loading ? <span className="cm-spinner-light" /> : <div className="cm-play-icon" />}
             </button>
-            <button className="cm-btn-submit" onClick={handleSubmitCode} disabled={loading}>
-              {loading
+            <button className="cm-btn-submit" onClick={handleSubmitCode} disabled={loading || isSubmitting}>
+              {loading || isSubmitting
                 ? <span className="cm-spinner" />
                 : <div className="cm-upload-icon" />
               }
-              Submit
+              {isSubmitting ? 'Submitting...' : 'Submit'}
             </button>
           </div>
         </div>
@@ -2069,14 +2141,14 @@ const ProblemPage = () => {
                     <button
                       className="cm-run-icon-btn"
                       onClick={handleRun}
-                      disabled={loading}
+                      disabled={loading || isSubmitting}
                       title="Run (Ctrl+Enter)"
                     >
                       {loading ? <span className="cm-spinner-light" /> : <div className="cm-play-icon" />}
                     </button>
-                    <button className="cm-btn-submit" onClick={handleSubmitCode} disabled={loading} style={{ height: 32, fontSize: 11, padding: '0 14px' }}>
-                      {loading ? <span className="cm-spinner" /> : <div className="cm-upload-icon" />}
-                      Submit
+                    <button className="cm-btn-submit" onClick={handleSubmitCode} disabled={loading || isSubmitting} style={{ height: 32, fontSize: 11, padding: '0 14px' }}>
+                      {loading || isSubmitting ? <span className="cm-spinner" /> : <div className="cm-upload-icon" />}
+                      {isSubmitting ? 'Submitting...' : 'Submit'}
                     </button>
                   </div>
                 </div>
@@ -2219,7 +2291,14 @@ const ProblemPage = () => {
             {activeRightTab === 'result' && (
               <div className="cm-panel cm-anim">
                 <div className="cm-section-title">Submission Result</div>
-                {submitResult ? (
+                {submitResult?.pending ? (
+                  <div style={{ textAlign: 'center', padding: 40 }}>
+                    <span className="cm-spinner-light" style={{ width: 30, height: 30, borderWidth: 3 }} />
+                    <div style={{ marginTop: 16, color: 'var(--mu)' }}>
+                      {submitResult.message || 'Evaluating your code...'}
+                    </div>
+                  </div>
+                ) : submitResult ? (
                   <>
                     {/* Verdict hero: glow card with a signal-bar meter and gradient headline — no tick, no ring */}
                     <div key={`verdict-${submitCount}`} className={`cm-verdict-hero ${submitResult.accepted ? 'ok' : 'no'}`}>

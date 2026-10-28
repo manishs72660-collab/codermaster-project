@@ -163,6 +163,8 @@ VITE_API_URL=http://localhost:3000
 VITE_SOCKET_URL=http://localhost:3000
 ```
 
+For local development, these variables are optional: Vite proxies API and Socket.IO requests to `http://localhost:3000` when they are unset. Set them when connecting directly to a backend or when configuring a production deployment.
+
 Start the frontend development server:
 
 ```bash

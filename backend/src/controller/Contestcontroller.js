@@ -4,12 +4,9 @@ const ContestSubmission = require('../models/ContestSubmission');
 const ContestRank = require('../models/Contestrank');
 const Problem = require('../models/problemschema');
 
-// ─── Reuse your existing Judge0 helpers from submit.js ───────────────────────
 const { submitBatch, submitToken, getLanguageById } = require('../utils/probelmutlity');
 const { buildFullCode } = require('./userproblem');
 
-// ─── Join-code generator for private contests ───────────────────────────────
-// Produces a short, human-typeable code e.g. "K4F9XQ"
 const generateJoinCode = () => {
     return crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 6);
 };
@@ -24,17 +21,10 @@ const generateUniqueJoinCode = async () => {
     return code;
 };
 
-// ════════════════════════════════════════════════════════════════════
-//  ADMIN / COLLEGE-ADMIN CONTROLLERS
-// ════════════════════════════════════════════════════════════════════
+// ==========================================
+// ADMIN CONTROLLERS
+// ==========================================
 
-// POST /contest/create
-// Callable by platform Admin OR CollageAdmin (gated by isAdminOrCollegeAdmin
-// middleware). A CollageAdmin's contest is ALWAYS locked to their own
-// college - we never trust a collegeId from the request body for them,
-// otherwise they could plant a contest inside another college. A platform
-// Admin may optionally scope a contest to a college via body.collegeId,
-// or leave it out entirely for a global/platform-wide contest.
 const createContest = async (req, res) => {
     try {
         const { title, description, startTime, endTime, problems, isPublic, collegeId } = req.body;
@@ -47,7 +37,6 @@ const createContest = async (req, res) => {
             return res.status(400).json({ message: 'startTime must be before endTime' });
         }
 
-        // Validate all problem IDs exist
         if (problems && problems.length > 0) {
             const found = await Problem.find({ _id: { $in: problems } }).select('_id');
             if (found.length !== problems.length) {
@@ -55,15 +44,12 @@ const createContest = async (req, res) => {
             }
         }
 
-        // Private contests get a join code; public ones don't need one.
         const resolvedIsPublic = isPublic ?? true;
         let joinCode = null;
         if (resolvedIsPublic === false) {
             joinCode = await generateUniqueJoinCode();
         }
 
-        // CollageAdmin: always locked to their own college (ignore body.collegeId).
-        // Admin: may optionally scope it to a college, otherwise global (null).
         const resolvedCollegeId =
             req.result.role === 'CollageAdmin' ? req.result.collegeId : (collegeId || null);
 
@@ -79,21 +65,12 @@ const createContest = async (req, res) => {
             collegeId: resolvedCollegeId,
         });
 
-        // NOTE: `contest` here includes joinCode — this is returned to the
-        // creator (Admin/CollageAdmin) only, directly from the create response.
-        // The frontend must capture this from the response body, since it is
-        // never exposed again through the public /contest/all list.
         res.status(201).json({ message: 'Contest created successfully', contest });
     } catch (err) {
         res.status(500).json({ message: 'Internal Server Error', error: err.message });
     }
 };
 
-// PUT /contest/:id/update
-// Ownership enforced upstream by isContestOwner middleware (Admin can edit
-// any contest; CollageAdmin only contests where createdBy === themselves).
-// collegeId is intentionally NOT accepted here - a contest's college is
-// fixed at creation time and can't be reassigned via update.
 const updateContest = async (req, res) => {
     try {
         const { title, description, startTime, endTime, problems, isPublic } = req.body;
@@ -102,8 +79,6 @@ const updateContest = async (req, res) => {
             return res.status(400).json({ message: 'startTime must be before endTime' });
         }
 
-        // req.contest is already loaded by contestExists middleware, but we
-        // re-use it directly rather than re-fetching.
         const existing = req.contest;
         if (!existing) {
             return res.status(404).json({ message: 'Contest not found' });
@@ -111,8 +86,6 @@ const updateContest = async (req, res) => {
 
         const update = { title, description, startTime, endTime, problems, isPublic };
 
-        // If switching from public -> private, mint a join code.
-        // If switching from private -> public, clear it.
         if (isPublic === false && !existing.joinCode) {
             update.joinCode = await generateUniqueJoinCode();
         } else if (isPublic === true) {
@@ -131,9 +104,6 @@ const updateContest = async (req, res) => {
     }
 };
 
-// DELETE /contest/:id/delete
-// Ownership enforced upstream by isContestOwner middleware - a CollageAdmin
-// can only reach this handler for contests they created themselves.
 const deleteContest = async (req, res) => {
     try {
         await Contest.findByIdAndDelete(req.params.id);
@@ -143,26 +113,10 @@ const deleteContest = async (req, res) => {
     }
 };
 
+// ==========================================
+// PUBLIC CONTROLLERS
+// ==========================================
 
-// ════════════════════════════════════════════════════════════════════
-//  PUBLIC CONTROLLERS
-// ════════════════════════════════════════════════════════════════════
-
-// GET /contest/all
-// Response is scoped by caller role/college so this single endpoint can
-// safely power BOTH the public "browse contests" page AND the College
-// Admin's "Manage Contests" page:
-//   - Admin (platform):      sees every contest, any college, global too.
-//   - CollageAdmin:          sees contests where collegeId === their own
-//                            college, PLUS global (collegeId: null)
-//                            contests. isOwner flag lets the frontend show
-//                            edit/delete only on rows they actually created.
-//   - Regular User:          same scoping as CollageAdmin, using their own
-//                            collegeId. Users with no collegeId (no college
-//                            attached) only see global contests.
-//
-// joinCode is intentionally excluded from .select() below in every case -
-// it is NEVER present in this response, public or private, owner or not.
 const getAllContests = async (req, res) => {
     try {
         const now = new Date();
@@ -170,7 +124,7 @@ const getAllContests = async (req, res) => {
 
         const filter = {};
         if (role === 'Admin') {
-            // Platform admin: no filter, sees everything.
+            // sees everything
         } else if (role === 'CollageAdmin') {
             filter.$or = [{ collegeId: collegeId }, { collegeId: null }];
         } else {
@@ -199,7 +153,6 @@ const getAllContests = async (req, res) => {
     }
 };
 
-// GET /contest/:id  — get single contest detail
 const getContestById = async (req, res) => {
     try {
         const contest = await Contest.findById(req.params.id)
@@ -219,9 +172,6 @@ const getContestById = async (req, res) => {
             (p) => p.toString() === req.result?._id?.toString()
         );
 
-        // ── Anti-cheat: surface this user's disqualification status up front
-        // so the frontend knows immediately on page load, without waiting
-        // for a violation event to fire in this session/tab.
         let isDisqualified = false;
         let violationCount = 0;
         if (isRegistered && req.result?._id) {
@@ -233,7 +183,6 @@ const getContestById = async (req, res) => {
             violationCount = rankEntry?.violationCount || 0;
         }
 
-        // Never leak the join code to non-participants of a private contest.
         const contestObj = contest.toObject();
         const isCreator = contest.createdBy?._id?.toString() === req.result?._id?.toString();
         if (contestObj.isPublic === false && !isRegistered && !isCreator) {
@@ -253,7 +202,9 @@ const getContestById = async (req, res) => {
     }
 };
 
-// POST /contest/:id/register  — PUBLIC contests only
+// ==========================================
+// 🔥 STEP 1 UPDATED: ATOMIC REGISTRATION
+// ==========================================
 const registerForContest = async (req, res) => {
     try {
         const contest = req.contest;
@@ -270,19 +221,18 @@ const registerForContest = async (req, res) => {
             return res.status(400).json({ message: 'Contest has already ended. Cannot register.' });
         }
 
-        const alreadyRegistered = contest.participants.some(
-            (p) => p.toString() === userId.toString()
+        // 🔥 ATOMIC UPDATE: Push ki jagah $addToSet use kiya (Zero Race Condition)
+        const updatedContest = await Contest.findByIdAndUpdate(
+            contest._id,
+            { $addToSet: { participants: userId } },
+            { new: true }
         );
 
-        if (alreadyRegistered) {
+        // Check karo ki user pehle se toh nahi tha
+        if (updatedContest.participants.length === contest.participants.length) {
             return res.status(400).json({ message: 'You are already registered for this contest.' });
         }
 
-        contest.participants.push(userId);
-        await contest.save();
-
-        // setDefaultsOnInsert ensures violationCount/disqualified are actually
-        // written on brand-new rank docs, not left undefined until first save.
         await ContestRank.findOneAndUpdate(
             { contestId: contest._id, userId },
             { contestId: contest._id, userId },
@@ -295,7 +245,9 @@ const registerForContest = async (req, res) => {
     }
 };
 
-// POST /contest/join  — join a PRIVATE contest using its invite code
+// ==========================================
+// 🔥 STEP 1 UPDATED: ATOMIC JOIN BY CODE
+// ==========================================
 const joinContestByCode = async (req, res) => {
     try {
         const { code } = req.body;
@@ -315,16 +267,16 @@ const joinContestByCode = async (req, res) => {
             return res.status(400).json({ message: 'Contest has already ended. Cannot join.' });
         }
 
-        const alreadyRegistered = contest.participants.some(
-            (p) => p.toString() === userId.toString()
+        // 🔥 ATOMIC UPDATE: $addToSet duplicates ko allow nahi karta
+        const updatedContest = await Contest.findByIdAndUpdate(
+            contest._id,
+            { $addToSet: { participants: userId } },
+            { new: true }
         );
 
-        if (alreadyRegistered) {
+        if (updatedContest.participants.length === contest.participants.length) {
             return res.status(200).json({ message: 'Already joined', contestId: contest._id });
         }
-
-        contest.participants.push(userId);
-        await contest.save();
 
         await ContestRank.findOneAndUpdate(
             { contestId: contest._id, userId },
@@ -338,22 +290,17 @@ const joinContestByCode = async (req, res) => {
     }
 };
 
-// GET /contest/:id/problems  — only accessible after contest starts
 const getContestProblems = async (req, res) => {
     try {
         const contest = req.contest;
-
         const problems = await Problem.find({ _id: { $in: contest.problems } })
             .select('title difficulty tags visibleTestCases startCode');
-        // ⚠️  Hidden test cases and driver code are NOT sent to frontend
-
         res.status(200).json({ problems, contestTitle: contest.title });
     } catch (err) {
         res.status(500).json({ message: 'Internal Server Error', error: err.message });
     }
 };
 
-// GET /contest/:id/problem/:problemId  — single problem in contest
 const getContestProblem = async (req, res) => {
     try {
         const contest = req.contest;
@@ -375,25 +322,12 @@ const getContestProblem = async (req, res) => {
     }
 };
 
-
-// ════════════════════════════════════════════════════════════════════
-//  ANTI-CHEAT: TAB SWITCH / MINIMIZE VIOLATIONS
-// ════════════════════════════════════════════════════════════════════
-
-// POST /contest/:id/violation
-// Called by the frontend once per hidden->visible cycle (tab switch or
-// window minimize) while the contest is ongoing.
-//   1st violation -> warning
-//   2nd violation -> strict warning
-//   3rd violation -> disqualified (blocks further submissions, flagged on leaderboard)
 const reportViolation = async (req, res) => {
     try {
         const contest = req.contest;
         const userId = req.result._id;
         const now = new Date();
 
-        // Only meaningful while the contest is actually running. Ignore
-        // stray events from before start / after end.
         if (now < contest.startTime || now > contest.endTime) {
             return res.status(200).json({ tracked: false, message: 'Contest not active' });
         }
@@ -403,7 +337,6 @@ const reportViolation = async (req, res) => {
             rankEntry = new ContestRank({ contestId: contest._id, userId });
         }
 
-        // Already disqualified — nothing more to track, just report status.
         if (rankEntry.disqualified) {
             return res.status(200).json({
                 tracked: false,
@@ -431,8 +364,6 @@ const reportViolation = async (req, res) => {
 
         await rankEntry.save();
 
-        // Push a live leaderboard update the moment someone gets disqualified,
-        // same pattern used for accepted submissions in contestSubmit below.
         if (rankEntry.disqualified) {
             const io = req.app.get('io');
             if (io) {
@@ -443,7 +374,7 @@ const reportViolation = async (req, res) => {
 
         res.status(200).json({
             tracked: true,
-            level,                          // 'warning' | 'strict_warning' | 'disqualified'
+            level,
             violationCount: rankEntry.violationCount,
             disqualified: rankEntry.disqualified,
             message,
@@ -453,12 +384,6 @@ const reportViolation = async (req, res) => {
     }
 };
 
-
-// ════════════════════════════════════════════════════════════════════
-//  CONTEST SUBMISSION  (same judge as your submit.js, contest-aware)
-// ════════════════════════════════════════════════════════════════════
-
-// POST /contest/:id/submit/:problemId
 const contestSubmit = async (req, res) => {
     try {
         const userId = req.result._id;
@@ -469,7 +394,6 @@ const contestSubmit = async (req, res) => {
             return res.status(400).json({ message: 'code and language are required' });
         }
 
-        // ── Anti-cheat gate: disqualified users can no longer submit ────────
         const rankEntry = await ContestRank.findOne({ contestId, userId }).select('disqualified');
         if (rankEntry?.disqualified) {
             return res.status(403).json({
@@ -479,8 +403,6 @@ const contestSubmit = async (req, res) => {
         }
 
         const language = rawLanguage === 'cpp' ? 'c++' : rawLanguage;
-
-        // Verify problem belongs to this contest
         const contest = req.contest;
         const isInContest = contest.problems.some((p) => p.toString() === problemId);
         if (!isInContest) {
@@ -490,7 +412,6 @@ const contestSubmit = async (req, res) => {
         const problem = await Problem.findById(problemId);
         if (!problem) return res.status(404).json({ message: 'Problem not found' });
 
-        // Get driver code (same as your existing submit)
         const driverEntry = problem.driverCode?.find(
             (d) => d.language.toLowerCase() === language.toLowerCase()
         );
@@ -500,7 +421,6 @@ const contestSubmit = async (req, res) => {
 
         const fullCode = buildFullCode(code, driverEntry.code, language);
 
-        // Create submission record
         const submission = await ContestSubmission.create({
             userId,
             contestId,
@@ -511,7 +431,6 @@ const contestSubmit = async (req, res) => {
             testCasesTotal: problem.hiddenTestCases.length,
         });
 
-        // Send to Judge0
         const languageId = getLanguageById(language);
         const submissions = problem.hiddenTestCases.map((tc) => ({
             source_code: fullCode,
@@ -549,11 +468,9 @@ const contestSubmit = async (req, res) => {
         submission.submittedAt = new Date();
         await submission.save();
 
-        // ── Update leaderboard rank if accepted ──────────────────────────────
         if (status === 'accepted') {
             await updateLeaderboard(contestId, userId, problemId, submission.submittedAt);
 
-            // Emit real-time leaderboard update via Socket.io
             const io = req.app.get('io');
             if (io) {
                 const leaderboard = await computeLeaderboard(contestId);
@@ -575,16 +492,6 @@ const contestSubmit = async (req, res) => {
     }
 };
 
-
-// ════════════════════════════════════════════════════════════════════
-//  LEADERBOARD
-// ════════════════════════════════════════════════════════════════════
-
-// GET /contest/:id/leaderboard  — per-contest leaderboard (unchanged).
-// For a per-COLLEGE, cross-contest leaderboard (ranking all students in a
-// college by reputation), see getCollegeLeaderboard in collageauth.js -
-// that one lives on the /collage routes since it's not tied to a single
-// contest.
 const getLeaderboard = async (req, res) => {
     try {
         const leaderboard = await computeLeaderboard(req.params.id);
@@ -594,9 +501,6 @@ const getLeaderboard = async (req, res) => {
     }
 };
 
-// Internal helper: compute ranked leaderboard for a contest.
-// Disqualified users are sorted to the bottom and given rank: null instead
-// of a numeric position, so they never occupy a real leaderboard slot.
 const computeLeaderboard = async (contestId) => {
     const ranks = await ContestRank.find({ contestId })
         .populate('userId', 'firstName lastName profileImage')
@@ -624,7 +528,6 @@ const computeLeaderboard = async (contestId) => {
     });
 };
 
-// Internal helper: update rank entry when user gets AC
 const updateLeaderboard = async (contestId, userId, problemId, solvedAt) => {
     let rankEntry = await ContestRank.findOne({ contestId, userId });
 
@@ -632,14 +535,12 @@ const updateLeaderboard = async (contestId, userId, problemId, solvedAt) => {
         rankEntry = new ContestRank({ contestId, userId });
     }
 
-    // Check if already solved this problem before
     const alreadySolved = rankEntry.solvedProblems.some(
         (sp) => sp.problemId.toString() === problemId.toString()
     );
 
-    if (alreadySolved) return; // Don't double-count
+    if (alreadySolved) return;
 
-    // Count wrong attempts for this problem before this AC
     const wrongAttempts = await ContestSubmission.countDocuments({
         contestId,
         userId,
@@ -660,7 +561,6 @@ const updateLeaderboard = async (contestId, userId, problemId, solvedAt) => {
     await rankEntry.save();
 };
 
-// GET /contest/:id/my-submissions  — user's own submissions in a contest
 const getMySubmissions = async (req, res) => {
     try {
         const submissions = await ContestSubmission.find({
