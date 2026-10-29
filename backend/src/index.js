@@ -56,7 +56,9 @@ app.get("/", (req, res) => {
 const allowedOrigins = [
   "http://localhost:5173",
   "https://codemaster-frontend-ruddy.vercel.app",
-];
+  "https://codermaster-project.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
 const corsOptions = {
   origin: function (origin, callback) {

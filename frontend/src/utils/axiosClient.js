@@ -1,12 +1,23 @@
 import axios from "axios";
 
+const productionApiUrl = "https://codermaster-project.onrender.com";
+const apiBaseUrl = import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD ? productionApiUrl : undefined);
 
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: apiBaseUrl,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+axiosClient.interceptors.request.use((config) => {
+  if (import.meta.env.PROD && !apiBaseUrl) {
+    throw new Error("VITE_API_URL is not configured for this deployment.");
+  }
+
+  return config;
 });
 
 

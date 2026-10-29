@@ -14,7 +14,7 @@
 [![k6](https://img.shields.io/badge/k6-Load_Tested-7D64FF?logo=k6&logoColor=white)](https://k6.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[🔗 Live Demo](https://codemaster-frontend-ruddy.vercel.app/) · [📖 Technical Docs (HLD, API, DB Schema)](https://codemaster-developer-documentation.netlify.app/) · [📈 Benchmark Report](backend/tests/BENCHMARK.md)
+[🔗 Live Demo](https://codermaster-project.vercel.app/) · [📖 Technical Docs (HLD, API, DB Schema)](https://codemaster-developer-documentation.netlify.app/) · [📈 Benchmark Report](backend/tests/BENCHMARK.md)
 
 </div>
 
@@ -310,11 +310,11 @@ codermaster-project/
 | Variable | Where | Description |
 | :-- | :-- | :-- |
 | `NODE_ENV=production` | Backend | Enables secure cookies (`secure: true`, `sameSite: 'none'`) |
-| `FRONTEND_URL` | Backend | Production frontend URL (CORS allowlist) |
+| `FRONTEND_URL` | Backend | Production frontend URL (CORS allowlist; `https://codermaster-project.vercel.app`) |
 | `CONNECT_STRING` | Backend | MongoDB Atlas URI |
 | `SKIP_RATE_LIMIT` | Backend | Set `true` **only** for local load testing |
-| `VITE_API_URL` | Frontend | Production backend API URL |
-| `VITE_SOCKET_URL` | Frontend | Production Socket.io URL |
+| `VITE_API_URL` | Frontend | Production backend API URL (defaults to `https://codermaster-project.onrender.com`) |
+| `VITE_SOCKET_URL` | Frontend | Socket.io URL (defaults to `VITE_API_URL`; otherwise uses the production API URL or local `http://localhost:3000`) |
 
 ---
 

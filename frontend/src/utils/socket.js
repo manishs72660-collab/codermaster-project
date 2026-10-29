@@ -1,9 +1,14 @@
 import { io } from "socket.io-client";
 import { store } from "../store/store"; // <-- adjust to wherever configureStore() lives
 
-const socket = io(import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL, {
+const socketUrl = import.meta.env.VITE_SOCKET_URL
+  || import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD ? "https://codermaster-project.onrender.com" : "http://localhost:3000");
+export const socketConfigured = Boolean(socketUrl);
+
+const socket = io(socketUrl, {
   withCredentials: true,
-  autoConnect: true,
+  autoConnect: socketConfigured,
   transports: ["websocket", "polling"],
 });
 

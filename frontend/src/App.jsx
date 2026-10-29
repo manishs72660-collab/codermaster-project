@@ -35,7 +35,7 @@ import CheatSheet from "./component/cheatsheet";
 import AdminListPage from "./pages/AdminListPage";
 import TimeComplexityVisualizer from "./component/complexity"
 import IncomingChatPopup from "./component/IncomingChatPopup"; 
-import socket from "./utils/socket";
+import socket, { socketConfigured } from "./utils/socket";
 import ChatRoomPage from "./pages/chatroompage";
 // -- college feature --
 import ManageColleges from "./component/Managecolleges";
@@ -59,7 +59,7 @@ function App(){
 
   // connect socket + mark user online once authenticated
   useEffect(() => {
-    if (!isAuthenticated || !user?._id) return;
+    if (!socketConfigured || !isAuthenticated || !user?._id) return;
 
     socket.connect();
     socket.on("connect", () => {
