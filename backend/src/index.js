@@ -44,33 +44,39 @@ const app = express();
 const httpServer = createServer(app);
 
 // =========================================================
+// CORS
+// =========================================================
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "https://codemaster-frontend-ruddy.vercel.app",
+  "https://codermaster-project.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean).map(normalizeOrigin));
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
+      return callback(null, true);
+    }
+
+    console.log("❌ CORS blocked:", origin);
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+
+// =========================================================
 // HEALTH CHECK
 // =========================================================
 app.get("/", (req, res) => {
   res.status(200).json({ status: "Server is running" });
 });
-
-// =========================================================
-// CORS
-// =========================================================
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://codemaster-frontend-ruddy.vercel.app",
-  "https://codermaster-project.vercel.app",
-  process.env.FRONTEND_URL,
-].filter(Boolean);
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    console.log("❌ CORS blocked:", origin);
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
 
 // =========================================================
 // SOCKET.IO SETUP + REDIS ADAPTER
@@ -99,7 +105,6 @@ global.io = io;
 // =========================================================
 // EXPRESS MIDDLEWARE
 // =========================================================
-app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieparser());
 // app.use(rateLimiter); // (Tera rate limiter)
