@@ -3,6 +3,7 @@ import { NavLink } from 'react-router';
 import { CheckCircle2, XCircle, Clock, Building2, Mail, User, Inbox, RefreshCw, AlertTriangle } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import mylogo from "../assets/mylogo.png";
+import Skeleton from '../component/Skeleton';
 const TABS = [
   { id: 'pending', label: 'Pending' },
   { id: 'approved', label: 'Approved' },
@@ -137,7 +138,16 @@ function CollegeRequests() {
         {error && <div className="cr-error">{error}</div>}
 
         {loading ? (
-          <div className="cr-empty">Loading...</div>
+          <div aria-busy="true" className="space-y-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="cr-card space-y-3">
+                <Skeleton className="h-4 w-1/2 rounded" />
+                <Skeleton className="h-3 w-2/3 rounded" />
+                <Skeleton className="h-3 w-full rounded" />
+                <Skeleton className="h-8 w-24 rounded" />
+              </div>
+            ))}
+          </div>
         ) : requests.length === 0 ? (
           <div className="cr-empty">
             <Inbox size={24} strokeWidth={1.5} />

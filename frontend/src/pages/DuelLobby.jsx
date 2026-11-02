@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { Search, X, Loader2 } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { fetchProblems } from '../problemslice';
 import BackButton from '../component/backbutton';
 import mylogo from "../assets/mylogo.png";
+import Skeleton from '../component/Skeleton';
 const PROBLEM_FETCH_LIMIT = 200;
 
 /* ------------------------------------------------------------------ */
@@ -530,9 +531,10 @@ const DuelLobby = () => {
 
                         <div style={{ maxHeight: 240, overflowY: 'auto' }}>
                           {problemsLoading ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 0', color: CM.dim }}>
-                              <Loader2 size={14} className="spin-slow" />
-                              <span style={{ fontFamily: MONO, fontSize: 11 }}>Loading problems…</span>
+                            <div aria-busy="true" className="space-y-2 p-2">
+                              {[0, 1, 2].map((item) => (
+                                <Skeleton key={item} className="h-10 w-full rounded-lg" />
+                              ))}
                             </div>
                           ) : problemsError ? (
                             <div style={{ padding: '20px 0', textAlign: 'center', color: '#ff8080', fontFamily: MONO, fontSize: 11 }}>

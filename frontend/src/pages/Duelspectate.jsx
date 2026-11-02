@@ -6,6 +6,7 @@ import axiosClient from '../utils/axiosClient';
 import socket from '../utils/socket';
 import Backbutton from '../component/backbutton';
 import DuelChatPanel from '../component/Duelchatpanel';
+import Skeleton from '../component/Skeleton';
 
 const LANGUAGES = {
   javascript: 'javascript',
@@ -147,9 +148,15 @@ const DuelSpectate = () => {
   };
 
   if (loading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#0e1117' }}>
-      <div style={{ width: 40, height: 40, border: '3px solid #1c2535', borderTop: '3px solid #6366f1', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div aria-busy="true" className="min-h-screen bg-[#0e1117] p-6">
+      <div className="mx-auto grid max-w-6xl gap-5 pt-8 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-2/3 rounded" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-[420px] w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-[500px] w-full rounded-xl" />
+      </div>
     </div>
   );
 

@@ -9,6 +9,7 @@ import SubmissionHistory from '../component/subbsion';
 import CodeBoard from '../component/whiteboard';
 import ChatAi from '../component/chatai';
 import ShareOnLinkedIn from '../component/Sharelinkdin';
+import Skeleton from '../component/Skeleton';
 import mylogo from "../assets/mylogo.png";
 
 // ── Count-up hook: animates a numeric value from 0 to `target` whenever `trigger` changes ──
@@ -47,9 +48,11 @@ const MOBILE_BREAKPOINT = 860;
 
 const ProblemPage = () => {
   const [problem, setProblem] = useState(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [runResult, setRunResult] = useState(null);
   const [submitResult, setSubmitResult] = useState(null);
@@ -143,6 +146,11 @@ const ProblemPage = () => {
   const [editorTheme, setEditorTheme] = useState('vs-dark'); // 'vs-dark' | 'hc-black'
   const startTimeRef = useRef(Date.now());
   const [timerRunning, setTimerRunning] = useState(true);
+
+  useEffect(() => {
+    setVideoLoading(Boolean(problem?.secureUrl));
+    setVideoError(false);
+  }, [problem?.secureUrl]);
 
   // ── SUBMISSION RESULT ANIMATION STATE ──
   // Bumped on every submit so the result hero replays its entrance animation each time.
@@ -660,21 +668,40 @@ const ProblemPage = () => {
 
   if (loading && !problem) {
     return (
-      <div style={{
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        minHeight: '100vh', background: '#000000', flexDirection: 'column', gap: 16
-      }}>
-        <div style={{
-          width: 40, height: 40,
-          border: '2px solid #1a1a1a',
-          borderTop: '2px solid #ff5b1f',
-          borderRadius: '50%',
-          animation: 'spin 0.7s linear infinite'
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: '#454549', fontFamily: 'monospace', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase' }}>
-          Loading…
-        </span>
+      <div aria-busy="true" aria-label="Loading problem" className="min-h-screen bg-black p-4 sm:p-6">
+        <div className="mx-auto flex h-10 max-w-screen-2xl items-center justify-between border-b border-white/10 pb-3">
+          <Skeleton className="h-6 w-32 rounded" />
+          <Skeleton className="hidden h-5 w-56 rounded sm:block" />
+          <Skeleton className="h-7 w-24 rounded" />
+        </div>
+        <div className="mx-auto mt-4 grid max-w-screen-2xl gap-4 lg:grid-cols-[43%_1fr]">
+          <section className="space-y-5 rounded-lg border border-white/10 bg-white/[0.02] p-5">
+            <Skeleton className="h-7 w-3/4 rounded" />
+            <div className="flex gap-2">
+              <Skeleton className="h-5 w-16 rounded-full" />
+              <Skeleton className="h-5 w-24 rounded-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-full rounded" />
+              <Skeleton className="h-3 w-full rounded" />
+              <Skeleton className="h-3 w-5/6 rounded" />
+              <Skeleton className="h-3 w-2/3 rounded" />
+            </div>
+            <Skeleton className="h-36 w-full rounded-lg" />
+          </section>
+          <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.02] p-5">
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-20 rounded" />
+              <Skeleton className="h-8 w-20 rounded" />
+              <Skeleton className="h-8 w-24 rounded" />
+            </div>
+            <div className="space-y-3 pt-3">
+              {Array.from({ length: 10 }, (_, index) => (
+                <Skeleton key={index} className="h-3 rounded" style={{ width: `${68 + (index % 4) * 8}%` }} />
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     );
   }
@@ -904,6 +931,9 @@ const ProblemPage = () => {
         .cm-tag { font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--mu); background: var(--s2); border: 1px solid var(--b1); padding: 2px 8px; border-radius: 20px; }
 
         .cm-desc { font-size: 12px; line-height: 1.9; color: #7e92b0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-weight: 400; }
+        .cm-video-frame { position: relative; margin-top: 8px; min-height: 225px; overflow: hidden; border-radius: 8px; background: var(--s2); }
+        .cm-video-shimmer { position: absolute; inset: 8px 0 0; border-radius: 8px; }
+        .cm-video-error { display: flex; min-height: 225px; align-items: center; justify-content: center; padding: 20px; color: var(--mu); font-size: 12px; text-align: center; }
         .cm-hr { height: 1px; background: var(--b1); margin: 18px 0; }
 
         .cm-ex-title { font-size: 9.5px; font-weight: 700; color: var(--di); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 12px; font-family: 'JetBrains Mono', monospace; }
@@ -1788,9 +1818,29 @@ const ProblemPage = () => {
               <div className="cm-scroll cm-anim">
                 <div className="cm-section-title">Editorial</div>
                 {problem?.secureUrl ? (
-                  <video width="100%" height="400" controls poster={problem?.thumbnailUrl} style={{ borderRadius: 8, marginTop: 8 }}>
-                    <source src={problem.secureUrl} type="video/mp4" />
-                  </video>
+                  <div className="cm-video-frame" aria-busy={videoLoading}>
+                    {videoLoading && <Skeleton className="cm-video-shimmer" />}
+                    {videoError ? (
+                      <div className="cm-video-error">Video could not be loaded. Please try again later.</div>
+                    ) : (
+                      <video
+                        width="100%"
+                        height="400"
+                        controls
+                        poster={problem?.thumbnailUrl}
+                        onLoadStart={() => setVideoLoading(true)}
+                        onLoadedData={() => setVideoLoading(false)}
+                        onCanPlay={() => setVideoLoading(false)}
+                        onError={() => {
+                          setVideoLoading(false);
+                          setVideoError(true);
+                        }}
+                        style={{ borderRadius: 8, marginTop: 8, opacity: videoLoading ? 0 : 1 }}
+                      >
+                        <source src={problem.secureUrl} type="video/mp4" />
+                      </video>
+                    )}
+                  </div>
                 ) : (
                   <div className="cm-desc">Editorial content for this problem will appear here.</div>
                 )}
@@ -1844,9 +1894,13 @@ const ProblemPage = () => {
                 )}
 
                 {loadingPosts ? (
-                  <div className="cm-empty" style={{ padding: '30px 0' }}>
-                    <span className="cm-spinner-light" style={{ width: 22, height: 22, borderWidth: 3 }} />
-                    <div className="cm-empty-sub" style={{ marginTop: 8 }}>Loading community solutions…</div>
+                  <div aria-busy="true" className="space-y-3 py-4">
+                    {[0, 1, 2].map((item) => (
+                      <div key={item} className="rounded-lg border border-white/10 p-4">
+                        <Skeleton className="mb-3 h-4 w-3/4 rounded" />
+                        <Skeleton className="h-3 w-1/2 rounded" />
+                      </div>
+                    ))}
                   </div>
                 ) : communityPosts.length > 0 ? (
                   <div className="cm-community-list">
@@ -1920,9 +1974,17 @@ const ProblemPage = () => {
 
                 {/* ── MESSAGE LIST ── */}
                 {loadingDiscussion ? (
-                  <div className="cm-empty" style={{ padding: '30px 0' }}>
-                    <span className="cm-spinner-light" style={{ width: 22, height: 22, borderWidth: 3 }} />
-                    <div className="cm-empty-sub" style={{ marginTop: 8 }}>Loading discussion…</div>
+                  <div aria-busy="true" className="space-y-4 py-4">
+                    {[0, 1, 2].map((item) => (
+                      <div key={item} className="flex gap-3">
+                        <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-3 w-1/3 rounded" />
+                          <Skeleton className="h-3 w-full rounded" />
+                          <Skeleton className="h-3 w-2/3 rounded" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : discussionMsgs.length > 0 ? (
                   <div className="cm-discuss-list">
@@ -1960,7 +2022,10 @@ const ProblemPage = () => {
                           {openReplyId === msg._id && (
                             <div className="cm-discuss-replies">
                               {loadingReplies && !repliesMap[msg._id] ? (
-                                <span className="cm-spinner-light" />
+                                <div aria-busy="true" className="space-y-2 py-2">
+                                  <Skeleton className="h-3 w-3/4 rounded" />
+                                  <Skeleton className="h-3 w-1/2 rounded" />
+                                </div>
                               ) : (
                                 (repliesMap[msg._id] || []).map((r) => (
                                   <div key={r._id} className="cm-discuss-reply-item">
@@ -2594,8 +2659,11 @@ const ProblemPage = () => {
 
               <div className="cm-pd-body">
                 {loadingSinglePost ? (
-                  <div className="cm-empty" style={{ height: 240 }}>
-                    <span className="cm-spinner-light" style={{ width: 22, height: 22, borderWidth: 3 }} />
+                  <div aria-busy="true" className="space-y-4 py-4">
+                    <Skeleton className="h-6 w-3/4 rounded" />
+                    <Skeleton className="h-3 w-1/2 rounded" />
+                    <Skeleton className="h-24 w-full rounded" />
+                    <Skeleton className="h-36 w-full rounded" />
                   </div>
                 ) : selectedPost && (
                   <>

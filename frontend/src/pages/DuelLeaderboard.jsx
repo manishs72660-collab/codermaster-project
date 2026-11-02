@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router';
 import axiosClient from '../utils/axiosClient';
+import Skeleton from '../component/Skeleton';
 import mylogo from "../assets/mylogo.png";
 /* ------------------------------------------------------------------ */
 /*  CodeMaster Color Palette (matches RoadmapExplorer / DuelPage /    */
@@ -143,9 +144,17 @@ const DuelLeaderboard = () => {
     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', minHeight: '100vh', background: CM.bg, overflow: 'hidden' }}>
       <style>{globalStyles}</style>
       <LeaderboardNavbar />
-      <div style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <div aria-busy="true" style={{ position: 'relative', flex: 1, padding: '40px 20px' }}>
         <GridBackdrop color={CM.accent} />
-        <div style={{ width: 40, height: 40, border: `3px solid ${CM.surface2}`, borderTop: `3px solid ${CM.accent}`, borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
+        <div className="relative mx-auto max-w-5xl space-y-4">
+          <Skeleton className="h-8 w-64 rounded" />
+          <Skeleton className="h-4 w-40 rounded" />
+          <div className="space-y-3 pt-5">
+            {[0, 1, 2, 3, 4, 5].map((item) => (
+              <Skeleton key={item} className="h-16 w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

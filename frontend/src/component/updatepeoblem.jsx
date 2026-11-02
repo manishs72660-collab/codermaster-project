@@ -3,6 +3,7 @@ import axiosClient from '../utils/axiosClient'
 import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
 import BackButton from './backbutton';
+import Skeleton from './Skeleton';
 const Updateproblem = () => {
   const dispatch = useDispatch();
   const { problems, loading, error } = useSelector(
@@ -36,8 +37,13 @@ const Updateproblem = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <span className="loading loading-spinner loading-lg"></span>
+      <div aria-busy="true" className="space-y-3 p-6">
+        {[0, 1, 2, 3].map((item) => (
+          <div key={item} className="flex items-center gap-4 rounded-lg border border-white/10 p-4">
+            <Skeleton className="h-4 flex-1 rounded" />
+            <Skeleton className="h-8 w-20 rounded" />
+          </div>
+        ))}
       </div>
     );
   }

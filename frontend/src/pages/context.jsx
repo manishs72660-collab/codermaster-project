@@ -18,6 +18,7 @@ import {
 import Navbar from '../component/navbar';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import Skeleton from '../component/Skeleton';
 
 /* ─── helpers ─── */
 const STATUS = {
@@ -285,9 +286,18 @@ export default function Contest() {
 
           {/* ── contest list ── */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-28">
-              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
-              <p className="text-sm text-white/35">Loading contests…</p>
+            <div aria-busy="true" className="space-y-3 rounded-xl border border-white/[0.08] bg-white/[0.015] p-4">
+              {Array.from({ length: 5 }, (_, index) => (
+                <div key={index} className="flex items-center gap-4 border-b border-white/[0.05] py-4 last:border-0">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/3 rounded" />
+                    <Skeleton className="h-3 w-1/3 rounded" />
+                  </div>
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="hidden h-8 w-24 rounded-lg sm:block" />
+                </div>
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <motion.div

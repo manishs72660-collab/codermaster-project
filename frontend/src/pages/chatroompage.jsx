@@ -13,13 +13,13 @@ function MessageSkeleton() {
   return (
     <div className="space-y-3 px-1">
       <div className="flex justify-start">
-        <div className="h-9 w-40 rounded-2xl rounded-bl-sm bg-neutral-800 animate-pulse" />
+        <div className="skeleton-shimmer h-9 w-40 rounded-2xl rounded-bl-sm" />
       </div>
       <div className="flex justify-end">
-        <div className="h-9 w-56 rounded-2xl rounded-br-sm bg-neutral-800 animate-pulse" />
+        <div className="skeleton-shimmer h-9 w-56 rounded-2xl rounded-br-sm" />
       </div>
       <div className="flex justify-start">
-        <div className="h-9 w-28 rounded-2xl rounded-bl-sm bg-neutral-800 animate-pulse" />
+        <div className="skeleton-shimmer h-9 w-28 rounded-2xl rounded-bl-sm" />
       </div>
     </div>
   );
@@ -112,10 +112,10 @@ function ChatRoomPage() {
       <div className="min-h-screen bg-neutral-950 flex flex-col">
         <div className="max-w-2xl w-full mx-auto flex flex-col h-screen">
           <div className="flex items-center gap-3 px-4 py-4 border-b border-neutral-800 shrink-0">
-            <div className="h-9 w-9 rounded-full bg-neutral-800 animate-pulse" />
+            <div className="skeleton-shimmer h-9 w-9 rounded-full" />
             <div className="space-y-2">
-              <div className="h-3.5 w-20 rounded bg-neutral-800 animate-pulse" />
-              <div className="h-3 w-14 rounded bg-neutral-800 animate-pulse" />
+              <div className="skeleton-shimmer h-3.5 w-20 rounded" />
+              <div className="skeleton-shimmer h-3 w-14 rounded" />
             </div>
           </div>
           <div className="flex-1 px-4 py-6">

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'motion/react';
-import { Loader2, TriangleAlert, UserX } from 'lucide-react';
+import { TriangleAlert, UserX } from 'lucide-react';
 import { fetchUserProfile, fetchHeatmap, fetchSkills, fetchRecentSubmissions } from '../profileSlice';
 import ProfileHeader from '../component/profile/ProfileHeader';
 import StatsCards from '../component/profile/StatsCards';
@@ -11,6 +11,7 @@ import SubmissionHeatmap from '../component/profile/SubmissionHeatmap';
 import SkillsBreakdown from '../component/profile/SkillsBreakdown';
 import RecentSubmissions from '../component/profile/RecentSubmissions';
 import Navbar from "../component/navbar"
+import Skeleton from '../component/Skeleton';
 
 const CenterState = ({ icon: Icon, tone, children }) => (
   <div className="noise hero-grid relative flex min-h-screen items-center justify-center bg-[#050505] font-body text-[#e5e5e5]">
@@ -47,13 +48,28 @@ const ProfilePage = () => {
 
   if (loading && !data)
     return (
-      <CenterState icon={Loader2} tone="text-white/40">
-        <Loader2 className="hidden" />
-        <span className="flex items-center gap-2">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-orange-400" />
-          loading profile...
-        </span>
-      </CenterState>
+      <div aria-busy="true" className="noise hero-grid relative min-h-screen bg-[#050505] text-[#e5e5e5]">
+        <Navbar />
+        <div className="relative z-10 mx-auto max-w-5xl space-y-5 px-4 py-8 sm:px-6 sm:py-12">
+          <div className="flex items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+            <Skeleton className="h-20 w-20 shrink-0 rounded-full" />
+            <div className="flex-1 space-y-3">
+              <Skeleton className="h-6 w-48 rounded" />
+              <Skeleton className="h-4 w-64 max-w-full rounded" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton key={index} className="h-24 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-40 rounded-xl" />
+          <div className="grid gap-5 lg:grid-cols-5">
+            <Skeleton className="h-64 rounded-xl lg:col-span-2" />
+            <Skeleton className="h-64 rounded-xl lg:col-span-3" />
+          </div>
+        </div>
+      </div>
     );
 
   if (error)

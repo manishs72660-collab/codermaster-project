@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import Navbar from '../component/navbar';
-import { Search, Loader2, Layers } from 'lucide-react';
+import { Search, Layers } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import Skeleton from '../component/Skeleton';
 
 /* ─── tiny helpers ─── */
 const DIFF = {
@@ -176,9 +177,15 @@ function DesignProblemsPage() {
           </div>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-28">
-              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
-              <p className="text-sm text-white/35">Loading problems…</p>
+            <div aria-busy="true" className="space-y-2 rounded-xl border border-white/[0.08] bg-white/[0.015] p-4">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="flex items-center gap-4 border-b border-white/[0.05] py-4 last:border-0">
+                  <Skeleton className="h-4 w-6 rounded" />
+                  <Skeleton className="h-4 flex-1 rounded" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="hidden h-4 w-28 rounded md:block" />
+                </div>
+              ))}
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-28 text-center">

@@ -3,6 +3,7 @@ import axiosClient from '../utils/axiosClient'
 import { NavLink } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
 import BackButton from './backbutton';
+import Skeleton from './Skeleton';
 const AdminVideo = () => {
     const { problems, loading, error } = useSelector(
   (state) => state.problem
@@ -21,8 +22,14 @@ console.log(problems);
   };
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <span className="loading loading-spinner loading-lg"></span>
+      <div aria-busy="true" className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <Skeleton className="aspect-video w-full rounded-lg" />
+            <Skeleton className="h-4 w-2/3 rounded" />
+            <Skeleton className="h-3 w-1/2 rounded" />
+          </div>
+        ))}
       </div>
     );
   }

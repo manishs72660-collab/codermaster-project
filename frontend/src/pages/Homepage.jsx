@@ -5,13 +5,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import Navbar from '../component/navbar';
 import {
   Search,
-  Loader2,
   GraduationCap,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { fetchProblems } from '../problemslice';
 import { fetchUserProfile } from '../profileSlice';
 import { cn } from '../utils/cn';
+import Skeleton from '../component/Skeleton';
 
 const PAGE_LIMIT = 20;
 
@@ -254,9 +254,16 @@ function Homepage() {
           </div>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-28">
-              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
-              <p className="text-sm text-white/35">Loading problems…</p>
+            <div aria-busy="true" className="space-y-2 rounded-xl border border-white/[0.08] bg-white/[0.015] p-4">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="flex items-center gap-4 border-b border-white/[0.05] py-4 last:border-0">
+                  <Skeleton className="h-4 w-6 rounded" />
+                  <Skeleton className="h-4 flex-1 rounded" />
+                  <Skeleton className="hidden h-4 w-20 rounded md:block" />
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                  <Skeleton className="h-4 w-10 rounded" />
+                </div>
+              ))}
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-28 text-center">
@@ -291,8 +298,14 @@ function Homepage() {
               {hasMore && <div ref={sentinelRef} className="h-4" />}
 
               {loadingMore && (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="w-4 h-4 text-orange-500 spin-slow" />
+                <div aria-busy="true" className="space-y-2 py-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="flex items-center gap-4 rounded-lg border border-white/[0.06] px-4 py-4">
+                      <Skeleton className="h-4 w-6 rounded" />
+                      <Skeleton className="h-4 flex-1 rounded" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </div>
+                  ))}
                 </div>
               )}
 

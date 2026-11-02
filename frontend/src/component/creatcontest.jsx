@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { Trophy, Plus, X, Search, KeyRound, Copy, Check, MessageCircle, Loader2 } from 'lucide-react';
+import { Trophy, Plus, X, Search, KeyRound, Copy, Check, MessageCircle } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { fetchProblems } from '../problemslice';
 import BackButton from './backbutton';
+import Skeleton from './Skeleton';
 import mylogo from "../assets/mylogo.png";
 // Large limit so the admin picker effectively has "all" problems to choose
 // from in one page. Bump this (or wire up real pagination/infinite scroll
@@ -440,9 +441,10 @@ export default function AdminCreateContest() {
                   {/* list */}
                   <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
                     {problemsLoading ? (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '24px 0', color: '#495366' }}>
-                        <Loader2 className="spin-slow" size={14} />
-                        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>Loading problems…</span>
+                      <div aria-busy="true" className="space-y-2 p-2">
+                        {[0, 1, 2].map((item) => (
+                          <Skeleton key={item} className="h-10 w-full rounded-lg" />
+                        ))}
                       </div>
                     ) : problemsError ? (
                       <div style={{ padding: '20px 0', textAlign: 'center', color: '#ff4444', fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>

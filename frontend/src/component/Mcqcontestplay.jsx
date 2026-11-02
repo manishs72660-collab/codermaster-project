@@ -8,6 +8,7 @@ import {
 import Navbar from '../component/navbar';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import Skeleton from './Skeleton';
 
 /* ─── countdown ─── */
 function useCountdown(target) {
@@ -172,7 +173,19 @@ export default function McqContestPlay() {
 
   return (
     <Shell>
-      {phase === 'loading' && <CenterState icon={<Loader2 className="w-6 h-6 animate-spin" />} title="Loading contest…" />}
+      {phase === 'loading' && (
+        <div aria-busy="true" className="mx-auto w-full max-w-4xl space-y-5 px-4 py-10">
+          <Skeleton className="h-8 w-2/3 rounded" />
+          <Skeleton className="h-4 w-1/3 rounded" />
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="space-y-3 rounded-xl border border-white/10 p-5">
+              <Skeleton className="h-4 w-3/4 rounded" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {phase === 'error' && (
         <CenterState icon={<AlertTriangle className="w-6 h-6 text-rose-400" />} title="Couldn't load this contest" sub={errorMsg}>

@@ -9,13 +9,13 @@ function AdminSkeletonRow() {
   return (
     <li className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-5 py-4">
       <div className="flex items-center gap-3 min-w-0 w-full">
-        <div className="h-10 w-10 rounded-full bg-neutral-800 animate-pulse shrink-0" />
+        <div className="skeleton-shimmer h-10 w-10 rounded-full shrink-0" />
         <div className="flex-1 space-y-2">
-          <div className="h-3.5 w-32 rounded bg-neutral-800 animate-pulse" />
-          <div className="h-3 w-16 rounded bg-neutral-800 animate-pulse" />
+          <div className="skeleton-shimmer h-3.5 w-32 rounded" />
+          <div className="skeleton-shimmer h-3 w-16 rounded" />
         </div>
       </div>
-      <div className="h-9 w-24 rounded-lg bg-neutral-800 animate-pulse shrink-0" />
+      <div className="skeleton-shimmer h-9 w-24 rounded-lg shrink-0" />
     </li>
   );
 }
@@ -24,10 +24,10 @@ function ChatRowSkeleton() {
   return (
     <li className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-5 py-4">
       <div className="flex items-center gap-3 min-w-0 w-full">
-        <div className="h-10 w-10 rounded-full bg-neutral-800 animate-pulse shrink-0" />
+        <div className="skeleton-shimmer h-10 w-10 rounded-full shrink-0" />
         <div className="flex-1 space-y-2">
-          <div className="h-3.5 w-32 rounded bg-neutral-800 animate-pulse" />
-          <div className="h-3 w-16 rounded bg-neutral-800 animate-pulse" />
+          <div className="skeleton-shimmer h-3.5 w-32 rounded" />
+          <div className="skeleton-shimmer h-3 w-16 rounded" />
         </div>
       </div>
     </li>

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import Skeleton from '../component/Skeleton';
 
 /* ─── tag config (icon + color per tag) ─── */
 const TAG_META = {
@@ -213,9 +214,21 @@ export default function Community() {
 
           {/* ── feed ── */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-28">
-              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
-              <p className="text-sm text-white/35">Loading posts…</p>
+            <div aria-busy="true" className="space-y-4">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+                  <div className="mb-4 flex items-center gap-3">
+                    <Skeleton className="h-9 w-9 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3 w-1/3 rounded" />
+                      <Skeleton className="h-3 w-1/5 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="mb-3 h-4 w-3/4 rounded" />
+                  <Skeleton className="mb-2 h-3 w-full rounded" />
+                  <Skeleton className="h-3 w-2/3 rounded" />
+                </div>
+              ))}
             </div>
           ) : posts.length === 0 ? (
             <motion.div

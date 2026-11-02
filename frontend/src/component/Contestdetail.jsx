@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import Skeleton from './Skeleton';
 import mylogo from "../assets/mylogo.png"
 
 /* ─── helpers ─── */
@@ -316,10 +317,18 @@ export default function ContestDetail() {
   // ── EARLY RETURNS after all hooks ──
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-2 border-white/10 border-t-orange-500 rounded-full animate-spin" />
-          <span className="text-white/20 text-xs font-mono uppercase tracking-widest">Loading…</span>
+      <div aria-busy="true" className="min-h-screen bg-[#050505] px-4 py-8">
+        <div className="mx-auto max-w-5xl space-y-5">
+          <Skeleton className="h-8 w-40 rounded" />
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+            <Skeleton className="mb-5 h-7 w-2/3 rounded" />
+            <Skeleton className="mb-3 h-4 w-1/3 rounded" />
+            <Skeleton className="mb-8 h-3 w-5/6 rounded" />
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 rounded-xl" />)}
+            </div>
+          </div>
+          <Skeleton className="h-48 rounded-2xl" />
         </div>
       </div>
     );
@@ -705,9 +714,14 @@ export default function ContestDetail() {
           {tab === 'leaderboard' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               {leaderboardLoading && (
-                <div className="flex flex-col items-center justify-center py-24 text-center">
-                  <div className="w-8 h-8 border-2 border-white/10 border-t-orange-500 rounded-full animate-spin mb-4" />
-                  <span className="text-white/20 text-xs font-mono uppercase tracking-widest">Loading leaderboard…</span>
+                <div aria-busy="true" className="space-y-3 py-6">
+                  {[0, 1, 2, 3, 4].map((item) => (
+                    <div key={item} className="flex items-center gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <Skeleton className="h-4 flex-1 rounded" />
+                      <Skeleton className="h-4 w-20 rounded" />
+                    </div>
+                  ))}
                 </div>
               )}
 

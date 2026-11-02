@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react';
 import { useParams, useNavigate } from 'react-router';
 import axiosClient from '../utils/axiosClient';
 import mylogo from "../assets/mylogo.png"
+import Skeleton from './Skeleton';
 
 /* language metadata — color-coded per language so the pill + editor identity stays consistent */
 const LANGUAGES = [
@@ -356,10 +357,20 @@ const ContestProblemEditor = () => {
 
   if (loading && !problem) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#08090c', flexDirection: 'column', gap: 16 }}>
-        <div style={{ width: 40, height: 40, border: '2px solid #1c2030', borderTop: '2px solid #ffa116', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: '#2e3448', fontFamily: 'monospace', fontSize: 10, letterSpacing: 3, textTransform: 'uppercase' }}>Loading…</span>
+      <div aria-busy="true" className="min-h-screen bg-[#08090c] p-4 sm:p-6">
+        <div className="mx-auto grid max-w-screen-2xl gap-4 lg:grid-cols-[43%_1fr]">
+          <section className="space-y-5 rounded-lg border border-white/10 bg-white/[0.02] p-5">
+            <Skeleton className="h-7 w-3/4 rounded" />
+            <Skeleton className="h-4 w-24 rounded-full" />
+            <Skeleton className="h-3 w-full rounded" />
+            <Skeleton className="h-3 w-5/6 rounded" />
+            <Skeleton className="h-36 w-full rounded-lg" />
+          </section>
+          <section className="space-y-4 rounded-lg border border-white/10 bg-white/[0.02] p-5">
+            <Skeleton className="h-8 w-full rounded" />
+            <Skeleton className="h-[420px] w-full rounded" />
+          </section>
+        </div>
       </div>
     );
   }

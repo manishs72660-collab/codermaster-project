@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axiosClient from '../utils/axiosClient';
 import BackButton from './backbutton';
+import Skeleton from './Skeleton';
 const problemSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().min(1, 'Description is required'),
@@ -154,8 +155,13 @@ function AdminUpdate() {
 
   if (pageLoading) {
     return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-orange-500"></span>
+      <div aria-busy="true" className="min-h-screen bg-[#050505] p-6">
+        <div className="mx-auto max-w-5xl space-y-5 pt-8">
+          <Skeleton className="h-8 w-1/3 rounded" />
+          <Skeleton className="h-12 w-full rounded-lg" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Skeleton from './Skeleton';
 import { NavLink, useNavigate } from 'react-router';
 import { useSelector } from 'react-redux';
 import {
@@ -279,8 +280,13 @@ export default function AdminManageMcqContests() {
           <div className="adm-divider" />
 
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-              <span className="adm-spinner" style={{ width: 28, height: 28, borderWidth: 3, borderTopColor: '#22d3ee' }} />
+            <div aria-busy="true" className="space-y-3 py-6">
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className="rounded-lg border border-white/10 p-4">
+                  <Skeleton className="mb-3 h-4 w-2/3 rounded" />
+                  <Skeleton className="h-3 w-1/3 rounded" />
+                </div>
+              ))}
             </div>
           ) : contests.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>

@@ -1,5 +1,6 @@
 import axiosClient from "../utils/axiosClient";
 import { useState, useEffect } from 'react';
+import Skeleton from './Skeleton';
 
 const SubmissionHistory = ({ problemId }) => {
   const [submissions, setSubmissions] = useState([]);
@@ -79,11 +80,14 @@ const SubmissionHistory = ({ problemId }) => {
   if (loading) return (
     <>
       <style>{STYLES}</style>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:240, flexDirection:'column', gap:14 }}>
-        <div className="sh-spinner" />
-        <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:12, color:'#495366' }}>
-          Loading submissions…
-        </span>
+      <div aria-busy="true" className="space-y-3 p-5">
+        {[0, 1, 2, 3].map((item) => (
+          <div key={item} className="flex items-center gap-4 rounded-lg border border-white/10 p-4">
+            <Skeleton className="h-4 w-16 rounded" />
+            <Skeleton className="h-4 flex-1 rounded" />
+            <Skeleton className="h-4 w-20 rounded" />
+          </div>
+        ))}
       </div>
     </>
   );

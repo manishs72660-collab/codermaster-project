@@ -7,6 +7,7 @@ import socket from '../utils/socket';
 import Backbutton from "../component/backbutton"
 import DuelChatPanel from "../component/Duelchatpanel"
 import mylogo from "../assets/mylogo.png";
+import Skeleton from '../component/Skeleton';
 
 /* ------------------------------------------------------------------ */
 /*  CodeMaster Color Palette (matches RoadmapExplorer / Navbar)       */
@@ -456,10 +457,17 @@ const DuelPage = () => {
   `;
 
   if (loading) return (
-    <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: CM.bg, overflow: 'hidden' }}>
+    <div aria-busy="true" style={{ position: 'relative', minHeight: '100vh', background: CM.bg, overflow: 'hidden', padding: 24 }}>
       <style>{globalStyles}</style>
       <GridBackdrop color={CM.accent} />
-      <div style={{ width: 40, height: 40, border: `3px solid ${CM.surface2}`, borderTop: `3px solid ${CM.accent}`, borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
+      <div className="relative mx-auto grid max-w-6xl gap-5 pt-8 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-2/3 rounded" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-[420px] w-full rounded-xl" />
+        </div>
+        <Skeleton className="h-[500px] w-full rounded-xl" />
+      </div>
     </div>
   );
 

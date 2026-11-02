@@ -13,6 +13,7 @@ import ReactFlow, {
   useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import Skeleton from '../component/Skeleton';
 import {
   ArrowLeft,
   Loader2,
@@ -263,9 +264,13 @@ function DesignSolvePage() {
 
   if (loadState === 'loading') {
     return (
-      <div className="min-h-screen bg-[#0B0B0C] flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
-        <span className="font-data text-[11px] tracking-[3px] uppercase text-white/30">Loading…</span>
+      <div aria-busy="true" className="min-h-screen bg-[#0B0B0C] p-6">
+        <div className="mx-auto max-w-5xl space-y-5 pt-8">
+          <Skeleton className="h-8 w-2/3 rounded" />
+          <Skeleton className="h-4 w-1/3 rounded" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+        </div>
       </div>
     );
   }

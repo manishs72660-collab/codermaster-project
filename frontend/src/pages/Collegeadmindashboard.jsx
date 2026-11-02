@@ -7,6 +7,7 @@ import mylogo from "../assets/mylogo.png";
 // Swap this for your project's real axios wrapper if the path differs.
 import axiosClient from '../utils/axiosClient';
 import { fetchUserProfile } from '../profileSlice';
+import Skeleton from '../component/Skeleton';
 
 function CollegeAdminDashboard() {
   const { collegeId: collegeIdParam } = useParams();
@@ -89,8 +90,13 @@ function CollegeAdminDashboard() {
   // "no college" message before fetchUserProfile has had a chance to return.
   if (!collegeId && !collegeIdParam && !profileData) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#050505] font-body text-white/40">
-        Loading...
+      <div aria-busy="true" className="min-h-screen space-y-5 bg-[#050505] p-6">
+        <Skeleton className="h-14 w-full rounded-lg" />
+        <div className="mx-auto max-w-5xl space-y-5 pt-4">
+          <Skeleton className="h-8 w-1/3 rounded" />
+          <Skeleton className="h-28 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -201,7 +207,15 @@ function CollegeAdminDashboard() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={3} className="px-5 py-10 text-center font-mono text-xs text-white/20">loading...</td></tr>
+                Array.from({ length: 5 }, (_, index) => (
+                  <tr key={index} aria-hidden="true" className="border-b border-white/[0.04]">
+                    {[0, 1, 2].map((cell) => (
+                      <td key={cell} className="px-5 py-4">
+                        <Skeleton className={`h-4 rounded ${cell === 2 ? 'ml-auto w-20' : 'w-3/4'}`} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : students.length === 0 ? (
                 <tr><td colSpan={3} className="px-5 py-10 text-center font-mono text-xs text-white/20">no students found</td></tr>
               ) : (

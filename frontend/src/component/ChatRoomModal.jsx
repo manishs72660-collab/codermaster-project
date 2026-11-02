@@ -7,13 +7,13 @@ function MessageSkeleton() {
   return (
     <div className="space-y-3 px-1">
       <div className="flex justify-start">
-        <div className="h-9 w-40 rounded-2xl rounded-bl-sm bg-neutral-800 animate-pulse" />
+        <div className="skeleton-shimmer h-9 w-40 rounded-2xl rounded-bl-sm" />
       </div>
       <div className="flex justify-end">
-        <div className="h-9 w-56 rounded-2xl rounded-br-sm bg-neutral-800 animate-pulse" />
+        <div className="skeleton-shimmer h-9 w-56 rounded-2xl rounded-br-sm" />
       </div>
       <div className="flex justify-start">
-        <div className="h-9 w-28 rounded-2xl rounded-bl-sm bg-neutral-800 animate-pulse" />
+        <div className="skeleton-shimmer h-9 w-28 rounded-2xl rounded-bl-sm" />
       </div>
     </div>
   );

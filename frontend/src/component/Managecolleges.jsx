@@ -4,6 +4,7 @@ import { Search, Trash2, ExternalLink, X, Building2, Plus, Pencil } from 'lucide
 import mylogo from "../assets/mylogo.png";
 // Swap for your real axios wrapper if the path differs.
 import axiosClient from '../utils/axiosClient';
+import Skeleton from './Skeleton';
 
 function ManageColleges() {
   const navigate = useNavigate();
@@ -108,7 +109,16 @@ function ManageColleges() {
 
         <div className="mc-grid">
           {loading ? (
-            <div className="mc-empty">Loading colleges...</div>
+            <div aria-busy="true" className="contents">
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className="mc-card space-y-4">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
+                  <Skeleton className="h-4 w-2/3 rounded" />
+                  <Skeleton className="h-3 w-1/2 rounded" />
+                  <Skeleton className="h-8 w-full rounded" />
+                </div>
+              ))}
+            </div>
           ) : filtered.length === 0 ? (
             <div className="mc-empty">No colleges found.</div>
           ) : (

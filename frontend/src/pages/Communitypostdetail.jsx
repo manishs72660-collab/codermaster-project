@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import { cn } from '../utils/cn';
+import Skeleton from '../component/Skeleton';
 
 /* ─── tag config (kept identical to Community.jsx) ─── */
 const TAG_META = {
@@ -159,9 +160,18 @@ export default function CommunityPostDetail() {
           </button>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-28">
-              <Loader2 className="w-5 h-5 text-orange-500 spin-slow mb-3" />
-              <p className="text-sm text-white/35">Loading post…</p>
+            <div aria-busy="true" className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-28 rounded" />
+                  <Skeleton className="h-3 w-20 rounded" />
+                </div>
+              </div>
+              <Skeleton className="mb-4 h-6 w-3/4 rounded" />
+              <Skeleton className="mb-2 h-3 w-full rounded" />
+              <Skeleton className="mb-2 h-3 w-full rounded" />
+              <Skeleton className="h-3 w-2/3 rounded" />
             </div>
           ) : notFound || !post ? (
             <div className="flex flex-col items-center justify-center py-28 text-center">
